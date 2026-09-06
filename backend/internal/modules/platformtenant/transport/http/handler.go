@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -23,8 +24,39 @@ type ActorResolver interface {
 // Service is the tenant lifecycle application API consumed by this adapter.
 type Service interface {
 	List(context.Context, platformadmin.Actor) ([]platformtenant.Tenant, error)
+	UpdateProfile(context.Context, platformadmin.Actor, identity.TenantID, string, time.Time, string, string) error
 	Suspend(context.Context, platformadmin.Actor, identity.TenantID, string, string) error
 	Reactivate(context.Context, platformadmin.Actor, identity.TenantID, string, string) error
+}
+
+// UpdatePlatformTenant changes mutable tenant profile data with optimistic locking.
+func (h *PlatformTenantHandler) UpdatePlatformTenant(c *gin.Context, tenantID generated.TenantId, params generated.UpdatePlatformTenantParams) {
+	if _, ok := h.security.CookieAndCSRF(c, apihttp.PlatformRefreshCookie, apihttp.PlatformCSRFCookie, params.XCSRFToken); !ok {
+		return
+	}
+	actor, ok := h.actor(c)
+	if !ok {
+		return
+	}
+	var request generated.UpdatePlatformTenantRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		h.security.Problem(c, http.StatusBadRequest, "invalid request")
+		return
+	}
+	err := h.service.UpdateProfile(c.Request.Context(), actor, identity.TenantID(tenantID.String()), request.DisplayName, request.ExpectedUpdatedAt, request.Reason, c.GetHeader("X-Request-ID"))
+	if errors.Is(err, platformtenant.ErrNotFound) {
+		h.security.Problem(c, http.StatusNotFound, "not found")
+		return
+	}
+	if errors.Is(err, platformtenant.ErrConflict) {
+		h.security.Problem(c, http.StatusConflict, "conflict")
+		return
+	}
+	if err != nil {
+		h.security.Problem(c, http.StatusBadRequest, "invalid request")
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 // PlatformTenantHandler serves audited global tenant lifecycle operations.

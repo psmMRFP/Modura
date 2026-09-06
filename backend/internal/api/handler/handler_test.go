@@ -23,6 +23,13 @@ type identityStub struct {
 	actor identity.Actor
 }
 
+func (s *identityStub) Profile(context.Context, identity.Actor) (identity.Profile, error) {
+	return identity.Profile{ID: "018bcfe5-6800-7000-8000-000000000001", Username: "alice", Status: "active", UpdatedAt: time.Unix(1_700_000_000, 0)}, nil
+}
+func (s *identityStub) UpdateProfile(_ context.Context, actor identity.Actor, username string, email *string, _ string) (identity.Profile, error) {
+	return identity.Profile{ID: actor.UserID, Username: username, Email: email, Status: "active", UpdatedAt: time.Unix(1_700_000_000, 0)}, nil
+}
+
 type authorizerStub struct{ denied bool }
 
 func (s authorizerStub) Authorize(context.Context, identity.Actor, authorization.Permission) error {
@@ -82,6 +89,9 @@ func (platformAdminStub) Logout(context.Context, platformadmin.Actor) error { re
 
 func (platformTenantStub) List(context.Context, platformadmin.Actor) ([]platformtenant.Tenant, error) {
 	return nil, nil
+}
+func (platformTenantStub) UpdateProfile(context.Context, platformadmin.Actor, identity.TenantID, string, time.Time, string, string) error {
+	return nil
 }
 func (platformTenantStub) Suspend(context.Context, platformadmin.Actor, identity.TenantID, string, string) error {
 	return nil

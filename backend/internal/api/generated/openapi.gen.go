@@ -268,6 +268,21 @@ func (e UpdatePositionRequestStatus) Valid() bool {
 	}
 }
 
+// Defines values for UserProfileStatus.
+const (
+	UserProfileStatusActive UserProfileStatus = "active"
+)
+
+// Valid indicates whether the value is a known member of the UserProfileStatus enum.
+func (e UserProfileStatus) Valid() bool {
+	switch e {
+	case UserProfileStatusActive:
+		return true
+	default:
+		return false
+	}
+}
+
 // AccessTokenResponse defines model for AccessTokenResponse.
 type AccessTokenResponse struct {
 	AccessToken string                       `json:"accessToken"`
@@ -552,6 +567,13 @@ type UpdateDepartmentRequest struct {
 	SortOrder int    `json:"sortOrder"`
 }
 
+// UpdatePlatformTenantRequest defines model for UpdatePlatformTenantRequest.
+type UpdatePlatformTenantRequest struct {
+	DisplayName       string    `json:"displayName"`
+	ExpectedUpdatedAt time.Time `json:"expectedUpdatedAt"`
+	Reason            string    `json:"reason"`
+}
+
 // UpdatePositionRequest defines model for UpdatePositionRequest.
 type UpdatePositionRequest struct {
 	Name   string                      `json:"name"`
@@ -560,6 +582,24 @@ type UpdatePositionRequest struct {
 
 // UpdatePositionRequestStatus defines model for UpdatePositionRequest.Status.
 type UpdatePositionRequestStatus string
+
+// UpdateUserProfileRequest defines model for UpdateUserProfileRequest.
+type UpdateUserProfileRequest struct {
+	Email    *openapi_types.Email `json:"email,omitempty"`
+	Username string               `json:"username"`
+}
+
+// UserProfile defines model for UserProfile.
+type UserProfile struct {
+	Email     *openapi_types.Email `json:"email,omitempty"`
+	Id        openapi_types.UUID   `json:"id"`
+	Status    UserProfileStatus    `json:"status"`
+	UpdatedAt time.Time            `json:"updatedAt"`
+	Username  string               `json:"username"`
+}
+
+// UserProfileStatus defines model for UserProfile.Status.
+type UserProfileStatus string
 
 // UserRoleGrantSet defines model for UserRoleGrantSet.
 type UserRoleGrantSet struct {
@@ -715,6 +755,11 @@ type ProvisionPlatformTenantParams struct {
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
+// UpdatePlatformTenantParams defines parameters for UpdatePlatformTenant.
+type UpdatePlatformTenantParams struct {
+	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
+}
+
 // ReactivatePlatformTenantParams defines parameters for ReactivatePlatformTenant.
 type ReactivatePlatformTenantParams struct {
 	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
@@ -738,6 +783,11 @@ type DeleteDictionaryParams struct {
 
 // ReplaceDictionaryParams defines parameters for ReplaceDictionary.
 type ReplaceDictionaryParams struct {
+	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
+}
+
+// UpdateMyProfileParams defines parameters for UpdateMyProfile.
+type UpdateMyProfileParams struct {
 	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
 }
 
@@ -792,6 +842,9 @@ type ReplacePlatformDictionaryJSONRequestBody = ReplacePlatformDictionaryRequest
 // ProvisionPlatformTenantJSONRequestBody defines body for ProvisionPlatformTenant for application/json ContentType.
 type ProvisionPlatformTenantJSONRequestBody = ProvisionTenantRequest
 
+// UpdatePlatformTenantJSONRequestBody defines body for UpdatePlatformTenant for application/json ContentType.
+type UpdatePlatformTenantJSONRequestBody = UpdatePlatformTenantRequest
+
 // ReactivatePlatformTenantJSONRequestBody defines body for ReactivatePlatformTenant for application/json ContentType.
 type ReactivatePlatformTenantJSONRequestBody = TenantLifecycleRequest
 
@@ -803,6 +856,9 @@ type PutConfigurationJSONRequestBody = PutConfigurationRequest
 
 // ReplaceDictionaryJSONRequestBody defines body for ReplaceDictionary for application/json ContentType.
 type ReplaceDictionaryJSONRequestBody = ReplaceDictionaryRequest
+
+// UpdateMyProfileJSONRequestBody defines body for UpdateMyProfile for application/json ContentType.
+type UpdateMyProfileJSONRequestBody = UpdateUserProfileRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -908,6 +964,9 @@ type ServerInterface interface {
 	// ProvisionPlatformTenant Atomically provision a tenant as a global platform administrator
 	// (POST /platform/tenants)
 	ProvisionPlatformTenant(c *gin.Context, params ProvisionPlatformTenantParams)
+	// UpdatePlatformTenant Update a tenant's mutable platform profile
+	// (PATCH /platform/tenants/{tenantId})
+	UpdatePlatformTenant(c *gin.Context, tenantId TenantId, params UpdatePlatformTenantParams)
 	// ReactivatePlatformTenant Reactivate a suspended tenant with auditable reason
 	// (POST /platform/tenants/{tenantId}/reactivate)
 	ReactivatePlatformTenant(c *gin.Context, tenantId TenantId, params ReactivatePlatformTenantParams)
@@ -932,6 +991,12 @@ type ServerInterface interface {
 	// ReplaceDictionary Create or replace a complete tenant dictionary
 	// (PUT /settings/dictionaries/{dictionaryCode})
 	ReplaceDictionary(c *gin.Context, dictionaryCode DictionaryCode, params ReplaceDictionaryParams)
+	// GetMyProfile Read the authenticated user's profile
+	// (GET /users/me)
+	GetMyProfile(c *gin.Context)
+	// UpdateMyProfile Update the authenticated user's mutable profile
+	// (PUT /users/me)
+	UpdateMyProfile(c *gin.Context, params UpdateMyProfileParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -2120,6 +2185,58 @@ func (siw *ServerInterfaceWrapper) ProvisionPlatformTenant(c *gin.Context) {
 	siw.Handler.ProvisionPlatformTenant(c, params)
 }
 
+// UpdatePlatformTenant operation middleware
+func (siw *ServerInterfaceWrapper) UpdatePlatformTenant(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenantId" -------------
+	var tenantId TenantId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenantId", c.Param("tenantId"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter tenantId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdatePlatformTenantParams
+
+	headers := c.Request.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		siw.ErrorHandler(c, fmt.Errorf("Header parameter X-CSRF-Token is required, but not found"), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpdatePlatformTenant(c, tenantId, params)
+}
+
 // ReactivatePlatformTenant operation middleware
 func (siw *ServerInterfaceWrapper) ReactivatePlatformTenant(c *gin.Context) {
 
@@ -2427,6 +2544,62 @@ func (siw *ServerInterfaceWrapper) ReplaceDictionary(c *gin.Context) {
 	siw.Handler.ReplaceDictionary(c, dictionaryCode, params)
 }
 
+// GetMyProfile operation middleware
+func (siw *ServerInterfaceWrapper) GetMyProfile(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetMyProfile(c)
+}
+
+// UpdateMyProfile operation middleware
+func (siw *ServerInterfaceWrapper) UpdateMyProfile(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateMyProfileParams
+
+	headers := c.Request.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		siw.ErrorHandler(c, fmt.Errorf("Header parameter X-CSRF-Token is required, but not found"), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpdateMyProfile(c, params)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -2462,6 +2635,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/platform/auth/logout", wrapper.PlatformLogout)
 	router.GET(options.BaseURL+"/platform/tenants", wrapper.ListPlatformTenants)
 	router.POST(options.BaseURL+"/platform/tenants", wrapper.ProvisionPlatformTenant)
+	router.PATCH(options.BaseURL+"/platform/tenants/:tenantId", wrapper.UpdatePlatformTenant)
 	router.POST(options.BaseURL+"/platform/tenants/:tenantId/suspend", wrapper.SuspendPlatformTenant)
 	router.POST(options.BaseURL+"/platform/tenants/:tenantId/reactivate", wrapper.ReactivatePlatformTenant)
 	router.GET(options.BaseURL+"/platform/settings/dictionaries", wrapper.ListPlatformDictionaries)
@@ -2472,6 +2646,8 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/auth/logout", wrapper.Logout)
 	router.POST(options.BaseURL+"/auth/logout-all", wrapper.LogoutAll)
 	router.PUT(options.BaseURL+"/auth/password", wrapper.ChangePassword)
+	router.GET(options.BaseURL+"/users/me", wrapper.GetMyProfile)
+	router.PUT(options.BaseURL+"/users/me", wrapper.UpdateMyProfile)
 	router.POST(options.BaseURL+"/auth/password-resets", wrapper.ResetPassword)
 	router.POST(options.BaseURL+"/auth/invitations/accept", wrapper.AcceptInvitation)
 	router.GET(options.BaseURL+"/organization/departments", wrapper.ListDepartments)

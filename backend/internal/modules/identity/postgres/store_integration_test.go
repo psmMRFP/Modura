@@ -69,6 +69,22 @@ INSERT INTO modura.users (id, tenant_id, username, normalized_username, password
 	if err := store.CreateSession(ctx, session); err != nil {
 		t.Fatal(err)
 	}
+	email := "shared@example.com"
+	normalizedEmail := identity.NormalizeLogin(email)
+	profile, err := store.UpdateProfile(ctx, identity.ProfileChange{Actor: identity.Actor{TenantID: alpha.TenantID, UserID: alpha.UserID, SessionID: session.ID}, Username: "Shared Admin", NormalizedUsername: "shared admin", Email: &email, NormalizedEmail: &normalizedEmail, CorrelationID: "request-profile", AuditID: "018bcfe5-6800-7000-8000-000000000032", OccurredAt: now.Add(30 * time.Second)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if profile.Username != "Shared Admin" || profile.Email == nil || *profile.Email != email {
+		t.Fatalf("profile = %+v", profile)
+	}
+	var profileAudit int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM modura.audit_events WHERE tenant_id = $1 AND actor_id = $2 AND action = 'identity.profile-updated' AND before_state IS NOT NULL AND after_state IS NOT NULL`, alpha.TenantID, alpha.UserID).Scan(&profileAudit); err != nil {
+		t.Fatal(err)
+	}
+	if profileAudit != 1 {
+		t.Fatalf("profile audit count = %d", profileAudit)
+	}
 	if _, err := store.RotateSession(ctx, first, second, now.Add(time.Minute), now.Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +151,7 @@ func integrationPool(t *testing.T) *pgxpool.Pool {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _, _ = pool.Exec(context.Background(), "DROP SCHEMA IF EXISTS modura CASCADE") })
-	for _, name := range []string{"000001_initialize.up.sql", "000002_identity_foundation.up.sql"} {
+	for _, name := range []string{"000001_initialize.up.sql", "000002_identity_foundation.up.sql", "000006_platform_tenant_audit.up.sql", "000008_audit_state_snapshots.up.sql"} {
 		migration, err := os.ReadFile(filepath.Join("..", "..", "..", "platform", "database", "migrations", name))
 		if err != nil {
 			t.Fatal(err)

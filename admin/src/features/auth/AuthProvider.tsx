@@ -1,6 +1,7 @@
 import { type PropsWithChildren, useEffect, useMemo, useState } from "react";
 
 import {
+  changePassword as changePasswordRequest,
   login as loginRequest,
   logout as logoutRequest,
   refresh,
@@ -68,6 +69,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setAccessToken(response.data.accessToken);
         setCsrfToken(response.data.csrfToken);
         setStatus("authenticated");
+      },
+      changePassword: async (request) => {
+        const response = await changePasswordRequest(request, {
+          credentials: "include",
+          headers: {
+            "X-CSRF-Token": csrfToken,
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+        if (response.status !== 200) throw new Error("密码修改失败");
+        setAccessToken(response.data.accessToken);
+        setCsrfToken(response.data.csrfToken);
       },
       logout: async () => {
         if (csrfToken) {

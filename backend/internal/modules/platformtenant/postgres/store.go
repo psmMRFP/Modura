@@ -3,8 +3,10 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -36,6 +38,46 @@ func (s *Store) List(ctx context.Context) ([]platformtenant.Tenant, error) {
 		return nil, fmt.Errorf("iterate tenants: %w", err)
 	}
 	return tenants, nil
+}
+
+// UpdateProfile atomically applies an optimistic update and records snapshots.
+func (s *Store) UpdateProfile(ctx context.Context, change platformtenant.ProfileChange) error {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("begin tenant profile update: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var slug, displayName, status string
+	var updatedAt time.Time
+	err = tx.QueryRow(ctx, `SELECT slug, display_name, status, updated_at FROM modura.tenants WHERE id = $1 FOR UPDATE`, change.TenantID).Scan(&slug, &displayName, &status, &updatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return platformtenant.ErrNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("read tenant profile: %w", err)
+	}
+	if !updatedAt.Equal(change.ExpectedUpdatedAt) {
+		return platformtenant.ErrConflict
+	}
+	before, err := json.Marshal(map[string]any{"slug": slug, "displayName": displayName, "status": status})
+	if err != nil {
+		return fmt.Errorf("encode previous tenant profile: %w", err)
+	}
+	after, err := json.Marshal(map[string]any{"slug": slug, "displayName": change.DisplayName, "status": status})
+	if err != nil {
+		return fmt.Errorf("encode updated tenant profile: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE modura.tenants SET display_name = $2, updated_at = $3 WHERE id = $1`, change.TenantID, change.DisplayName, change.OccurredAt); err != nil {
+		return fmt.Errorf("update tenant profile: %w", err)
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO modura.audit_events (id, actor_type, actor_id, tenant_id, action, resource, resource_id, reason, result, correlation_id, occurred_at, before_state, after_state) VALUES ($1, 'platform_administrator', $2, $3, 'tenant.profile-updated', 'tenant', $3, $4, 'succeeded', $5, $6, $7::jsonb, $8::jsonb)`, change.AuditID, change.Actor.AdministratorID, change.TenantID, change.Reason, change.CorrelationID, change.OccurredAt, before, after)
+	if err != nil {
+		return fmt.Errorf("record tenant profile audit: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit tenant profile update: %w", err)
+	}
+	return nil
 }
 
 // ChangeStatus atomically updates tenant state and records audit evidence.

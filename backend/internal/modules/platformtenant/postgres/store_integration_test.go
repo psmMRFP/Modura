@@ -36,18 +36,35 @@ func TestTenantLifecycleAndAuditAreAtomic(t *testing.T) {
 		t.Fatal(err)
 	}
 	actor := platformadmin.Actor{AdministratorID: platformadmin.AdministratorID(administratorID), SessionID: "018bcfe5-6800-7000-8000-000000000903"}
+	if err := service.UpdateProfile(ctx, actor, tenantID, "Acme Updated", now, "customer request", "request-profile"); err != nil {
+		t.Fatal(err)
+	}
+	var displayName, action string
+	var snapshotsPresent bool
+	if err := pool.QueryRow(ctx, `SELECT display_name FROM modura.tenants WHERE id = $1`, tenantID).Scan(&displayName); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT action, before_state IS NOT NULL AND after_state IS NOT NULL FROM modura.audit_events WHERE tenant_id = $1 ORDER BY occurred_at DESC LIMIT 1`, tenantID).Scan(&action, &snapshotsPresent); err != nil {
+		t.Fatal(err)
+	}
+	if displayName != "Acme Updated" || action != "tenant.profile-updated" || !snapshotsPresent {
+		t.Fatalf("profile=%q action=%q snapshots=%t", displayName, action, snapshotsPresent)
+	}
+	if err := service.UpdateProfile(ctx, actor, tenantID, "Stale", now.Add(-time.Second), "stale edit", "request-stale"); !strings.Contains(err.Error(), platformtenant.ErrConflict.Error()) {
+		t.Fatalf("stale profile update error = %v", err)
+	}
 	if err := service.Suspend(ctx, actor, tenantID, "security review", "request-1"); err != nil {
 		t.Fatal(err)
 	}
-	assertStatusAndAuditCount(t, pool, tenantID, "suspended", 1)
+	assertStatusAndAuditCount(t, pool, tenantID, "suspended", 2)
 	if err := service.Suspend(ctx, actor, tenantID, "duplicate", "request-2"); !strings.Contains(err.Error(), platformtenant.ErrInvalidTransition.Error()) {
 		t.Fatalf("duplicate suspension error = %v", err)
 	}
-	assertStatusAndAuditCount(t, pool, tenantID, "suspended", 1)
+	assertStatusAndAuditCount(t, pool, tenantID, "suspended", 2)
 	if err := service.Reactivate(ctx, actor, tenantID, "review complete", "request-3"); err != nil {
 		t.Fatal(err)
 	}
-	assertStatusAndAuditCount(t, pool, tenantID, "active", 2)
+	assertStatusAndAuditCount(t, pool, tenantID, "active", 3)
 }
 
 func assertStatusAndAuditCount(t *testing.T, pool *pgxpool.Pool, tenantID identity.TenantID, wantStatus string, wantCount int) {

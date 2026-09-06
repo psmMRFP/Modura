@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -46,6 +47,8 @@ type Store interface {
 	RevokeAllSessions(context.Context, TenantID, UserID, string, time.Time) error
 	ValidateSession(context.Context, Session, time.Time) error
 	PasswordHash(context.Context, Actor) (string, error)
+	Profile(context.Context, Actor) (Profile, error)
+	UpdateProfile(context.Context, ProfileChange) (Profile, error)
 	ChangePassword(context.Context, Actor, string, string, [32]byte, [32]byte, time.Time, time.Time) (Session, error)
 	CreateOneTimeToken(context.Context, TenantID, UserID, OneTimePurpose, string, [32]byte, time.Time, time.Time) error
 	ConsumeOneTimeToken(context.Context, [32]byte, OneTimePurpose, string, time.Time) error
@@ -53,6 +56,27 @@ type Store interface {
 	UnlockAccount(context.Context, TenantID, UserID, time.Time) error
 	ProvisionTenant(context.Context, pgx.Tx, TenantProvisioning) error
 	ActivateTenant(context.Context, pgx.Tx, TenantID, time.Time) error
+}
+
+// Profile is the authenticated user's self-service projection.
+type Profile struct {
+	ID        UserID
+	Username  string
+	Email     *string
+	Status    string
+	UpdatedAt time.Time
+}
+
+// ProfileChange carries an audited self-service profile update.
+type ProfileChange struct {
+	Actor              Actor
+	Username           string
+	NormalizedUsername string
+	Email              *string
+	NormalizedEmail    *string
+	CorrelationID      string
+	AuditID            string
+	OccurredAt         time.Time
 }
 
 // TenantProvisioning contains identity-owned state for atomic tenant setup.
@@ -255,6 +279,40 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (Tokens, err
 // Logout revokes the actor's current session.
 func (s *Service) Logout(ctx context.Context, actor Actor) error {
 	return s.store.RevokeSession(ctx, actor.TenantID, actor.UserID, actor.SessionID, "logout", s.now().UTC())
+}
+
+// Profile returns the current active user's tenant-scoped profile.
+func (s *Service) Profile(ctx context.Context, actor Actor) (Profile, error) {
+	return s.store.Profile(ctx, actor)
+}
+
+// UpdateProfile changes the current user's login profile and records the write.
+func (s *Service) UpdateProfile(ctx context.Context, actor Actor, username string, email *string, correlationID string) (Profile, error) {
+	username = strings.TrimSpace(username)
+	correlationID = strings.TrimSpace(correlationID)
+	if actor.TenantID == "" || actor.UserID == "" || actor.SessionID == "" || username == "" || len(username) > 128 || correlationID == "" {
+		return Profile{}, fmt.Errorf("invalid profile update")
+	}
+	var normalizedEmail *string
+	if email != nil {
+		value := strings.TrimSpace(*email)
+		if value == "" || len(value) > 254 || !strings.Contains(value, "@") {
+			return Profile{}, fmt.Errorf("invalid profile email")
+		}
+		email = &value
+		normalized := NormalizeLogin(value)
+		normalizedEmail = &normalized
+	}
+	now := s.now().UTC()
+	auditID, err := s.newID(now)
+	if err != nil {
+		return Profile{}, fmt.Errorf("generate audit ID: %w", err)
+	}
+	profile, err := s.store.UpdateProfile(ctx, ProfileChange{Actor: actor, Username: username, NormalizedUsername: NormalizeLogin(username), Email: email, NormalizedEmail: normalizedEmail, CorrelationID: correlationID, AuditID: auditID, OccurredAt: now})
+	if err != nil {
+		return Profile{}, fmt.Errorf("update profile: %w", err)
+	}
+	return profile, nil
 }
 
 // LogoutAll revokes every session owned by the actor's tenant-local user.

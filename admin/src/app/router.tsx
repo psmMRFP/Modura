@@ -15,6 +15,7 @@ import {
   PlatformConfigurationsRoute,
   PlatformDictionariesRoute,
   PlatformTenantsRoute,
+  ProfileRoute,
   RolePoliciesRoute,
   RolesRoute,
   UserAssignmentsRoute,
@@ -41,6 +42,7 @@ export const router = createBrowserRouter([
     element: <AdminLayout />,
     children: [
       { index: true, element: <WorkspaceRoute /> },
+      { path: "profile", element: <ProfileRoute /> },
       {
         path: "organization/departments",
         element: (

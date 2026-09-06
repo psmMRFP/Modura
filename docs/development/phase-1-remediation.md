@@ -30,8 +30,8 @@ cosmetic work. Each group must leave the repository passing `make verify`.
 - [ ] Add the tenant user catalogue, detail projection, disable and unlock
   operations with tenant isolation, authorization, transactional audit, and an
   admin workflow.
-- [ ] Add self-profile read/update and expose password change in the admin UI.
-- [ ] Add safe platform tenant profile update.
+- [x] Add self-profile read/update and expose password change in the admin UI.
+- [x] Add safe platform tenant profile update.
 - [x] Complete department update and position update/status management.
 - [x] Complete tenant and platform dictionary/configuration write workflows,
   including optimistic-conflict handling.

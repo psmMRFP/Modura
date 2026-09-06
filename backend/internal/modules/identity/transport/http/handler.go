@@ -7,9 +7,11 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/modura-dev/modura/backend/internal/api/generated"
 	apihttp "github.com/modura-dev/modura/backend/internal/api/transport"
 	"github.com/modura-dev/modura/backend/internal/modules/identity"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Service is the identity application API consumed by this adapter.
@@ -20,7 +22,64 @@ type Service interface {
 	Logout(context.Context, identity.Actor) error
 	LogoutAll(context.Context, identity.Actor) error
 	ChangePassword(context.Context, identity.Actor, string, string, string) (identity.Tokens, error)
+	Profile(context.Context, identity.Actor) (identity.Profile, error)
+	UpdateProfile(context.Context, identity.Actor, string, *string, string) (identity.Profile, error)
 	ConsumeOneTimeToken(context.Context, string, identity.OneTimePurpose, string) error
+}
+
+// GetMyProfile returns the authenticated user's self-service projection.
+func (h *IdentityHandler) GetMyProfile(c *gin.Context) {
+	actor, ok := h.Actor(c)
+	if !ok {
+		return
+	}
+	profile, err := h.service.Profile(c.Request.Context(), actor)
+	if err != nil {
+		h.security.Problem(c, http.StatusUnauthorized, "authentication failed")
+		return
+	}
+	h.writeProfile(c, profile)
+}
+
+// UpdateMyProfile updates mutable self-service fields.
+func (h *IdentityHandler) UpdateMyProfile(c *gin.Context, params generated.UpdateMyProfileParams) {
+	if _, ok := h.security.CookieAndCSRF(c, apihttp.TenantRefreshCookie, apihttp.TenantCSRFCookie, params.XCSRFToken); !ok {
+		return
+	}
+	actor, ok := h.Actor(c)
+	if !ok {
+		return
+	}
+	var request generated.UpdateUserProfileRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		h.security.Problem(c, http.StatusBadRequest, "invalid request")
+		return
+	}
+	var email *string
+	if request.Email != nil {
+		value := string(*request.Email)
+		email = &value
+	}
+	profile, err := h.service.UpdateProfile(c.Request.Context(), actor, request.Username, email, c.GetHeader("X-Request-ID"))
+	if err != nil {
+		h.security.Problem(c, http.StatusBadRequest, "invalid request")
+		return
+	}
+	h.writeProfile(c, profile)
+}
+
+func (h *IdentityHandler) writeProfile(c *gin.Context, profile identity.Profile) {
+	id, err := uuid.Parse(string(profile.ID))
+	if err != nil {
+		h.security.Problem(c, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	response := generated.UserProfile{Id: id, Username: profile.Username, Status: generated.UserProfileStatus(profile.Status), UpdatedAt: profile.UpdatedAt}
+	if profile.Email != nil {
+		value := openapi_types.Email(*profile.Email)
+		response.Email = &value
+	}
+	c.JSON(http.StatusOK, response)
 }
 
 // IdentityHandler serves tenant-local authentication operations.

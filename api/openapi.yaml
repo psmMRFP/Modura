@@ -180,6 +180,36 @@ paths:
                   $ref: "#/components/schemas/PlatformTenant"
         "401":
           $ref: "#/components/responses/AuthenticationFailed"
+  /platform/tenants/{tenantId}:
+    parameters:
+      - $ref: "#/components/parameters/TenantId"
+    patch:
+      operationId: updatePlatformTenant
+      summary: Update a tenant's mutable platform profile
+      tags: [platform-tenants]
+      security:
+        - platformBearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlatformTenantRequest"
+      responses:
+        "204":
+          description: Tenant profile and audit evidence committed
+        "400":
+          description: Invalid tenant profile update
+        "401":
+          $ref: "#/components/responses/AuthenticationFailed"
+        "403":
+          $ref: "#/components/responses/CsrfFailed"
+        "404":
+          description: Tenant not found
+        "409":
+          description: Tenant profile was changed by another administrator
   /platform/tenants/{tenantId}/suspend:
     post:
       operationId: suspendPlatformTenant
@@ -392,6 +422,46 @@ paths:
           $ref: "#/components/responses/AuthenticationFailed"
         "403":
           $ref: "#/components/responses/CsrfFailed"
+  /users/me:
+    get:
+      operationId: getMyProfile
+      summary: Read the authenticated user's profile
+      tags: [identity]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          $ref: "#/components/responses/AuthenticationFailed"
+    put:
+      operationId: updateMyProfile
+      summary: Update the authenticated user's mutable profile
+      tags: [identity]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserProfileRequest"
+      responses:
+        "200":
+          description: Updated current user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "400": { description: Invalid or duplicate profile data }
+        "401": { $ref: "#/components/responses/AuthenticationFailed" }
+        "403": { $ref: "#/components/responses/CsrfFailed" }
   /auth/password-resets:
     post:
       operationId: resetPassword
@@ -1102,6 +1172,22 @@ components:
         updatedAt:
           type: string
           format: date-time
+    UpdatePlatformTenantRequest:
+      type: object
+      additionalProperties: false
+      required: [displayName, expectedUpdatedAt, reason]
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 128
+        expectedUpdatedAt:
+          type: string
+          format: date-time
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 512
     ProvisionTenantRequest:
       type: object
       additionalProperties: false
@@ -1166,6 +1252,23 @@ components:
           minLength: 12
           maxLength: 1024
           writeOnly: true
+    UserProfile:
+      type: object
+      additionalProperties: false
+      required: [id, username, status, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
+        email: { type: string, format: email, nullable: true }
+        status: { type: string, enum: [active] }
+        updatedAt: { type: string, format: date-time }
+    UpdateUserProfileRequest:
+      type: object
+      additionalProperties: false
+      required: [username]
+      properties:
+        username: { type: string, minLength: 1, maxLength: 128 }
+        email: { type: string, format: email, maxLength: 254, nullable: true }
     OneTimeCredentialRequest:
       type: object
       additionalProperties: false

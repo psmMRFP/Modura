@@ -10,13 +10,17 @@ describe("permission navigation", () => {
 
     expect(items.map((item) => item.key)).toEqual([
       "/",
+      "/profile",
       "/settings/dictionaries",
       "/audit",
     ]);
   });
 
   it("does not treat frontend navigation as a wildcard permission", () => {
-    expect(visibleNavigation(new Set()).map((item) => item.key)).toEqual(["/"]);
+    expect(visibleNavigation(new Set()).map((item) => item.key)).toEqual([
+      "/",
+      "/profile",
+    ]);
   });
 
   it("maps organization and authorization navigation to canonical permissions", () => {
@@ -31,6 +35,7 @@ describe("permission navigation", () => {
 
     expect(items.map((item) => item.key)).toEqual([
       "/",
+      "/profile",
       "/organization/departments",
       "/organization/positions",
       "/organization/users",

@@ -31,6 +31,10 @@ export const WorkspaceRoute = deferred(
   () => import("../features/workspace/Workspace"),
   (module) => module.Workspace,
 );
+export const ProfileRoute = deferred(
+  () => import("../features/auth/ProfilePage"),
+  (module) => module.ProfilePage,
+);
 export const DepartmentsRoute = deferred(
   () => import("../features/organization/DepartmentsPage"),
   (module) => module.DepartmentsPage,

@@ -85,6 +85,12 @@ func (m *memoryStore) PasswordHash(_ context.Context, actor Actor) (string, erro
 	}
 	return m.account.PasswordHash, nil
 }
+func (m *memoryStore) Profile(context.Context, Actor) (Profile, error) {
+	return Profile{ID: m.account.UserID, Username: "alice", Status: "active"}, nil
+}
+func (m *memoryStore) UpdateProfile(_ context.Context, change ProfileChange) (Profile, error) {
+	return Profile{ID: change.Actor.UserID, Username: change.Username, Email: change.Email, Status: "active", UpdatedAt: change.OccurredAt}, nil
+}
 func (m *memoryStore) ChangePassword(_ context.Context, actor Actor, expectedHash, newHash string, presented, next [32]byte, now, expires time.Time) (Session, error) {
 	if m.revoked || actor.SessionID != m.session.ID || expectedHash != m.account.PasswordHash || presented != m.current {
 		return Session{}, ErrInvalidToken

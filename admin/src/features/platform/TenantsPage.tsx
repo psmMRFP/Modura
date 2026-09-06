@@ -17,6 +17,8 @@ import {
   useProvisionPlatformTenant,
   useReactivatePlatformTenant,
   useSuspendPlatformTenant,
+  useUpdatePlatformTenant,
+  type PlatformTenant,
 } from "../../api/generated/modura";
 import { usePlatformAuth } from "./platform-auth-context";
 
@@ -27,19 +29,24 @@ export function TenantsPage() {
   const [provisioningKey, setProvisioningKey] = useState(() =>
     crypto.randomUUID(),
   );
+  const [editing, setEditing] = useState<PlatformTenant>();
+  const [editForm] = Form.useForm();
   const tenants = query.data?.status === 200 ? query.data.data : [];
   const writeFetch = {
     ...auth.fetchOptions,
     headers: {
       ...auth.fetchOptions.headers,
       "X-CSRF-Token": auth.csrfToken,
-      "Idempotency-Key": provisioningKey,
     },
+  };
+  const provisioningFetch = {
+    ...writeFetch,
+    headers: { ...writeFetch.headers, "Idempotency-Key": provisioningKey },
   };
   const refresh = () =>
     client.invalidateQueries({ queryKey: getListPlatformTenantsQueryKey() });
   const provision = useProvisionPlatformTenant({
-    fetch: writeFetch,
+    fetch: provisioningFetch,
     mutation: {
       onSuccess: async (response) => {
         if (response.status === 200 || response.status === 201) {
@@ -49,6 +56,20 @@ export function TenantsPage() {
           );
           await refresh();
         } else message.error("创建租户失败");
+      },
+    },
+  });
+  const update = useUpdatePlatformTenant({
+    fetch: writeFetch,
+    mutation: {
+      onSuccess: async (response) => {
+        if (response.status === 204) {
+          message.success("租户资料已更新");
+          setEditing(undefined);
+          await refresh();
+        } else if (response.status === 409) {
+          message.warning("租户资料已被其他管理员修改，请刷新后重试");
+        } else message.error("更新租户失败");
       },
     },
   });
@@ -177,23 +198,75 @@ export function TenantsPage() {
             },
             {
               title: "操作",
-              render: (_, tenant) =>
-                tenant.status === "active" ? (
+              render: (_, tenant) => (
+                <Space>
                   <Button
-                    danger
-                    onClick={() => lifecycle(tenant.id, "suspend")}
+                    onClick={() => {
+                      setEditing(tenant);
+                      editForm.setFieldsValue({
+                        displayName: tenant.displayName,
+                        reason: "",
+                      });
+                    }}
                   >
-                    暂停
+                    编辑资料
                   </Button>
-                ) : tenant.status === "suspended" ? (
-                  <Button onClick={() => lifecycle(tenant.id, "reactivate")}>
-                    恢复
-                  </Button>
-                ) : null,
+                  {tenant.status === "active" ? (
+                    <Button
+                      danger
+                      onClick={() => lifecycle(tenant.id, "suspend")}
+                    >
+                      暂停
+                    </Button>
+                  ) : tenant.status === "suspended" ? (
+                    <Button onClick={() => lifecycle(tenant.id, "reactivate")}>
+                      恢复
+                    </Button>
+                  ) : null}
+                </Space>
+              ),
             },
           ]}
         />
       </Card>
+      <Modal
+        title="编辑租户资料"
+        open={Boolean(editing)}
+        confirmLoading={update.isPending}
+        onCancel={() => setEditing(undefined)}
+        onOk={() => editForm.submit()}
+        destroyOnHidden
+      >
+        <Form
+          form={editForm}
+          layout="vertical"
+          onFinish={(data: { displayName: string; reason: string }) =>
+            editing &&
+            update.mutate({
+              tenantId: editing.id,
+              data: {
+                ...data,
+                expectedUpdatedAt: editing.updatedAt,
+              },
+            })
+          }
+        >
+          <Form.Item
+            name="displayName"
+            label="显示名称"
+            rules={[{ required: true }]}
+          >
+            <Input maxLength={128} />
+          </Form.Item>
+          <Form.Item
+            name="reason"
+            label="修改原因"
+            rules={[{ required: true }]}
+          >
+            <Input.TextArea maxLength={512} showCount />
+          </Form.Item>
+        </Form>
+      </Modal>
     </Space>
   );
 }

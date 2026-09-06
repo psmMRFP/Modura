@@ -11,6 +11,7 @@ export const routePermissions = {
 
 export const navigation = [
   { key: "/", label: "概览" },
+  { key: "/profile", label: "个人资料" },
   {
     key: "/organization/departments",
     label: "部门管理",

@@ -70,6 +70,20 @@ export interface PlatformTenant {
   updatedAt: string;
 }
 
+export interface UpdatePlatformTenantRequest {
+  /**
+   * @minLength 1
+   * @maxLength 128
+   */
+  displayName: string;
+  expectedUpdatedAt: string;
+  /**
+   * @minLength 1
+   * @maxLength 512
+   */
+  reason: string;
+}
+
 export interface ProvisionTenantRequest {
   /**
    * @minLength 1
@@ -125,6 +139,35 @@ export interface ChangePasswordRequest {
    * @maxLength 1024
    */
   newPassword: string;
+}
+
+export type UserProfileStatus =
+  (typeof UserProfileStatus)[keyof typeof UserProfileStatus];
+
+export const UserProfileStatus = {
+  active: "active",
+} as const;
+
+export interface UserProfile {
+  id: string;
+  username: string;
+  /** @nullable */
+  email?: string | null;
+  status: UserProfileStatus;
+  updatedAt: string;
+}
+
+export interface UpdateUserProfileRequest {
+  /**
+   * @minLength 1
+   * @maxLength 128
+   */
+  username: string;
+  /**
+   * @maxLength 254
+   * @nullable
+   */
+  email?: string | null;
 }
 
 export interface OneTimeCredentialRequest {
@@ -1740,6 +1783,173 @@ export function useListPlatformTenants<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
+export type updatePlatformTenantResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type updatePlatformTenantResponse400 = {
+  data: void;
+  status: 400;
+};
+
+export type updatePlatformTenantResponse401 = {
+  data: AuthenticationFailedResponse;
+  status: 401;
+};
+
+export type updatePlatformTenantResponse403 = {
+  data: CsrfFailedResponse;
+  status: 403;
+};
+
+export type updatePlatformTenantResponse404 = {
+  data: void;
+  status: 404;
+};
+
+export type updatePlatformTenantResponse409 = {
+  data: void;
+  status: 409;
+};
+
+export type updatePlatformTenantResponseSuccess =
+  updatePlatformTenantResponse204 & {
+    headers: Headers;
+  };
+export type updatePlatformTenantResponseError = (
+  | updatePlatformTenantResponse400
+  | updatePlatformTenantResponse401
+  | updatePlatformTenantResponse403
+  | updatePlatformTenantResponse404
+  | updatePlatformTenantResponse409
+) & {
+  headers: Headers;
+};
+
+export type updatePlatformTenantResponse =
+  updatePlatformTenantResponseSuccess | updatePlatformTenantResponseError;
+
+export const getUpdatePlatformTenantUrl = (tenantId: string) => {
+  return `/api/platform/tenants/${tenantId}`;
+};
+
+/**
+ * @summary Update a tenant's mutable platform profile
+ */
+export const updatePlatformTenant = async (
+  tenantId: string,
+  updatePlatformTenantRequest: UpdatePlatformTenantRequest,
+  options?: RequestInit,
+): Promise<updatePlatformTenantResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+  const res = await fetch(getUpdatePlatformTenantUrl(tenantId), {
+    ...options,
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(updatePlatformTenantRequest),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: updatePlatformTenantResponse["data"] = body
+    ? JSON.parse(body)
+    : undefined;
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as updatePlatformTenantResponse;
+};
+
+export const getUpdatePlatformTenantMutationOptions = <
+  TError = void | AuthenticationFailedResponse | CsrfFailedResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePlatformTenant>>,
+    TError,
+    UpdatePlatformTenantMutationVariables,
+    TContext
+  >;
+  fetch?: RequestInit;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updatePlatformTenant>>,
+  TError,
+  UpdatePlatformTenantMutationVariables,
+  TContext
+> => {
+  const mutationKey = ["updatePlatformTenant"];
+  const { mutation: mutationOptions, fetch: fetchOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, fetch: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updatePlatformTenant>>,
+    UpdatePlatformTenantMutationVariables
+  > = (props) => {
+    const { tenantId, data } = props ?? {};
+
+    return updatePlatformTenant(tenantId, data, fetchOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdatePlatformTenantMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updatePlatformTenant>>
+>;
+export type UpdatePlatformTenantMutationBody = UpdatePlatformTenantRequest;
+export type UpdatePlatformTenantMutationError =
+  void | AuthenticationFailedResponse | CsrfFailedResponse;
+export type UpdatePlatformTenantMutationVariables = {
+  tenantId: string;
+  data: UpdatePlatformTenantRequest;
+};
+
+/**
+ * @summary Update a tenant's mutable platform profile
+ */
+export const useUpdatePlatformTenant = <
+  TError = void | AuthenticationFailedResponse | CsrfFailedResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof updatePlatformTenant>>,
+      TError,
+      UpdatePlatformTenantMutationVariables,
+      TContext
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof updatePlatformTenant>>,
+  TError,
+  UpdatePlatformTenantMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getUpdatePlatformTenantMutationOptions(options),
+    queryClient,
+  );
+};
+
 export type suspendPlatformTenantResponse204 = {
   data: void;
   status: 204;
@@ -3254,6 +3464,317 @@ export const useChangePassword = <
   TContext
 > => {
   return useMutation(getChangePasswordMutationOptions(options), queryClient);
+};
+
+export type getMyProfileResponse200 = {
+  data: UserProfile;
+  status: 200;
+};
+
+export type getMyProfileResponse401 = {
+  data: AuthenticationFailedResponse;
+  status: 401;
+};
+
+export type getMyProfileResponseSuccess = getMyProfileResponse200 & {
+  headers: Headers;
+};
+export type getMyProfileResponseError = getMyProfileResponse401 & {
+  headers: Headers;
+};
+
+export type getMyProfileResponse =
+  getMyProfileResponseSuccess | getMyProfileResponseError;
+
+export const getGetMyProfileUrl = () => {
+  return `/api/users/me`;
+};
+
+/**
+ * @summary Read the authenticated user's profile
+ */
+export const getMyProfile = async (
+  options?: RequestInit,
+): Promise<getMyProfileResponse> => {
+  const res = await fetch(getGetMyProfileUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getMyProfileResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getMyProfileResponse;
+};
+
+export const getGetMyProfileQueryKey = () => {
+  return [`/api/users/me`] as const;
+};
+
+export const getGetMyProfileQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyProfile>>,
+  TError = AuthenticationFailedResponse,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<Awaited<ReturnType<typeof getMyProfile>>, TError, TData>
+  >;
+  fetch?: RequestInit;
+}) => {
+  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMyProfileQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyProfile>>> = ({
+    signal,
+  }) => getMyProfile({ signal, ...fetchOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyProfile>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetMyProfileQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyProfile>>
+>;
+export type GetMyProfileQueryError = AuthenticationFailedResponse;
+
+export function useGetMyProfile<
+  TData = Awaited<ReturnType<typeof getMyProfile>>,
+  TError = AuthenticationFailedResponse,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getMyProfile>>, TError, TData>
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMyProfile>>,
+          TError,
+          Awaited<ReturnType<typeof getMyProfile>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetMyProfile<
+  TData = Awaited<ReturnType<typeof getMyProfile>>,
+  TError = AuthenticationFailedResponse,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getMyProfile>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMyProfile>>,
+          TError,
+          Awaited<ReturnType<typeof getMyProfile>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetMyProfile<
+  TData = Awaited<ReturnType<typeof getMyProfile>>,
+  TError = AuthenticationFailedResponse,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getMyProfile>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary Read the authenticated user's profile
+ */
+
+export function useGetMyProfile<
+  TData = Awaited<ReturnType<typeof getMyProfile>>,
+  TError = AuthenticationFailedResponse,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getMyProfile>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getGetMyProfileQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export type updateMyProfileResponse200 = {
+  data: UserProfile;
+  status: 200;
+};
+
+export type updateMyProfileResponse400 = {
+  data: void;
+  status: 400;
+};
+
+export type updateMyProfileResponse401 = {
+  data: AuthenticationFailedResponse;
+  status: 401;
+};
+
+export type updateMyProfileResponse403 = {
+  data: CsrfFailedResponse;
+  status: 403;
+};
+
+export type updateMyProfileResponseSuccess = updateMyProfileResponse200 & {
+  headers: Headers;
+};
+export type updateMyProfileResponseError = (
+  | updateMyProfileResponse400
+  | updateMyProfileResponse401
+  | updateMyProfileResponse403
+) & {
+  headers: Headers;
+};
+
+export type updateMyProfileResponse =
+  updateMyProfileResponseSuccess | updateMyProfileResponseError;
+
+export const getUpdateMyProfileUrl = () => {
+  return `/api/users/me`;
+};
+
+/**
+ * @summary Update the authenticated user's mutable profile
+ */
+export const updateMyProfile = async (
+  updateUserProfileRequest: UpdateUserProfileRequest,
+  options?: RequestInit,
+): Promise<updateMyProfileResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+  const res = await fetch(getUpdateMyProfileUrl(), {
+    ...options,
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(updateUserProfileRequest),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: updateMyProfileResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as updateMyProfileResponse;
+};
+
+export const getUpdateMyProfileMutationOptions = <
+  TError = void | AuthenticationFailedResponse | CsrfFailedResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMyProfile>>,
+    TError,
+    UpdateMyProfileMutationVariables,
+    TContext
+  >;
+  fetch?: RequestInit;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateMyProfile>>,
+  TError,
+  UpdateMyProfileMutationVariables,
+  TContext
+> => {
+  const mutationKey = ["updateMyProfile"];
+  const { mutation: mutationOptions, fetch: fetchOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, fetch: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateMyProfile>>,
+    UpdateMyProfileMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateMyProfile(data, fetchOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateMyProfileMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateMyProfile>>
+>;
+export type UpdateMyProfileMutationBody = UpdateUserProfileRequest;
+export type UpdateMyProfileMutationError =
+  void | AuthenticationFailedResponse | CsrfFailedResponse;
+export type UpdateMyProfileMutationVariables = {
+  data: UpdateUserProfileRequest;
+};
+
+/**
+ * @summary Update the authenticated user's mutable profile
+ */
+export const useUpdateMyProfile = <
+  TError = void | AuthenticationFailedResponse | CsrfFailedResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof updateMyProfile>>,
+      TError,
+      UpdateMyProfileMutationVariables,
+      TContext
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof updateMyProfile>>,
+  TError,
+  UpdateMyProfileMutationVariables,
+  TContext
+> => {
+  return useMutation(getUpdateMyProfileMutationOptions(options), queryClient);
 };
 
 export type resetPasswordResponse204 = {

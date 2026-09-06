@@ -3,6 +3,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -11,6 +12,51 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/modura-dev/modura/backend/internal/modules/identity"
 )
+
+// Profile reads an active user only through the authenticated tenant/session tuple.
+func (s *Store) Profile(ctx context.Context, actor identity.Actor) (identity.Profile, error) {
+	var profile identity.Profile
+	err := s.pool.QueryRow(ctx, `SELECT u.id, u.username, u.email, u.status, u.updated_at FROM modura.users u JOIN modura.auth_sessions s ON s.tenant_id = u.tenant_id AND s.user_id = u.id WHERE u.tenant_id = $1 AND u.id = $2 AND s.id = $3 AND u.status = 'active' AND s.revoked_at IS NULL`, actor.TenantID, actor.UserID, actor.SessionID).Scan(&profile.ID, &profile.Username, &profile.Email, &profile.Status, &profile.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return identity.Profile{}, identity.ErrInvalidToken
+	}
+	if err != nil {
+		return identity.Profile{}, fmt.Errorf("read profile: %w", err)
+	}
+	return profile, nil
+}
+
+// UpdateProfile atomically updates self-service fields and records audit snapshots.
+func (s *Store) UpdateProfile(ctx context.Context, change identity.ProfileChange) (identity.Profile, error) {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return identity.Profile{}, fmt.Errorf("begin profile update: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var before identity.Profile
+	err = tx.QueryRow(ctx, `SELECT u.id, u.username, u.email, u.status, u.updated_at FROM modura.users u JOIN modura.auth_sessions s ON s.tenant_id = u.tenant_id AND s.user_id = u.id WHERE u.tenant_id = $1 AND u.id = $2 AND s.id = $3 AND u.status = 'active' AND s.revoked_at IS NULL FOR UPDATE OF u`, change.Actor.TenantID, change.Actor.UserID, change.Actor.SessionID).Scan(&before.ID, &before.Username, &before.Email, &before.Status, &before.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return identity.Profile{}, identity.ErrInvalidToken
+	}
+	if err != nil {
+		return identity.Profile{}, fmt.Errorf("lock profile: %w", err)
+	}
+	_, err = tx.Exec(ctx, `UPDATE modura.users SET username = $3, normalized_username = $4, email = $5, normalized_email = $6, email_verified_at = CASE WHEN normalized_email IS NOT DISTINCT FROM $6 THEN email_verified_at ELSE NULL END, updated_at = $7 WHERE tenant_id = $1 AND id = $2`, change.Actor.TenantID, change.Actor.UserID, change.Username, change.NormalizedUsername, change.Email, change.NormalizedEmail, change.OccurredAt)
+	if err != nil {
+		return identity.Profile{}, fmt.Errorf("write profile: %w", err)
+	}
+	after := identity.Profile{ID: before.ID, Username: change.Username, Email: change.Email, Status: before.Status, UpdatedAt: change.OccurredAt}
+	beforeJSON, _ := json.Marshal(before)
+	afterJSON, _ := json.Marshal(after)
+	_, err = tx.Exec(ctx, `INSERT INTO modura.audit_events (id, actor_type, actor_id, tenant_id, action, resource, resource_id, reason, result, correlation_id, occurred_at, before_state, after_state) VALUES ($1, 'tenant_user', $2, $3, 'identity.profile-updated', 'user', $2, 'self-service profile update', 'succeeded', $4, $5, $6::jsonb, $7::jsonb)`, change.AuditID, change.Actor.UserID, change.Actor.TenantID, change.CorrelationID, change.OccurredAt, beforeJSON, afterJSON)
+	if err != nil {
+		return identity.Profile{}, fmt.Errorf("audit profile update: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return identity.Profile{}, fmt.Errorf("commit profile update: %w", err)
+	}
+	return after, nil
+}
 
 // Store persists identity data and authentication sessions.
 type Store struct{ pool *pgxpool.Pool }

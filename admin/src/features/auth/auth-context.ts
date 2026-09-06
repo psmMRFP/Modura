@@ -1,6 +1,9 @@
 import { createContext, useContext } from "react";
 
-import type { LoginRequest } from "../../api/generated/modura";
+import type {
+  ChangePasswordRequest,
+  LoginRequest,
+} from "../../api/generated/modura";
 
 export type SessionStatus = "loading" | "authenticated" | "anonymous";
 
@@ -9,6 +12,7 @@ export interface AuthSession {
   csrfToken: string;
   fetchOptions: RequestInit;
   login: (request: LoginRequest) => Promise<void>;
+  changePassword: (request: ChangePasswordRequest) => Promise<void>;
   logout: () => Promise<void>;
 }
 
