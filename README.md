@@ -7,7 +7,7 @@
 面向长期居住、移居、留学和远程工作的开放信息平台。
 
 [![CI](https://github.com/psmMRFP/WhereToLive/actions/workflows/ci.yml/badge.svg)](https://github.com/psmMRFP/WhereToLive/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](LICENSE)
 [![Stage](https://img.shields.io/badge/Stage-Early%20Development-orange.svg)](#当前进度)
 
 [项目愿景](#为什么做-wheretolive) · [当前进度](#当前进度) · [本地开发](#本地开发) · [参与贡献](#参与贡献)
@@ -170,4 +170,4 @@ make web-e2e
 
 ## 许可证
 
-采用 [Apache License 2.0](LICENSE)。
+采用 [GNU AGPL v3.0](LICENSE)（`AGPL-3.0-only`）。第三方依赖与数据来源保留各自的许可证。
