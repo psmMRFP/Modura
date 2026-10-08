@@ -38,16 +38,17 @@ Diese drei Systeme bleiben unabhängig und sind noch nicht implementiert. **Modu
 
 Das Projekt befindet sich in einer frühen Entwicklungsphase und baut auf Modura auf. Das öffentliche Ortsverzeichnis und die operative Grundlage sind lauffähig; ein produktiver Ortsdatensatz fehlt noch.
 
-| Implementiert            | Funktionen                                                                                                |
-| ------------------------ | --------------------------------------------------------------------------------------------------------- |
-| Öffentliche Website      | Ortssuche ohne Anmeldung, Seitennavigation und Detailseiten                                               |
-| Mehrsprachige Oberfläche | English, 简体中文, Deutsch, Français, Español                                                             |
-| Geografisches Modell     | Länder, Regionen, Städte, Stadtviertel, Inseln, stabile Slugs und mehrsprachige Namen                     |
-| Ortsverwaltung           | Entwürfe, Bearbeitung, Veröffentlichung, Rücknahme, Versionskonfliktschutz und transaktionales Audit      |
-| API-Vertrag              | Gemeinsames OpenAPI für Go und beide Frontends mit generierten Typen und Abfrageclients                   |
-| Datenbankinitialisierung | Automatisches Anlegen einer fehlenden dedizierten Datenbank; Rolle und Datenbank `postgres` sind verboten |
+| Implementiert            | Funktionen                                                                                                                                                       |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Öffentliche Website      | Ortssuche ohne Anmeldung, Seitennavigation und Detailseiten                                                                                                      |
+| Mehrsprachige Oberfläche | English, 简体中文, Deutsch, Français, Español                                                                                                                    |
+| Geografisches Modell     | Länder, Regionen, Städte, Stadtviertel, Inseln, stabile Slugs und mehrsprachige Namen                                                                            |
+| Ortsverwaltung           | Entwürfe, Bearbeitung, Veröffentlichung, Rücknahme, Versionskonfliktschutz und transaktionales Audit                                                             |
+| API-Vertrag              | Gemeinsames OpenAPI für Go und beide Frontends mit generierten Typen und Abfrageclients                                                                          |
+| Datenbankinitialisierung | Automatisches Anlegen einer fehlenden dedizierten Datenbank; Rolle und Datenbank `postgres` sind verboten                                                        |
+| Verbraucherkonten        | Registrierung, E-Mail-Verifizierung, Anmeldung, Sitzungswiederherstellung und Kontowiederherstellung; bis zur vollständigen Deployment-Konfiguration deaktiviert |
 
-**Als Nächstes:** öffentliche Registrierung und E-Mail-Verifizierung → Quellen, Belege und Faktenversionen → Research Agent → Visa, Steuern und Lebenshaltungskosten → einheitliches Feedback → Wohnsitzverifizierung und Bewertungen → persönliche Eignung.
+**Als Nächstes:** Quellen, Belege und Faktenversionen → Research Agent → Visa, Steuern und Lebenshaltungskosten → einheitliches Feedback → Wohnsitzverifizierung und Bewertungen → persönliche Eignung.
 
 Bewertungen sollen per KI übersetzt werden, wenn ihre Originalsprache von der Lesesprache abweicht. Nutzer können automatische Übersetzung aktivieren und jederzeit das Original ansehen.
 

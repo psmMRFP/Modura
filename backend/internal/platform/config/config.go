@@ -2,6 +2,7 @@
 package config
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"strconv"
@@ -24,9 +25,10 @@ const (
 
 // Config contains the validated application configuration.
 type Config struct {
-	HTTP     HTTP
-	Database Database
-	Auth     Auth
+	PublicIdentity PublicIdentity
+	HTTP           HTTP
+	Database       Database
+	Auth           Auth
 }
 
 // Database contains PostgreSQL connection configuration.
@@ -112,6 +114,9 @@ func FromEnv() (Config, error) {
 		SigningKeyID:     envOrDefault("MODURA_AUTH_SIGNING_KEY_ID", "primary"),
 		SigningKey:       signingKey,
 	}
+	if auth.Audience == "wheretolive-community" || auth.PlatformAudience == "wheretolive-community" || auth.Audience == auth.PlatformAudience {
+		return Config{}, fmt.Errorf("authentication audiences must be distinct")
+	}
 	if auth.AccessLifetime, err = duration("MODURA_AUTH_ACCESS_LIFETIME", 5*time.Minute); err != nil {
 		return Config{}, err
 	}
@@ -121,7 +126,17 @@ func FromEnv() (Config, error) {
 	if auth.InvitationLifetime, err = duration("MODURA_AUTH_INVITATION_LIFETIME", 24*time.Hour); err != nil {
 		return Config{}, err
 	}
-	return Config{HTTP: httpConfig, Database: databaseConfig, Auth: auth}, nil
+	publicIdentity, err := publicIdentityFromEnv()
+	if err != nil {
+		return Config{}, err
+	}
+	if publicIdentity.Enabled && !httpConfig.CookieSecure {
+		return Config{}, fmt.Errorf("public identity requires Secure cookies")
+	}
+	if publicIdentity.Enabled && bytes.Equal(publicIdentity.EncryptionKey, signingKey) {
+		return Config{}, fmt.Errorf("identity mail encryption key must be independent of the signing key")
+	}
+	return Config{PublicIdentity: publicIdentity, HTTP: httpConfig, Database: databaseConfig, Auth: auth}, nil
 }
 
 func boolean(name string, fallback bool) (bool, error) {

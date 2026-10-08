@@ -38,16 +38,17 @@ These systems remain independent and are not implemented yet. **Modura Atlas** i
 
 The project is in early development, building on the existing Modura framework. The public place directory and operational foundation work; there is no production place dataset yet.
 
-| Implemented             | Capabilities                                                                                                |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Public website          | Anonymous place search, pagination, and detail pages                                                        |
-| Multilingual UI         | English, 简体中文, Deutsch, Français, Español                                                               |
-| Geography               | Countries, regions, cities, districts, islands, stable slugs, and multilingual aliases                      |
-| Place administration    | Draft creation, editing, publication, withdrawal, version conflict protection, and transactional audit      |
-| API contract            | Shared OpenAPI for Go and both frontends, with generated types and query clients                            |
-| Database initialization | Automatic creation of a missing dedicated database; the default `postgres` role and database are prohibited |
+| Implemented             | Capabilities                                                                                                                 |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Public website          | Anonymous place search, pagination, and detail pages                                                                         |
+| Multilingual UI         | English, 简体中文, Deutsch, Français, Español                                                                                |
+| Geography               | Countries, regions, cities, districts, islands, stable slugs, and multilingual aliases                                       |
+| Place administration    | Draft creation, editing, publication, withdrawal, version conflict protection, and transactional audit                       |
+| API contract            | Shared OpenAPI for Go and both frontends, with generated types and query clients                                             |
+| Database initialization | Automatic creation of a missing dedicated database; the default `postgres` role and database are prohibited                  |
+| Consumer accounts       | Registration, email verification, login, session restoration and recovery; disabled until deployment controls are configured |
 
-**Next:** public registration and email verification → sources, evidence, and fact versions → Research Agent → visas, tax, and living costs → unified feedback → residency verification and reviews → personal fit.
+**Next:** sources, evidence, and fact versions → Research Agent → visas, tax, and living costs → unified feedback → residency verification and reviews → personal fit.
 
 Planned review translation is available when the reader's language differs from the original review. Users can enable automatic translation and always view the original.
 

@@ -20,20 +20,23 @@ import (
 
 // Dependencies contains runtime application and health dependencies.
 type Dependencies struct {
-	PlatformPlaces   handler.PlatformPlaces
-	Places           handler.Places
-	Identity         handler.Identity
-	Authorizer       handler.Authorizer
-	Authorization    handler.Authorization
-	Organization     handler.Organization
-	PlatformAdmin    handler.PlatformAdmin
-	PlatformTenant   handler.PlatformTenant
-	Provisioning     handler.Provisioning
-	Settings         handler.Settings
-	PlatformSettings handler.PlatformSettings
-	Audit            handler.Audit
-	PlatformAudit    handler.PlatformAudit
-	Ready            func(context.Context) error
+	PublicIdentity         handler.PublicIdentity
+	PublicChallengeSiteKey string
+	PublicIdentityFailure  func()
+	PlatformPlaces         handler.PlatformPlaces
+	Places                 handler.Places
+	Identity               handler.Identity
+	Authorizer             handler.Authorizer
+	Authorization          handler.Authorization
+	Organization           handler.Organization
+	PlatformAdmin          handler.PlatformAdmin
+	PlatformTenant         handler.PlatformTenant
+	Provisioning           handler.Provisioning
+	Settings               handler.Settings
+	PlatformSettings       handler.PlatformSettings
+	Audit                  handler.Audit
+	PlatformAudit          handler.PlatformAudit
+	Ready                  func(context.Context) error
 }
 
 // New returns a configured HTTP server without starting it.
@@ -46,7 +49,7 @@ func New(cfg config.HTTP, logger *slog.Logger, dependencies ...Dependencies) *ht
 	if len(dependencies) > 0 {
 		deps = dependencies[0]
 	}
-	contractHandler := handler.New(handler.Dependencies{PlatformPlaces: deps.PlatformPlaces, Places: deps.Places, Identity: deps.Identity, Authorizer: deps.Authorizer, Authorization: deps.Authorization, Organization: deps.Organization, PlatformAdmin: deps.PlatformAdmin, PlatformTenant: deps.PlatformTenant, Provisioning: deps.Provisioning, Settings: deps.Settings, PlatformSettings: deps.PlatformSettings, Audit: deps.Audit, PlatformAudit: deps.PlatformAudit, Ready: deps.Ready}, cfg.CookieSecure, func() (string, error) { return identity.NewOpaqueToken(32) })
+	contractHandler := handler.New(handler.Dependencies{PublicIdentity: deps.PublicIdentity, PublicChallengeSiteKey: deps.PublicChallengeSiteKey, PublicIdentityFailure: deps.PublicIdentityFailure, PlatformPlaces: deps.PlatformPlaces, Places: deps.Places, Identity: deps.Identity, Authorizer: deps.Authorizer, Authorization: deps.Authorization, Organization: deps.Organization, PlatformAdmin: deps.PlatformAdmin, PlatformTenant: deps.PlatformTenant, Provisioning: deps.Provisioning, Settings: deps.Settings, PlatformSettings: deps.PlatformSettings, Audit: deps.Audit, PlatformAudit: deps.PlatformAudit, Ready: deps.Ready}, cfg.CookieSecure, func() (string, error) { return identity.NewOpaqueToken(32) })
 	generated.RegisterHandlersWithOptions(router, contractHandler, generated.GinServerOptions{
 		BaseURL: "/api",
 		ErrorHandler: func(c *gin.Context, _ error, status int) {

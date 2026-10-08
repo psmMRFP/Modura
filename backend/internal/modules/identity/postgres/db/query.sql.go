@@ -107,6 +107,20 @@ func (q *Queries) ApplyPasswordReset(ctx context.Context, arg ApplyPasswordReset
 	return err
 }
 
+const cancelIdentityMail = `-- name: CancelIdentityMail :exec
+DELETE FROM modura.identity_mail_queue WHERE tenant_id=$1 AND user_id=$2
+`
+
+type CancelIdentityMailParams struct {
+	TenantID string `json:"tenant_id"`
+	UserID   string `json:"user_id"`
+}
+
+func (q *Queries) CancelIdentityMail(ctx context.Context, arg CancelIdentityMailParams) error {
+	_, err := q.db.Exec(ctx, cancelIdentityMail, arg.TenantID, arg.UserID)
+	return err
+}
+
 const clearLoginGuard = `-- name: ClearLoginGuard :execrows
 DELETE FROM modura.auth_login_guard
 WHERE tenant_slug = $1 AND normalized_login = $2
@@ -123,6 +137,25 @@ func (q *Queries) ClearLoginGuard(ctx context.Context, arg ClearLoginGuardParams
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const communityBinding = `-- name: CommunityBinding :one
+SELECT t.id, t.slug, t.status
+FROM modura.community_identity c JOIN modura.tenants t ON t.id = c.tenant_id
+WHERE c.singleton
+`
+
+type CommunityBindingRow struct {
+	ID     string `json:"id"`
+	Slug   string `json:"slug"`
+	Status string `json:"status"`
+}
+
+func (q *Queries) CommunityBinding(ctx context.Context) (CommunityBindingRow, error) {
+	row := q.db.QueryRow(ctx, communityBinding)
+	var i CommunityBindingRow
+	err := row.Scan(&i.ID, &i.Slug, &i.Status)
+	return i, err
 }
 
 const consumeOneTimeTokenRow = `-- name: ConsumeOneTimeTokenRow :execrows
@@ -144,6 +177,34 @@ func (q *Queries) ConsumeOneTimeTokenRow(ctx context.Context, arg ConsumeOneTime
 	return result.RowsAffected(), nil
 }
 
+const consumePublicIdentityLimit = `-- name: ConsumePublicIdentityLimit :one
+INSERT INTO modura.public_identity_limits (tenant_id,key_hash,window_started_at,attempts)
+VALUES ($1,$2,$3::timestamptz,1)
+ON CONFLICT (tenant_id,key_hash) DO UPDATE SET
+    window_started_at = CASE WHEN modura.public_identity_limits.window_started_at <= $4::timestamptz THEN $3::timestamptz ELSE modura.public_identity_limits.window_started_at END,
+    attempts = CASE WHEN modura.public_identity_limits.window_started_at <= $4::timestamptz THEN 1 ELSE modura.public_identity_limits.attempts+1 END
+RETURNING attempts
+`
+
+type ConsumePublicIdentityLimitParams struct {
+	TenantID string    `json:"tenant_id"`
+	KeyHash  []byte    `json:"key_hash"`
+	Now      time.Time `json:"now"`
+	Cutoff   time.Time `json:"cutoff"`
+}
+
+func (q *Queries) ConsumePublicIdentityLimit(ctx context.Context, arg ConsumePublicIdentityLimitParams) (int32, error) {
+	row := q.db.QueryRow(ctx, consumePublicIdentityLimit,
+		arg.TenantID,
+		arg.KeyHash,
+		arg.Now,
+		arg.Cutoff,
+	)
+	var attempts int32
+	err := row.Scan(&attempts)
+	return attempts, err
+}
+
 const consumeTenantUserOneTimeTokens = `-- name: ConsumeTenantUserOneTimeTokens :exec
 UPDATE modura.auth_one_time_tokens
 SET consumed_at = $3
@@ -159,6 +220,35 @@ type ConsumeTenantUserOneTimeTokensParams struct {
 func (q *Queries) ConsumeTenantUserOneTimeTokens(ctx context.Context, arg ConsumeTenantUserOneTimeTokensParams) error {
 	_, err := q.db.Exec(ctx, consumeTenantUserOneTimeTokens, arg.TenantID, arg.UserID, arg.ConsumedAt)
 	return err
+}
+
+const consumerByEmail = `-- name: ConsumerByEmail :one
+SELECT id, normalized_email, security_version, status FROM modura.users
+WHERE tenant_id = $1 AND normalized_email = $2 AND consumer FOR UPDATE
+`
+
+type ConsumerByEmailParams struct {
+	TenantID        string      `json:"tenant_id"`
+	NormalizedEmail pgtype.Text `json:"normalized_email"`
+}
+
+type ConsumerByEmailRow struct {
+	ID              string      `json:"id"`
+	NormalizedEmail pgtype.Text `json:"normalized_email"`
+	SecurityVersion int64       `json:"security_version"`
+	Status          string      `json:"status"`
+}
+
+func (q *Queries) ConsumerByEmail(ctx context.Context, arg ConsumerByEmailParams) (ConsumerByEmailRow, error) {
+	row := q.db.QueryRow(ctx, consumerByEmail, arg.TenantID, arg.NormalizedEmail)
+	var i ConsumerByEmailRow
+	err := row.Scan(
+		&i.ID,
+		&i.NormalizedEmail,
+		&i.SecurityVersion,
+		&i.Status,
+	)
+	return i, err
 }
 
 const disableTenantUser = `-- name: DisableTenantUser :execrows
@@ -179,6 +269,21 @@ func (q *Queries) DisableTenantUser(ctx context.Context, arg DisableTenantUserPa
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const finishIdentityMail = `-- name: FinishIdentityMail :exec
+DELETE FROM modura.identity_mail_queue WHERE id=$1 AND tenant_id=$2 AND attempts=$3
+`
+
+type FinishIdentityMailParams struct {
+	ID       string `json:"id"`
+	TenantID string `json:"tenant_id"`
+	Attempts int32  `json:"attempts"`
+}
+
+func (q *Queries) FinishIdentityMail(ctx context.Context, arg FinishIdentityMailParams) error {
+	_, err := q.db.Exec(ctx, finishIdentityMail, arg.ID, arg.TenantID, arg.Attempts)
+	return err
 }
 
 const insertAdministratorInvitation = `-- name: InsertAdministratorInvitation :exec
@@ -259,6 +364,94 @@ func (q *Queries) InsertAuthSession(ctx context.Context, arg InsertAuthSessionPa
 		arg.FamilyID,
 		arg.RefreshTokenHash,
 		arg.SecurityVersion,
+		arg.CreatedAt,
+		arg.ExpiresAt,
+	)
+	return err
+}
+
+const insertCommunityBinding = `-- name: InsertCommunityBinding :exec
+INSERT INTO modura.community_identity (tenant_id, created_at) VALUES ($1, $2)
+`
+
+type InsertCommunityBindingParams struct {
+	TenantID  string    `json:"tenant_id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (q *Queries) InsertCommunityBinding(ctx context.Context, arg InsertCommunityBindingParams) error {
+	_, err := q.db.Exec(ctx, insertCommunityBinding, arg.TenantID, arg.CreatedAt)
+	return err
+}
+
+const insertCommunityTenant = `-- name: InsertCommunityTenant :exec
+INSERT INTO modura.tenants (id, slug, display_name, status, created_at, updated_at)
+VALUES ($1, 'community', 'WhereToLive Community', 'active', $2, $2)
+`
+
+type InsertCommunityTenantParams struct {
+	ID        string    `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (q *Queries) InsertCommunityTenant(ctx context.Context, arg InsertCommunityTenantParams) error {
+	_, err := q.db.Exec(ctx, insertCommunityTenant, arg.ID, arg.CreatedAt)
+	return err
+}
+
+const insertConsumer = `-- name: InsertConsumer :execrows
+INSERT INTO modura.users (id, tenant_id, username, normalized_username, email, normalized_email,
+    password_hash, status, consumer, created_at, updated_at)
+VALUES ($1, $2, $3, $3, $4, $4, $5, 'pending_email', true, $6, $6)
+ON CONFLICT DO NOTHING
+`
+
+type InsertConsumerParams struct {
+	ID           string      `json:"id"`
+	TenantID     string      `json:"tenant_id"`
+	Username     string      `json:"username"`
+	Email        pgtype.Text `json:"email"`
+	PasswordHash pgtype.Text `json:"password_hash"`
+	CreatedAt    time.Time   `json:"created_at"`
+}
+
+func (q *Queries) InsertConsumer(ctx context.Context, arg InsertConsumerParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertConsumer,
+		arg.ID,
+		arg.TenantID,
+		arg.Username,
+		arg.Email,
+		arg.PasswordHash,
+		arg.CreatedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const insertIdentityMail = `-- name: InsertIdentityMail :exec
+INSERT INTO modura.identity_mail_queue (id, tenant_id, user_id, token_id, encrypted_payload, created_at, expires_at, available_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $6)
+`
+
+type InsertIdentityMailParams struct {
+	ID               string    `json:"id"`
+	TenantID         string    `json:"tenant_id"`
+	UserID           string    `json:"user_id"`
+	TokenID          string    `json:"token_id"`
+	EncryptedPayload []byte    `json:"encrypted_payload"`
+	CreatedAt        time.Time `json:"created_at"`
+	ExpiresAt        time.Time `json:"expires_at"`
+}
+
+func (q *Queries) InsertIdentityMail(ctx context.Context, arg InsertIdentityMailParams) error {
+	_, err := q.db.Exec(ctx, insertIdentityMail,
+		arg.ID,
+		arg.TenantID,
+		arg.UserID,
+		arg.TokenID,
+		arg.EncryptedPayload,
 		arg.CreatedAt,
 		arg.ExpiresAt,
 	)
@@ -352,6 +545,74 @@ func (q *Queries) InsertProvisioningTenant(ctx context.Context, arg InsertProvis
 	return err
 }
 
+const insertPublicIdentityEvent = `-- name: InsertPublicIdentityEvent :exec
+INSERT INTO modura.public_identity_events (id, tenant_id, user_id, action, result, correlation_id, occurred_at, actor_kind, resource, resource_id, reason)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+`
+
+type InsertPublicIdentityEventParams struct {
+	ID            string      `json:"id"`
+	TenantID      string      `json:"tenant_id"`
+	UserID        pgtype.UUID `json:"user_id"`
+	Action        string      `json:"action"`
+	Result        string      `json:"result"`
+	CorrelationID string      `json:"correlation_id"`
+	OccurredAt    time.Time   `json:"occurred_at"`
+	ActorKind     string      `json:"actor_kind"`
+	Resource      string      `json:"resource"`
+	ResourceID    string      `json:"resource_id"`
+	Reason        string      `json:"reason"`
+}
+
+func (q *Queries) InsertPublicIdentityEvent(ctx context.Context, arg InsertPublicIdentityEventParams) error {
+	_, err := q.db.Exec(ctx, insertPublicIdentityEvent,
+		arg.ID,
+		arg.TenantID,
+		arg.UserID,
+		arg.Action,
+		arg.Result,
+		arg.CorrelationID,
+		arg.OccurredAt,
+		arg.ActorKind,
+		arg.Resource,
+		arg.ResourceID,
+		arg.Reason,
+	)
+	return err
+}
+
+const insertPublicIdentityToken = `-- name: InsertPublicIdentityToken :exec
+INSERT INTO modura.auth_one_time_tokens (id, tenant_id, user_id, purpose, token_hash, created_at, expires_at, bound_email, bound_security_version)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+`
+
+type InsertPublicIdentityTokenParams struct {
+	ID                   string      `json:"id"`
+	TenantID             string      `json:"tenant_id"`
+	UserID               string      `json:"user_id"`
+	Purpose              string      `json:"purpose"`
+	TokenHash            []byte      `json:"token_hash"`
+	CreatedAt            time.Time   `json:"created_at"`
+	ExpiresAt            time.Time   `json:"expires_at"`
+	BoundEmail           pgtype.Text `json:"bound_email"`
+	BoundSecurityVersion pgtype.Int8 `json:"bound_security_version"`
+}
+
+func (q *Queries) InsertPublicIdentityToken(ctx context.Context, arg InsertPublicIdentityTokenParams) error {
+	_, err := q.db.Exec(ctx, insertPublicIdentityToken,
+		arg.ID,
+		arg.TenantID,
+		arg.UserID,
+		arg.Purpose,
+		arg.TokenHash,
+		arg.CreatedAt,
+		arg.ExpiresAt,
+		arg.BoundEmail,
+		arg.BoundSecurityVersion,
+	)
+	return err
+}
+
 const invalidateOneTimeTokens = `-- name: InvalidateOneTimeTokens :exec
 UPDATE modura.auth_one_time_tokens
 SET consumed_at = $4
@@ -373,6 +634,46 @@ func (q *Queries) InvalidateOneTimeTokens(ctx context.Context, arg InvalidateOne
 		arg.ConsumedAt,
 	)
 	return err
+}
+
+const leaseIdentityMail = `-- name: LeaseIdentityMail :one
+WITH next AS (
+ SELECT q.id FROM modura.identity_mail_queue q
+ JOIN modura.auth_one_time_tokens tok ON tok.id=q.token_id
+ JOIN modura.users u ON u.tenant_id=q.tenant_id AND u.id=q.user_id
+ JOIN modura.tenants t ON t.id=q.tenant_id
+ WHERE q.available_at <= $2::timestamptz AND q.expires_at > $2::timestamptz
+ AND (q.lease_until IS NULL OR q.lease_until <= $2::timestamptz)
+ AND tok.consumed_at IS NULL AND t.status='active' AND u.consumer
+ AND ((tok.purpose='email_verification' AND u.status='pending_email') OR (tok.purpose='password_reset' AND u.status='active'))
+ ORDER BY q.created_at FOR UPDATE OF q SKIP LOCKED LIMIT 1
+)
+UPDATE modura.identity_mail_queue q SET lease_until= $1::timestamptz, attempts=attempts+1
+FROM next WHERE q.id=next.id RETURNING q.id, q.tenant_id, q.encrypted_payload, q.attempts
+`
+
+type LeaseIdentityMailParams struct {
+	Until time.Time `json:"until"`
+	Now   time.Time `json:"now"`
+}
+
+type LeaseIdentityMailRow struct {
+	ID               string `json:"id"`
+	TenantID         string `json:"tenant_id"`
+	EncryptedPayload []byte `json:"encrypted_payload"`
+	Attempts         int32  `json:"attempts"`
+}
+
+func (q *Queries) LeaseIdentityMail(ctx context.Context, arg LeaseIdentityMailParams) (LeaseIdentityMailRow, error) {
+	row := q.db.QueryRow(ctx, leaseIdentityMail, arg.Until, arg.Now)
+	var i LeaseIdentityMailRow
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.EncryptedPayload,
+		&i.Attempts,
+	)
+	return i, err
 }
 
 const listTenantSummaries = `-- name: ListTenantSummaries :many
@@ -408,6 +709,15 @@ func (q *Queries) ListTenantSummaries(ctx context.Context) ([]ModuraTenant, erro
 	return items, nil
 }
 
+const lockCommunityBootstrap = `-- name: LockCommunityBootstrap :exec
+SELECT pg_advisory_xact_lock(1297040471)
+`
+
+func (q *Queries) LockCommunityBootstrap(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, lockCommunityBootstrap)
+	return err
+}
+
 const lockCurrentSession = `-- name: LockCurrentSession :one
 SELECT s.id, s.tenant_id, s.user_id, s.security_version, s.family_id, s.expires_at
 FROM modura.auth_sessions s
@@ -415,8 +725,14 @@ JOIN modura.users u ON u.tenant_id = s.tenant_id AND u.id = s.user_id
 JOIN modura.tenants t ON t.id = s.tenant_id
 WHERE s.refresh_token_hash = $1 AND s.revoked_at IS NULL
   AND u.status = 'active' AND u.security_version = s.security_version AND t.status = 'active'
+  AND u.consumer=$2::boolean
 FOR UPDATE OF s
 `
+
+type LockCurrentSessionParams struct {
+	RefreshTokenHash []byte `json:"refresh_token_hash"`
+	Consumer         bool   `json:"consumer"`
+}
 
 type LockCurrentSessionRow struct {
 	ID              string    `json:"id"`
@@ -427,8 +743,8 @@ type LockCurrentSessionRow struct {
 	ExpiresAt       time.Time `json:"expires_at"`
 }
 
-func (q *Queries) LockCurrentSession(ctx context.Context, refreshTokenHash []byte) (LockCurrentSessionRow, error) {
-	row := q.db.QueryRow(ctx, lockCurrentSession, refreshTokenHash)
+func (q *Queries) LockCurrentSession(ctx context.Context, arg LockCurrentSessionParams) (LockCurrentSessionRow, error) {
+	row := q.db.QueryRow(ctx, lockCurrentSession, arg.RefreshTokenHash, arg.Consumer)
 	var i LockCurrentSessionRow
 	err := row.Scan(
 		&i.ID,
@@ -446,7 +762,7 @@ SELECT tok.tenant_id, tok.user_id, tok.expires_at
 FROM modura.auth_one_time_tokens tok
 JOIN modura.users u ON u.tenant_id = tok.tenant_id AND u.id = tok.user_id
 JOIN modura.tenants t ON t.id = tok.tenant_id
-WHERE tok.token_hash = $1 AND tok.purpose = $2 AND tok.consumed_at IS NULL
+WHERE tok.token_hash = $1 AND tok.purpose = $2 AND tok.consumed_at IS NULL AND NOT u.consumer
   AND t.status = 'active'
   AND (($2 = 'invitation' AND u.status = 'invited') OR ($2 = 'password_reset' AND u.status = 'active'))
 FOR UPDATE OF tok, u
@@ -506,6 +822,51 @@ func (q *Queries) LockPasswordChange(ctx context.Context, arg LockPasswordChange
 	)
 	var i LockPasswordChangeRow
 	err := row.Scan(&i.FamilyID, &i.SecurityVersion)
+	return i, err
+}
+
+const lockPublicIdentityTenant = `-- name: LockPublicIdentityTenant :one
+SELECT t.id FROM modura.community_identity c JOIN modura.tenants t ON t.id = c.tenant_id
+WHERE c.tenant_id = $1 AND t.slug = 'community' AND t.status = 'active' FOR SHARE OF t
+`
+
+func (q *Queries) LockPublicIdentityTenant(ctx context.Context, tenantID string) (string, error) {
+	row := q.db.QueryRow(ctx, lockPublicIdentityTenant, tenantID)
+	var id string
+	err := row.Scan(&id)
+	return id, err
+}
+
+const lockPublicIdentityToken = `-- name: LockPublicIdentityToken :one
+SELECT tok.id, tok.user_id, tok.expires_at, u.status
+FROM modura.auth_one_time_tokens tok JOIN modura.users u ON u.tenant_id=tok.tenant_id AND u.id=tok.user_id
+WHERE tok.tenant_id=$1 AND tok.token_hash=$2 AND tok.purpose=$3 AND tok.consumed_at IS NULL AND u.consumer
+ AND tok.bound_email=u.normalized_email AND tok.bound_security_version=u.security_version
+FOR UPDATE OF u, tok
+`
+
+type LockPublicIdentityTokenParams struct {
+	TenantID  string `json:"tenant_id"`
+	TokenHash []byte `json:"token_hash"`
+	Purpose   string `json:"purpose"`
+}
+
+type LockPublicIdentityTokenRow struct {
+	ID        string    `json:"id"`
+	UserID    string    `json:"user_id"`
+	ExpiresAt time.Time `json:"expires_at"`
+	Status    string    `json:"status"`
+}
+
+func (q *Queries) LockPublicIdentityToken(ctx context.Context, arg LockPublicIdentityTokenParams) (LockPublicIdentityTokenRow, error) {
+	row := q.db.QueryRow(ctx, lockPublicIdentityToken, arg.TenantID, arg.TokenHash, arg.Purpose)
+	var i LockPublicIdentityTokenRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.ExpiresAt,
+		&i.Status,
+	)
 	return i, err
 }
 
@@ -644,6 +1005,45 @@ func (q *Queries) ProfileBySession(ctx context.Context, arg ProfileBySessionPara
 	return i, err
 }
 
+const publicIdentitySchemaExists = `-- name: PublicIdentitySchemaExists :one
+SELECT (to_regclass('modura.identity_mail_queue') IS NOT NULL)::boolean AS available
+`
+
+func (q *Queries) PublicIdentitySchemaExists(ctx context.Context) (bool, error) {
+	row := q.db.QueryRow(ctx, publicIdentitySchemaExists)
+	var available bool
+	err := row.Scan(&available)
+	return available, err
+}
+
+const purgeExpiredConsumerTokens = `-- name: PurgeExpiredConsumerTokens :exec
+DELETE FROM modura.auth_one_time_tokens tok WHERE tok.bound_email IS NOT NULL AND tok.expires_at < $1
+AND NOT EXISTS (SELECT 1 FROM modura.identity_mail_queue q WHERE q.token_id=tok.id)
+`
+
+func (q *Queries) PurgeExpiredConsumerTokens(ctx context.Context, expiresAt time.Time) error {
+	_, err := q.db.Exec(ctx, purgeExpiredConsumerTokens, expiresAt)
+	return err
+}
+
+const purgeIdentityMail = `-- name: PurgeIdentityMail :exec
+DELETE FROM modura.identity_mail_queue WHERE expires_at <= $1 OR attempts >= 5
+`
+
+func (q *Queries) PurgeIdentityMail(ctx context.Context, expiresAt time.Time) error {
+	_, err := q.db.Exec(ctx, purgeIdentityMail, expiresAt)
+	return err
+}
+
+const purgePublicIdentityLimits = `-- name: PurgePublicIdentityLimits :exec
+DELETE FROM modura.public_identity_limits WHERE window_started_at < $1
+`
+
+func (q *Queries) PurgePublicIdentityLimits(ctx context.Context, windowStartedAt time.Time) error {
+	_, err := q.db.Exec(ctx, purgePublicIdentityLimits, windowStartedAt)
+	return err
+}
+
 const recordLoginFailure = `-- name: RecordLoginFailure :one
 INSERT INTO modura.auth_login_guard
     (tenant_slug, normalized_login, failure_count, window_started_at, locked_until, updated_at)
@@ -716,16 +1116,43 @@ func (q *Queries) RecordRefreshTokenUse(ctx context.Context, arg RecordRefreshTo
 }
 
 const replayedTokenFamily = `-- name: ReplayedTokenFamily :one
-SELECT family_id
-FROM modura.auth_refresh_token_uses
-WHERE token_hash = $1
+SELECT r.family_id FROM modura.auth_refresh_token_uses r
+JOIN modura.auth_sessions s ON s.id=r.session_id
+JOIN modura.users u ON u.id=s.user_id AND u.tenant_id=s.tenant_id
+WHERE r.token_hash=$1 AND u.consumer=$2::boolean
 `
 
-func (q *Queries) ReplayedTokenFamily(ctx context.Context, tokenHash []byte) (string, error) {
-	row := q.db.QueryRow(ctx, replayedTokenFamily, tokenHash)
+type ReplayedTokenFamilyParams struct {
+	TokenHash []byte `json:"token_hash"`
+	Consumer  bool   `json:"consumer"`
+}
+
+func (q *Queries) ReplayedTokenFamily(ctx context.Context, arg ReplayedTokenFamilyParams) (string, error) {
+	row := q.db.QueryRow(ctx, replayedTokenFamily, arg.TokenHash, arg.Consumer)
 	var family_id string
 	err := row.Scan(&family_id)
 	return family_id, err
+}
+
+const retryIdentityMail = `-- name: RetryIdentityMail :exec
+UPDATE modura.identity_mail_queue SET available_at=$4, lease_until=NULL WHERE id=$1 AND tenant_id=$2 AND attempts=$3
+`
+
+type RetryIdentityMailParams struct {
+	ID          string    `json:"id"`
+	TenantID    string    `json:"tenant_id"`
+	Attempts    int32     `json:"attempts"`
+	AvailableAt time.Time `json:"available_at"`
+}
+
+func (q *Queries) RetryIdentityMail(ctx context.Context, arg RetryIdentityMailParams) error {
+	_, err := q.db.Exec(ctx, retryIdentityMail,
+		arg.ID,
+		arg.TenantID,
+		arg.Attempts,
+		arg.AvailableAt,
+	)
+	return err
 }
 
 const revokeAllUserSessions = `-- name: RevokeAllUserSessions :exec
@@ -921,7 +1348,7 @@ JOIN modura.tenants t ON t.id = s.tenant_id
 WHERE s.id = $1 AND s.tenant_id = $2 AND s.user_id = $3
   AND s.security_version = $4 AND u.security_version = $4
   AND s.revoked_at IS NULL AND s.expires_at > $5
-  AND u.status = 'active' AND t.status = 'active'
+  AND u.status = 'active' AND t.status = 'active' AND u.consumer=$6::boolean
 `
 
 type SessionSecurityActiveParams struct {
@@ -930,6 +1357,7 @@ type SessionSecurityActiveParams struct {
 	UserID          string    `json:"user_id"`
 	SecurityVersion int64     `json:"security_version"`
 	ExpiresAt       time.Time `json:"expires_at"`
+	Consumer        bool      `json:"consumer"`
 }
 
 func (q *Queries) SessionSecurityActive(ctx context.Context, arg SessionSecurityActiveParams) (int32, error) {
@@ -939,6 +1367,7 @@ func (q *Queries) SessionSecurityActive(ctx context.Context, arg SessionSecurity
 		arg.UserID,
 		arg.SecurityVersion,
 		arg.ExpiresAt,
+		arg.Consumer,
 	)
 	var column_1 int32
 	err := row.Scan(&column_1)
@@ -1138,4 +1567,20 @@ func (q *Queries) UserExistsInTenant(ctx context.Context, arg UserExistsInTenant
 	var present bool
 	err := row.Scan(&present)
 	return present, err
+}
+
+const verifyConsumerEmail = `-- name: VerifyConsumerEmail :exec
+UPDATE modura.users SET email_verified_at=$3, status='active', security_version=security_version+1, updated_at=$3
+WHERE tenant_id=$1 AND id=$2 AND status='pending_email' AND consumer
+`
+
+type VerifyConsumerEmailParams struct {
+	TenantID        string             `json:"tenant_id"`
+	ID              string             `json:"id"`
+	EmailVerifiedAt pgtype.Timestamptz `json:"email_verified_at"`
+}
+
+func (q *Queries) VerifyConsumerEmail(ctx context.Context, arg VerifyConsumerEmailParams) error {
+	_, err := q.db.Exec(ctx, verifyConsumerEmail, arg.TenantID, arg.ID, arg.EmailVerifiedAt)
+	return err
 }

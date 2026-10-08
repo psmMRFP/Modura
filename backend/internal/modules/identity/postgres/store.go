@@ -14,13 +14,20 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/modura-dev/modura/backend/internal/modules/identity"
 	identitydb "github.com/modura-dev/modura/backend/internal/modules/identity/postgres/db"
+	"github.com/modura-dev/modura/backend/internal/platform/identifier"
 )
 
 // Store persists identity data and authentication sessions.
-type Store struct{ pool *pgxpool.Pool }
+type Store struct {
+	pool     *pgxpool.Pool
+	consumer bool
+}
 
 // New constructs a PostgreSQL identity store.
 func New(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
+
+// NewConsumer constructs an isolated consumer session store.
+func NewConsumer(pool *pgxpool.Pool) *Store { return &Store{pool: pool, consumer: true} }
 
 // Profile reads an active user only through the authenticated tenant/session tuple.
 func (s *Store) Profile(ctx context.Context, actor identity.Actor) (identity.Profile, error) {
@@ -256,7 +263,11 @@ func (s *Store) RecordSecurityEvent(ctx context.Context, eventType identity.Secu
 }
 
 func (s *Store) insertSecurityEvent(ctx context.Context, queries *identitydb.Queries, eventType identity.SecurityEventType, tenantID identity.TenantID, userID identity.UserID, correlationID string, now time.Time) error {
-	if err := queries.InsertAuthSecurityEvent(ctx, identitydb.InsertAuthSecurityEventParams{ID: uuid.NewString(), TenantID: pgUUIDOpt(string(tenantID)), UserID: pgUUIDOpt(string(userID)), EventType: string(eventType), CorrelationID: correlationID, OccurredAt: now}); err != nil {
+	id, err := identifier.NewUUIDv7(now, nil)
+	if err != nil {
+		return fmt.Errorf("generate security event ID: %w", err)
+	}
+	if err := queries.InsertAuthSecurityEvent(ctx, identitydb.InsertAuthSecurityEventParams{ID: string(id), TenantID: pgUUIDOpt(string(tenantID)), UserID: pgUUIDOpt(string(userID)), EventType: string(eventType), CorrelationID: correlationID, OccurredAt: now}); err != nil {
 		return fmt.Errorf("insert auth security event: %w", err)
 	}
 	return nil
@@ -269,9 +280,9 @@ SELECT u.tenant_id, u.id, u.password_hash, u.security_version
 FROM modura.users u
 JOIN modura.tenants t ON t.id = u.tenant_id
 WHERE t.slug = $1 AND t.status = 'active' AND u.status = 'active'
-  AND (u.normalized_username = $2 OR (u.normalized_email = $2 AND u.email_verified_at IS NOT NULL))`
+  AND (u.normalized_username = $2 OR (u.normalized_email = $2 AND u.email_verified_at IS NOT NULL)) AND u.consumer=$3`
 	var account identity.Account
-	err := s.pool.QueryRow(ctx, query, tenantSlug, login).Scan(&account.TenantID, &account.UserID, &account.PasswordHash, &account.SecurityVersion)
+	err := s.pool.QueryRow(ctx, query, tenantSlug, login, s.consumer).Scan(&account.TenantID, &account.UserID, &account.PasswordHash, &account.SecurityVersion)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return identity.Account{}, identity.ErrInvalidCredentials
 	}
@@ -311,7 +322,7 @@ func (s *Store) RotateSession(ctx context.Context, presented, next [32]byte, now
 	defer func() { _ = tx.Rollback(ctx) }()
 	queries := identitydb.New(tx)
 
-	replay, err := queries.ReplayedTokenFamily(ctx, presented[:])
+	replay, err := queries.ReplayedTokenFamily(ctx, identitydb.ReplayedTokenFamilyParams{TokenHash: presented[:], Consumer: s.consumer})
 	if err == nil {
 		owner, ownerErr := queries.SessionFamilyOwner(ctx, replay)
 		if ownerErr == nil {
@@ -333,7 +344,7 @@ func (s *Store) RotateSession(ctx context.Context, presented, next [32]byte, now
 		return identity.Session{}, fmt.Errorf("check refresh replay: %w", err)
 	}
 
-	current, err := queries.LockCurrentSession(ctx, presented[:])
+	current, err := queries.LockCurrentSession(ctx, identitydb.LockCurrentSessionParams{RefreshTokenHash: presented[:], Consumer: s.consumer})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return identity.Session{}, identity.ErrInvalidToken
 	}
@@ -387,7 +398,7 @@ func (s *Store) RevokeAllSessions(ctx context.Context, tenantID identity.TenantI
 
 // ValidateSession confirms that token claims still refer to active server-side state.
 func (s *Store) ValidateSession(ctx context.Context, session identity.Session, now time.Time) error {
-	_, err := identitydb.New(s.pool).SessionSecurityActive(ctx, identitydb.SessionSecurityActiveParams{ID: string(session.ID), TenantID: string(session.TenantID), UserID: string(session.UserID), SecurityVersion: session.SecurityVersion, ExpiresAt: now})
+	_, err := identitydb.New(s.pool).SessionSecurityActive(ctx, identitydb.SessionSecurityActiveParams{ID: string(session.ID), TenantID: string(session.TenantID), UserID: string(session.UserID), SecurityVersion: session.SecurityVersion, ExpiresAt: now, Consumer: s.consumer})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return identity.ErrInvalidToken
 	}

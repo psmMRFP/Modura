@@ -38,16 +38,17 @@ Los tres sistemas son independientes y todavía no están implementados. **Modur
 
 El proyecto está en una fase inicial de desarrollo y se basa en Modura. El catálogo público de lugares y la base operativa funcionan; todavía no hay un conjunto de datos de lugares para producción.
 
-| Implementado              | Funcionalidades                                                                                                 |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Sitio público             | Búsqueda de lugares sin cuenta, paginación y páginas de detalle                                                 |
-| Interfaz multilingüe      | English, 简体中文, Deutsch, Français, Español                                                                   |
-| Modelo geográfico         | Países, regiones, ciudades, barrios, islas, slugs estables y alias multilingües                                 |
-| Administración de lugares | Borradores, edición, publicación, retirada, protección frente a conflictos de versión y auditoría transaccional |
-| Contrato API              | OpenAPI compartido entre Go y ambos frontends, con tipos y clientes de consultas generados                      |
-| Inicialización de la base | Creación automática de una base dedicada ausente; se prohíben el rol y la base predeterminados `postgres`       |
+| Implementado              | Funcionalidades                                                                                                                             |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sitio público             | Búsqueda de lugares sin cuenta, paginación y páginas de detalle                                                                             |
+| Interfaz multilingüe      | English, 简体中文, Deutsch, Français, Español                                                                                               |
+| Modelo geográfico         | Países, regiones, ciudades, barrios, islas, slugs estables y alias multilingües                                                             |
+| Administración de lugares | Borradores, edición, publicación, retirada, protección frente a conflictos de versión y auditoría transaccional                             |
+| Contrato API              | OpenAPI compartido entre Go y ambos frontends, con tipos y clientes de consultas generados                                                  |
+| Inicialización de la base | Creación automática de una base dedicada ausente; se prohíben el rol y la base predeterminados `postgres`                                   |
+| Cuentas públicas          | Registro, verificación de correo, acceso, restauración de sesión y recuperación; desactivadas hasta configurar los controles del despliegue |
 
-**Próximos pasos:** registro público y verificación del correo → fuentes, evidencias y versiones de hechos → Research Agent → visados, impuestos y coste de vida → comentarios y sugerencias unificados → verificación de residencia y reseñas → adecuación personal.
+**Próximos pasos:** fuentes, evidencias y versiones de hechos → Research Agent → visados, impuestos y coste de vida → comentarios y sugerencias unificados → verificación de residencia y reseñas → adecuación personal.
 
 Está prevista la traducción de reseñas mediante IA cuando el idioma de lectura difiera del original. Los usuarios podrán activar la traducción automática y consultar siempre el texto original.
 

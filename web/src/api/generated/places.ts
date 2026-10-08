@@ -5,18 +5,129 @@
  * Authoritative HTTP contract for the Modura modular monolith.
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
   DataTag,
   DefinedInitialDataOptions,
   DefinedUseQueryResult,
+  MutationFunction,
   QueryClient,
   QueryFunction,
   QueryKey,
   UndefinedInitialDataOptions,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
+
+export interface ConsumerAuthStatus {
+  enabled: boolean;
+  /** @nullable */
+  challengeSiteKey: string | null;
+}
+
+export interface ConsumerRegistrationRequest {
+  /** @maxLength 254 */
+  email: string;
+  /**
+   * @minLength 12
+   * @maxLength 1024
+   */
+  password: string;
+  /**
+   * @minLength 1
+   * @maxLength 2048
+   */
+  challenge: string;
+}
+
+export interface ConsumerEmailRequest {
+  /** @maxLength 254 */
+  email: string;
+  /**
+   * @minLength 1
+   * @maxLength 2048
+   */
+  challenge: string;
+}
+
+export interface ConsumerCodeRequest {
+  /**
+   * @minLength 32
+   * @maxLength 128
+   */
+  code: string;
+  /**
+   * @minLength 1
+   * @maxLength 2048
+   */
+  challenge: string;
+}
+
+export interface ConsumerResetRequest {
+  /**
+   * @minLength 32
+   * @maxLength 128
+   */
+  code: string;
+  /**
+   * @minLength 12
+   * @maxLength 1024
+   */
+  password: string;
+  /**
+   * @minLength 1
+   * @maxLength 2048
+   */
+  challenge: string;
+}
+
+export interface ConsumerLoginRequest {
+  /** @maxLength 254 */
+  email: string;
+  /**
+   * @minLength 1
+   * @maxLength 1024
+   */
+  password: string;
+  /**
+   * @minLength 1
+   * @maxLength 2048
+   */
+  challenge: string;
+}
+
+export type AccessTokenResponseTokenType =
+  (typeof AccessTokenResponseTokenType)[keyof typeof AccessTokenResponseTokenType];
+
+export const AccessTokenResponseTokenType = {
+  Bearer: "Bearer",
+} as const;
+
+export interface AccessTokenResponse {
+  accessToken: string;
+  tokenType: AccessTokenResponseTokenType;
+  /** @minimum 1 */
+  expiresIn: number;
+  csrfToken: string;
+}
+
+export type UserProfileStatus =
+  (typeof UserProfileStatus)[keyof typeof UserProfileStatus];
+
+export const UserProfileStatus = {
+  active: "active",
+} as const;
+
+export interface UserProfile {
+  id: string;
+  username: string;
+  /** @nullable */
+  email?: string | null;
+  status: UserProfileStatus;
+  updatedAt: string;
+}
 
 export type PublicPlaceType =
   (typeof PublicPlaceType)[keyof typeof PublicPlaceType];
@@ -101,6 +212,11 @@ export interface Problem {
 export type PublicInvalidQueryResponse = Problem;
 
 /**
+ * Tenant or credentials are invalid, or the session is unavailable
+ */
+export type AuthenticationFailedResponse = Problem;
+
+/**
  * Internal error without private details
  */
 export type PublicInternalErrorResponse = Problem;
@@ -109,6 +225,8 @@ export type PublicInternalErrorResponse = Problem;
  * Catalogue is unavailable
  */
 export type PublicUnavailableResponse = Problem;
+
+export type CsrfTokenParameter = string;
 
 export type PublicLocaleParameter =
   (typeof PublicLocaleParameter)[keyof typeof PublicLocaleParameter];
@@ -160,6 +278,1762 @@ const withQueryKey = <T extends object, K>(
   }
   return result;
 };
+
+export type getConsumerAuthStatusResponse200 = {
+  data: ConsumerAuthStatus;
+  status: 200;
+};
+
+export type getConsumerAuthStatusResponseSuccess =
+  getConsumerAuthStatusResponse200 & {
+    headers: Headers;
+  };
+export type getConsumerAuthStatusResponse =
+  getConsumerAuthStatusResponseSuccess;
+
+export const getGetConsumerAuthStatusUrl = () => {
+  return `/api/public/auth/status`;
+};
+
+export const getConsumerAuthStatus = async (
+  options?: RequestInit,
+): Promise<getConsumerAuthStatusResponse> => {
+  const res = await fetch(getGetConsumerAuthStatusUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getConsumerAuthStatusResponse["data"] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getConsumerAuthStatusResponse;
+};
+
+export const getGetConsumerAuthStatusQueryKey = () => {
+  return [`/api/public/auth/status`] as const;
+};
+
+export const getGetConsumerAuthStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getConsumerAuthStatus>>,
+  TError = unknown,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<
+      Awaited<ReturnType<typeof getConsumerAuthStatus>>,
+      TError,
+      TData
+    >
+  >;
+  fetch?: RequestInit;
+}) => {
+  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetConsumerAuthStatusQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getConsumerAuthStatus>>
+  > = ({ signal }) => getConsumerAuthStatus({ signal, ...fetchOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getConsumerAuthStatus>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetConsumerAuthStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getConsumerAuthStatus>>
+>;
+export type GetConsumerAuthStatusQueryError = unknown;
+
+export function useGetConsumerAuthStatus<
+  TData = Awaited<ReturnType<typeof getConsumerAuthStatus>>,
+  TError = unknown,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getConsumerAuthStatus>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getConsumerAuthStatus>>,
+          TError,
+          Awaited<ReturnType<typeof getConsumerAuthStatus>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetConsumerAuthStatus<
+  TData = Awaited<ReturnType<typeof getConsumerAuthStatus>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getConsumerAuthStatus>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getConsumerAuthStatus>>,
+          TError,
+          Awaited<ReturnType<typeof getConsumerAuthStatus>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetConsumerAuthStatus<
+  TData = Awaited<ReturnType<typeof getConsumerAuthStatus>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getConsumerAuthStatus>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetConsumerAuthStatus<
+  TData = Awaited<ReturnType<typeof getConsumerAuthStatus>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getConsumerAuthStatus>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getGetConsumerAuthStatusQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export type registerConsumerResponse202 = {
+  data: void;
+  status: 202;
+};
+
+export type registerConsumerResponse400 = {
+  data: PublicInvalidQueryResponse;
+  status: 400;
+};
+
+export type registerConsumerResponse401 = {
+  data: AuthenticationFailedResponse;
+  status: 401;
+};
+
+export type registerConsumerResponse403 = {
+  data: void;
+  status: 403;
+};
+
+export type registerConsumerResponse429 = {
+  data: void;
+  status: 429;
+};
+
+export type registerConsumerResponse500 = {
+  data: PublicInternalErrorResponse;
+  status: 500;
+};
+
+export type registerConsumerResponse503 = {
+  data: PublicUnavailableResponse;
+  status: 503;
+};
+
+export type registerConsumerResponseSuccess = registerConsumerResponse202 & {
+  headers: Headers;
+};
+export type registerConsumerResponseError = (
+  | registerConsumerResponse400
+  | registerConsumerResponse401
+  | registerConsumerResponse403
+  | registerConsumerResponse429
+  | registerConsumerResponse500
+  | registerConsumerResponse503
+) & {
+  headers: Headers;
+};
+
+export type registerConsumerResponse =
+  registerConsumerResponseSuccess | registerConsumerResponseError;
+
+export const getRegisterConsumerUrl = () => {
+  return `/api/public/auth/register`;
+};
+
+export const registerConsumer = async (
+  consumerRegistrationRequest: ConsumerRegistrationRequest,
+  options?: RequestInit,
+): Promise<registerConsumerResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+  const res = await fetch(getRegisterConsumerUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(consumerRegistrationRequest),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: registerConsumerResponse["data"] = body
+    ? JSON.parse(body)
+    : undefined;
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as registerConsumerResponse;
+};
+
+export const getRegisterConsumerMutationOptions = <
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerConsumer>>,
+    TError,
+    RegisterConsumerMutationVariables,
+    TContext
+  >;
+  fetch?: RequestInit;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof registerConsumer>>,
+  TError,
+  RegisterConsumerMutationVariables,
+  TContext
+> => {
+  const mutationKey = ["registerConsumer"];
+  const { mutation: mutationOptions, fetch: fetchOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, fetch: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof registerConsumer>>,
+    RegisterConsumerMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return registerConsumer(data, fetchOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RegisterConsumerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof registerConsumer>>
+>;
+export type RegisterConsumerMutationBody = ConsumerRegistrationRequest;
+export type RegisterConsumerMutationError =
+  | PublicInvalidQueryResponse
+  | AuthenticationFailedResponse
+  | void
+  | PublicInternalErrorResponse
+  | PublicUnavailableResponse;
+export type RegisterConsumerMutationVariables = {
+  data: ConsumerRegistrationRequest;
+};
+
+export const useRegisterConsumer = <
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof registerConsumer>>,
+      TError,
+      RegisterConsumerMutationVariables,
+      TContext
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof registerConsumer>>,
+  TError,
+  RegisterConsumerMutationVariables,
+  TContext
+> => {
+  return useMutation(getRegisterConsumerMutationOptions(options), queryClient);
+};
+
+export type resendConsumerVerificationResponse202 = {
+  data: void;
+  status: 202;
+};
+
+export type resendConsumerVerificationResponse400 = {
+  data: PublicInvalidQueryResponse;
+  status: 400;
+};
+
+export type resendConsumerVerificationResponse401 = {
+  data: AuthenticationFailedResponse;
+  status: 401;
+};
+
+export type resendConsumerVerificationResponse403 = {
+  data: void;
+  status: 403;
+};
+
+export type resendConsumerVerificationResponse429 = {
+  data: void;
+  status: 429;
+};
+
+export type resendConsumerVerificationResponse500 = {
+  data: PublicInternalErrorResponse;
+  status: 500;
+};
+
+export type resendConsumerVerificationResponse503 = {
+  data: PublicUnavailableResponse;
+  status: 503;
+};
+
+export type resendConsumerVerificationResponseSuccess =
+  resendConsumerVerificationResponse202 & {
+    headers: Headers;
+  };
+export type resendConsumerVerificationResponseError = (
+  | resendConsumerVerificationResponse400
+  | resendConsumerVerificationResponse401
+  | resendConsumerVerificationResponse403
+  | resendConsumerVerificationResponse429
+  | resendConsumerVerificationResponse500
+  | resendConsumerVerificationResponse503
+) & {
+  headers: Headers;
+};
+
+export type resendConsumerVerificationResponse =
+  | resendConsumerVerificationResponseSuccess
+  | resendConsumerVerificationResponseError;
+
+export const getResendConsumerVerificationUrl = () => {
+  return `/api/public/auth/resend-verification`;
+};
+
+export const resendConsumerVerification = async (
+  consumerEmailRequest: ConsumerEmailRequest,
+  options?: RequestInit,
+): Promise<resendConsumerVerificationResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+  const res = await fetch(getResendConsumerVerificationUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(consumerEmailRequest),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: resendConsumerVerificationResponse["data"] = body
+    ? JSON.parse(body)
+    : undefined;
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as resendConsumerVerificationResponse;
+};
+
+export const getResendConsumerVerificationMutationOptions = <
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resendConsumerVerification>>,
+    TError,
+    ResendConsumerVerificationMutationVariables,
+    TContext
+  >;
+  fetch?: RequestInit;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof resendConsumerVerification>>,
+  TError,
+  ResendConsumerVerificationMutationVariables,
+  TContext
+> => {
+  const mutationKey = ["resendConsumerVerification"];
+  const { mutation: mutationOptions, fetch: fetchOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, fetch: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof resendConsumerVerification>>,
+    ResendConsumerVerificationMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return resendConsumerVerification(data, fetchOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ResendConsumerVerificationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resendConsumerVerification>>
+>;
+export type ResendConsumerVerificationMutationBody = ConsumerEmailRequest;
+export type ResendConsumerVerificationMutationError =
+  | PublicInvalidQueryResponse
+  | AuthenticationFailedResponse
+  | void
+  | PublicInternalErrorResponse
+  | PublicUnavailableResponse;
+export type ResendConsumerVerificationMutationVariables = {
+  data: ConsumerEmailRequest;
+};
+
+export const useResendConsumerVerification = <
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof resendConsumerVerification>>,
+      TError,
+      ResendConsumerVerificationMutationVariables,
+      TContext
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof resendConsumerVerification>>,
+  TError,
+  ResendConsumerVerificationMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getResendConsumerVerificationMutationOptions(options),
+    queryClient,
+  );
+};
+
+export type requestConsumerRecoveryResponse202 = {
+  data: void;
+  status: 202;
+};
+
+export type requestConsumerRecoveryResponse400 = {
+  data: PublicInvalidQueryResponse;
+  status: 400;
+};
+
+export type requestConsumerRecoveryResponse401 = {
+  data: AuthenticationFailedResponse;
+  status: 401;
+};
+
+export type requestConsumerRecoveryResponse403 = {
+  data: void;
+  status: 403;
+};
+
+export type requestConsumerRecoveryResponse429 = {
+  data: void;
+  status: 429;
+};
+
+export type requestConsumerRecoveryResponse500 = {
+  data: PublicInternalErrorResponse;
+  status: 500;
+};
+
+export type requestConsumerRecoveryResponse503 = {
+  data: PublicUnavailableResponse;
+  status: 503;
+};
+
+export type requestConsumerRecoveryResponseSuccess =
+  requestConsumerRecoveryResponse202 & {
+    headers: Headers;
+  };
+export type requestConsumerRecoveryResponseError = (
+  | requestConsumerRecoveryResponse400
+  | requestConsumerRecoveryResponse401
+  | requestConsumerRecoveryResponse403
+  | requestConsumerRecoveryResponse429
+  | requestConsumerRecoveryResponse500
+  | requestConsumerRecoveryResponse503
+) & {
+  headers: Headers;
+};
+
+export type requestConsumerRecoveryResponse =
+  requestConsumerRecoveryResponseSuccess | requestConsumerRecoveryResponseError;
+
+export const getRequestConsumerRecoveryUrl = () => {
+  return `/api/public/auth/recover`;
+};
+
+export const requestConsumerRecovery = async (
+  consumerEmailRequest: ConsumerEmailRequest,
+  options?: RequestInit,
+): Promise<requestConsumerRecoveryResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+  const res = await fetch(getRequestConsumerRecoveryUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(consumerEmailRequest),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: requestConsumerRecoveryResponse["data"] = body
+    ? JSON.parse(body)
+    : undefined;
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as requestConsumerRecoveryResponse;
+};
+
+export const getRequestConsumerRecoveryMutationOptions = <
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof requestConsumerRecovery>>,
+    TError,
+    RequestConsumerRecoveryMutationVariables,
+    TContext
+  >;
+  fetch?: RequestInit;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof requestConsumerRecovery>>,
+  TError,
+  RequestConsumerRecoveryMutationVariables,
+  TContext
+> => {
+  const mutationKey = ["requestConsumerRecovery"];
+  const { mutation: mutationOptions, fetch: fetchOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, fetch: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof requestConsumerRecovery>>,
+    RequestConsumerRecoveryMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return requestConsumerRecovery(data, fetchOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RequestConsumerRecoveryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof requestConsumerRecovery>>
+>;
+export type RequestConsumerRecoveryMutationBody = ConsumerEmailRequest;
+export type RequestConsumerRecoveryMutationError =
+  | PublicInvalidQueryResponse
+  | AuthenticationFailedResponse
+  | void
+  | PublicInternalErrorResponse
+  | PublicUnavailableResponse;
+export type RequestConsumerRecoveryMutationVariables = {
+  data: ConsumerEmailRequest;
+};
+
+export const useRequestConsumerRecovery = <
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof requestConsumerRecovery>>,
+      TError,
+      RequestConsumerRecoveryMutationVariables,
+      TContext
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof requestConsumerRecovery>>,
+  TError,
+  RequestConsumerRecoveryMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getRequestConsumerRecoveryMutationOptions(options),
+    queryClient,
+  );
+};
+
+export type verifyConsumerEmailResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type verifyConsumerEmailResponse400 = {
+  data: PublicInvalidQueryResponse;
+  status: 400;
+};
+
+export type verifyConsumerEmailResponse401 = {
+  data: AuthenticationFailedResponse;
+  status: 401;
+};
+
+export type verifyConsumerEmailResponse403 = {
+  data: void;
+  status: 403;
+};
+
+export type verifyConsumerEmailResponse429 = {
+  data: void;
+  status: 429;
+};
+
+export type verifyConsumerEmailResponse500 = {
+  data: PublicInternalErrorResponse;
+  status: 500;
+};
+
+export type verifyConsumerEmailResponse503 = {
+  data: PublicUnavailableResponse;
+  status: 503;
+};
+
+export type verifyConsumerEmailResponseSuccess =
+  verifyConsumerEmailResponse204 & {
+    headers: Headers;
+  };
+export type verifyConsumerEmailResponseError = (
+  | verifyConsumerEmailResponse400
+  | verifyConsumerEmailResponse401
+  | verifyConsumerEmailResponse403
+  | verifyConsumerEmailResponse429
+  | verifyConsumerEmailResponse500
+  | verifyConsumerEmailResponse503
+) & {
+  headers: Headers;
+};
+
+export type verifyConsumerEmailResponse =
+  verifyConsumerEmailResponseSuccess | verifyConsumerEmailResponseError;
+
+export const getVerifyConsumerEmailUrl = () => {
+  return `/api/public/auth/verify-email`;
+};
+
+export const verifyConsumerEmail = async (
+  consumerCodeRequest: ConsumerCodeRequest,
+  options?: RequestInit,
+): Promise<verifyConsumerEmailResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+  const res = await fetch(getVerifyConsumerEmailUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(consumerCodeRequest),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: verifyConsumerEmailResponse["data"] = body
+    ? JSON.parse(body)
+    : undefined;
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as verifyConsumerEmailResponse;
+};
+
+export const getVerifyConsumerEmailMutationOptions = <
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifyConsumerEmail>>,
+    TError,
+    VerifyConsumerEmailMutationVariables,
+    TContext
+  >;
+  fetch?: RequestInit;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof verifyConsumerEmail>>,
+  TError,
+  VerifyConsumerEmailMutationVariables,
+  TContext
+> => {
+  const mutationKey = ["verifyConsumerEmail"];
+  const { mutation: mutationOptions, fetch: fetchOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, fetch: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof verifyConsumerEmail>>,
+    VerifyConsumerEmailMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return verifyConsumerEmail(data, fetchOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type VerifyConsumerEmailMutationResult = NonNullable<
+  Awaited<ReturnType<typeof verifyConsumerEmail>>
+>;
+export type VerifyConsumerEmailMutationBody = ConsumerCodeRequest;
+export type VerifyConsumerEmailMutationError =
+  | PublicInvalidQueryResponse
+  | AuthenticationFailedResponse
+  | void
+  | PublicInternalErrorResponse
+  | PublicUnavailableResponse;
+export type VerifyConsumerEmailMutationVariables = {
+  data: ConsumerCodeRequest;
+};
+
+export const useVerifyConsumerEmail = <
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof verifyConsumerEmail>>,
+      TError,
+      VerifyConsumerEmailMutationVariables,
+      TContext
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof verifyConsumerEmail>>,
+  TError,
+  VerifyConsumerEmailMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getVerifyConsumerEmailMutationOptions(options),
+    queryClient,
+  );
+};
+
+export type resetConsumerPasswordResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type resetConsumerPasswordResponse400 = {
+  data: PublicInvalidQueryResponse;
+  status: 400;
+};
+
+export type resetConsumerPasswordResponse401 = {
+  data: AuthenticationFailedResponse;
+  status: 401;
+};
+
+export type resetConsumerPasswordResponse403 = {
+  data: void;
+  status: 403;
+};
+
+export type resetConsumerPasswordResponse429 = {
+  data: void;
+  status: 429;
+};
+
+export type resetConsumerPasswordResponse500 = {
+  data: PublicInternalErrorResponse;
+  status: 500;
+};
+
+export type resetConsumerPasswordResponse503 = {
+  data: PublicUnavailableResponse;
+  status: 503;
+};
+
+export type resetConsumerPasswordResponseSuccess =
+  resetConsumerPasswordResponse204 & {
+    headers: Headers;
+  };
+export type resetConsumerPasswordResponseError = (
+  | resetConsumerPasswordResponse400
+  | resetConsumerPasswordResponse401
+  | resetConsumerPasswordResponse403
+  | resetConsumerPasswordResponse429
+  | resetConsumerPasswordResponse500
+  | resetConsumerPasswordResponse503
+) & {
+  headers: Headers;
+};
+
+export type resetConsumerPasswordResponse =
+  resetConsumerPasswordResponseSuccess | resetConsumerPasswordResponseError;
+
+export const getResetConsumerPasswordUrl = () => {
+  return `/api/public/auth/reset-password`;
+};
+
+export const resetConsumerPassword = async (
+  consumerResetRequest: ConsumerResetRequest,
+  options?: RequestInit,
+): Promise<resetConsumerPasswordResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+  const res = await fetch(getResetConsumerPasswordUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(consumerResetRequest),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: resetConsumerPasswordResponse["data"] = body
+    ? JSON.parse(body)
+    : undefined;
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as resetConsumerPasswordResponse;
+};
+
+export const getResetConsumerPasswordMutationOptions = <
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resetConsumerPassword>>,
+    TError,
+    ResetConsumerPasswordMutationVariables,
+    TContext
+  >;
+  fetch?: RequestInit;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof resetConsumerPassword>>,
+  TError,
+  ResetConsumerPasswordMutationVariables,
+  TContext
+> => {
+  const mutationKey = ["resetConsumerPassword"];
+  const { mutation: mutationOptions, fetch: fetchOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, fetch: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof resetConsumerPassword>>,
+    ResetConsumerPasswordMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return resetConsumerPassword(data, fetchOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ResetConsumerPasswordMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resetConsumerPassword>>
+>;
+export type ResetConsumerPasswordMutationBody = ConsumerResetRequest;
+export type ResetConsumerPasswordMutationError =
+  | PublicInvalidQueryResponse
+  | AuthenticationFailedResponse
+  | void
+  | PublicInternalErrorResponse
+  | PublicUnavailableResponse;
+export type ResetConsumerPasswordMutationVariables = {
+  data: ConsumerResetRequest;
+};
+
+export const useResetConsumerPassword = <
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof resetConsumerPassword>>,
+      TError,
+      ResetConsumerPasswordMutationVariables,
+      TContext
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof resetConsumerPassword>>,
+  TError,
+  ResetConsumerPasswordMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getResetConsumerPasswordMutationOptions(options),
+    queryClient,
+  );
+};
+
+export type loginConsumerResponse200 = {
+  data: AccessTokenResponse;
+  status: 200;
+};
+
+export type loginConsumerResponse400 = {
+  data: PublicInvalidQueryResponse;
+  status: 400;
+};
+
+export type loginConsumerResponse401 = {
+  data: AuthenticationFailedResponse;
+  status: 401;
+};
+
+export type loginConsumerResponse403 = {
+  data: void;
+  status: 403;
+};
+
+export type loginConsumerResponse429 = {
+  data: void;
+  status: 429;
+};
+
+export type loginConsumerResponse500 = {
+  data: PublicInternalErrorResponse;
+  status: 500;
+};
+
+export type loginConsumerResponse503 = {
+  data: PublicUnavailableResponse;
+  status: 503;
+};
+
+export type loginConsumerResponseSuccess = loginConsumerResponse200 & {
+  headers: Headers;
+};
+export type loginConsumerResponseError = (
+  | loginConsumerResponse400
+  | loginConsumerResponse401
+  | loginConsumerResponse403
+  | loginConsumerResponse429
+  | loginConsumerResponse500
+  | loginConsumerResponse503
+) & {
+  headers: Headers;
+};
+
+export type loginConsumerResponse =
+  loginConsumerResponseSuccess | loginConsumerResponseError;
+
+export const getLoginConsumerUrl = () => {
+  return `/api/public/auth/login`;
+};
+
+export const loginConsumer = async (
+  consumerLoginRequest: ConsumerLoginRequest,
+  options?: RequestInit,
+): Promise<loginConsumerResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+  const res = await fetch(getLoginConsumerUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(consumerLoginRequest),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: loginConsumerResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as loginConsumerResponse;
+};
+
+export const getLoginConsumerMutationOptions = <
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof loginConsumer>>,
+    TError,
+    LoginConsumerMutationVariables,
+    TContext
+  >;
+  fetch?: RequestInit;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof loginConsumer>>,
+  TError,
+  LoginConsumerMutationVariables,
+  TContext
+> => {
+  const mutationKey = ["loginConsumer"];
+  const { mutation: mutationOptions, fetch: fetchOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, fetch: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof loginConsumer>>,
+    LoginConsumerMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return loginConsumer(data, fetchOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type LoginConsumerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof loginConsumer>>
+>;
+export type LoginConsumerMutationBody = ConsumerLoginRequest;
+export type LoginConsumerMutationError =
+  | PublicInvalidQueryResponse
+  | AuthenticationFailedResponse
+  | void
+  | PublicInternalErrorResponse
+  | PublicUnavailableResponse;
+export type LoginConsumerMutationVariables = { data: ConsumerLoginRequest };
+
+export const useLoginConsumer = <
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof loginConsumer>>,
+      TError,
+      LoginConsumerMutationVariables,
+      TContext
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof loginConsumer>>,
+  TError,
+  LoginConsumerMutationVariables,
+  TContext
+> => {
+  return useMutation(getLoginConsumerMutationOptions(options), queryClient);
+};
+
+export type refreshConsumerResponse200 = {
+  data: AccessTokenResponse;
+  status: 200;
+};
+
+export type refreshConsumerResponse400 = {
+  data: PublicInvalidQueryResponse;
+  status: 400;
+};
+
+export type refreshConsumerResponse401 = {
+  data: AuthenticationFailedResponse;
+  status: 401;
+};
+
+export type refreshConsumerResponse403 = {
+  data: void;
+  status: 403;
+};
+
+export type refreshConsumerResponse429 = {
+  data: void;
+  status: 429;
+};
+
+export type refreshConsumerResponse500 = {
+  data: PublicInternalErrorResponse;
+  status: 500;
+};
+
+export type refreshConsumerResponse503 = {
+  data: PublicUnavailableResponse;
+  status: 503;
+};
+
+export type refreshConsumerResponseSuccess = refreshConsumerResponse200 & {
+  headers: Headers;
+};
+export type refreshConsumerResponseError = (
+  | refreshConsumerResponse400
+  | refreshConsumerResponse401
+  | refreshConsumerResponse403
+  | refreshConsumerResponse429
+  | refreshConsumerResponse500
+  | refreshConsumerResponse503
+) & {
+  headers: Headers;
+};
+
+export type refreshConsumerResponse =
+  refreshConsumerResponseSuccess | refreshConsumerResponseError;
+
+export const getRefreshConsumerUrl = () => {
+  return `/api/public/auth/refresh`;
+};
+
+export const refreshConsumer = async (
+  options?: RequestInit,
+): Promise<refreshConsumerResponse> => {
+  const res = await fetch(getRefreshConsumerUrl(), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: refreshConsumerResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as refreshConsumerResponse;
+};
+
+export const getRefreshConsumerMutationOptions = <
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof refreshConsumer>>,
+    TError,
+    void,
+    TContext
+  >;
+  fetch?: RequestInit;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof refreshConsumer>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["refreshConsumer"];
+  const { mutation: mutationOptions, fetch: fetchOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, fetch: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof refreshConsumer>>,
+    void
+  > = () => {
+    return refreshConsumer(fetchOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RefreshConsumerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof refreshConsumer>>
+>;
+
+export type RefreshConsumerMutationError =
+  | PublicInvalidQueryResponse
+  | AuthenticationFailedResponse
+  | void
+  | PublicInternalErrorResponse
+  | PublicUnavailableResponse;
+
+export const useRefreshConsumer = <
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof refreshConsumer>>,
+      TError,
+      void,
+      TContext
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof refreshConsumer>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getRefreshConsumerMutationOptions(options), queryClient);
+};
+
+export type logoutConsumerResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type logoutConsumerResponse400 = {
+  data: PublicInvalidQueryResponse;
+  status: 400;
+};
+
+export type logoutConsumerResponse401 = {
+  data: AuthenticationFailedResponse;
+  status: 401;
+};
+
+export type logoutConsumerResponse403 = {
+  data: void;
+  status: 403;
+};
+
+export type logoutConsumerResponse429 = {
+  data: void;
+  status: 429;
+};
+
+export type logoutConsumerResponse500 = {
+  data: PublicInternalErrorResponse;
+  status: 500;
+};
+
+export type logoutConsumerResponse503 = {
+  data: PublicUnavailableResponse;
+  status: 503;
+};
+
+export type logoutConsumerResponseSuccess = logoutConsumerResponse204 & {
+  headers: Headers;
+};
+export type logoutConsumerResponseError = (
+  | logoutConsumerResponse400
+  | logoutConsumerResponse401
+  | logoutConsumerResponse403
+  | logoutConsumerResponse429
+  | logoutConsumerResponse500
+  | logoutConsumerResponse503
+) & {
+  headers: Headers;
+};
+
+export type logoutConsumerResponse =
+  logoutConsumerResponseSuccess | logoutConsumerResponseError;
+
+export const getLogoutConsumerUrl = () => {
+  return `/api/public/auth/logout`;
+};
+
+export const logoutConsumer = async (
+  options?: RequestInit,
+): Promise<logoutConsumerResponse> => {
+  const res = await fetch(getLogoutConsumerUrl(), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: logoutConsumerResponse["data"] = body
+    ? JSON.parse(body)
+    : undefined;
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as logoutConsumerResponse;
+};
+
+export const getLogoutConsumerMutationOptions = <
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof logoutConsumer>>,
+    TError,
+    void,
+    TContext
+  >;
+  fetch?: RequestInit;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof logoutConsumer>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["logoutConsumer"];
+  const { mutation: mutationOptions, fetch: fetchOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, fetch: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof logoutConsumer>>,
+    void
+  > = () => {
+    return logoutConsumer(fetchOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type LogoutConsumerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof logoutConsumer>>
+>;
+
+export type LogoutConsumerMutationError =
+  | PublicInvalidQueryResponse
+  | AuthenticationFailedResponse
+  | void
+  | PublicInternalErrorResponse
+  | PublicUnavailableResponse;
+
+export const useLogoutConsumer = <
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof logoutConsumer>>,
+      TError,
+      void,
+      TContext
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof logoutConsumer>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getLogoutConsumerMutationOptions(options), queryClient);
+};
+
+export type getConsumerProfileResponse200 = {
+  data: UserProfile;
+  status: 200;
+};
+
+export type getConsumerProfileResponse401 = {
+  data: AuthenticationFailedResponse;
+  status: 401;
+};
+
+export type getConsumerProfileResponse500 = {
+  data: PublicInternalErrorResponse;
+  status: 500;
+};
+
+export type getConsumerProfileResponse503 = {
+  data: PublicUnavailableResponse;
+  status: 503;
+};
+
+export type getConsumerProfileResponseSuccess =
+  getConsumerProfileResponse200 & {
+    headers: Headers;
+  };
+export type getConsumerProfileResponseError = (
+  | getConsumerProfileResponse401
+  | getConsumerProfileResponse500
+  | getConsumerProfileResponse503
+) & {
+  headers: Headers;
+};
+
+export type getConsumerProfileResponse =
+  getConsumerProfileResponseSuccess | getConsumerProfileResponseError;
+
+export const getGetConsumerProfileUrl = () => {
+  return `/api/public/auth/me`;
+};
+
+export const getConsumerProfile = async (
+  options?: RequestInit,
+): Promise<getConsumerProfileResponse> => {
+  const res = await fetch(getGetConsumerProfileUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getConsumerProfileResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getConsumerProfileResponse;
+};
+
+export const getGetConsumerProfileQueryKey = () => {
+  return [`/api/public/auth/me`] as const;
+};
+
+export const getGetConsumerProfileQueryOptions = <
+  TData = Awaited<ReturnType<typeof getConsumerProfile>>,
+  TError =
+    | AuthenticationFailedResponse
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<
+      Awaited<ReturnType<typeof getConsumerProfile>>,
+      TError,
+      TData
+    >
+  >;
+  fetch?: RequestInit;
+}) => {
+  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetConsumerProfileQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getConsumerProfile>>
+  > = ({ signal }) => getConsumerProfile({ signal, ...fetchOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getConsumerProfile>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetConsumerProfileQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getConsumerProfile>>
+>;
+export type GetConsumerProfileQueryError =
+  | AuthenticationFailedResponse
+  | PublicInternalErrorResponse
+  | PublicUnavailableResponse;
+
+export function useGetConsumerProfile<
+  TData = Awaited<ReturnType<typeof getConsumerProfile>>,
+  TError =
+    | AuthenticationFailedResponse
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getConsumerProfile>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getConsumerProfile>>,
+          TError,
+          Awaited<ReturnType<typeof getConsumerProfile>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetConsumerProfile<
+  TData = Awaited<ReturnType<typeof getConsumerProfile>>,
+  TError =
+    | AuthenticationFailedResponse
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getConsumerProfile>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getConsumerProfile>>,
+          TError,
+          Awaited<ReturnType<typeof getConsumerProfile>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetConsumerProfile<
+  TData = Awaited<ReturnType<typeof getConsumerProfile>>,
+  TError =
+    | AuthenticationFailedResponse
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getConsumerProfile>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetConsumerProfile<
+  TData = Awaited<ReturnType<typeof getConsumerProfile>>,
+  TError =
+    | AuthenticationFailedResponse
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getConsumerProfile>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getGetConsumerProfileQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
 
 export type searchPublicPlacesResponse200 = {
   data: PublicPlacePage;

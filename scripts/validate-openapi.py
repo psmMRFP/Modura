@@ -16,6 +16,7 @@ HTTP_METHODS = {"get", "put", "post", "delete", "patch"}
 SYSTEM_PATHS = {"/livez", "/readyz"}
 # Exact allowlist: a /public prefix must never make future writes anonymous.
 PUBLIC_READS = {("/public/places", "get"), ("/public/places/{slug}", "get")}
+PUBLIC_IDENTITY = {("/public/auth/status", "get"), ("/public/auth/me", "get"), ("/public/auth/register", "post"), ("/public/auth/resend-verification", "post"), ("/public/auth/recover", "post"), ("/public/auth/verify-email", "post"), ("/public/auth/reset-password", "post"), ("/public/auth/login", "post"), ("/public/auth/refresh", "post"), ("/public/auth/logout", "post")}
 PERMISSION_FREE_PATHS = {"/auth/logout", "/auth/logout-all", "/auth/password", "/users/me", "/authorization/permissions"}
 
 
@@ -70,6 +71,9 @@ def main() -> None:
                 fail(f"{path} {method}: public read must explicitly declare security: []")
             security = operation.get("security", [])
             bearer = any("bearerAuth" in entry for entry in security)
+            consumer_bearer = any("consumerBearerAuth" in entry for entry in security)
+            if consumer_bearer and (path, method) not in PUBLIC_IDENTITY:
+                fail(f"{path} {method}: consumer capability not allowlisted")
             platform_bearer = any("platformBearerAuth" in entry for entry in security)
             if bearer:
                 tenant_operations += 1
@@ -77,9 +81,11 @@ def main() -> None:
                     fail(f"{path} {method}: tenant bearer operation lacks x-modura-permission")
             elif platform_bearer:
                 platform_operations += 1
-            elif not security and not (path.startswith("/auth/") or path.startswith("/platform/auth/")) and path not in SYSTEM_PATHS and (path, method) not in PUBLIC_READS:
+            elif consumer_bearer:
+                pass
+            elif not security and not (path.startswith("/auth/") or path.startswith("/platform/auth/")) and path not in SYSTEM_PATHS and (path, method) not in PUBLIC_READS and (path, method) not in PUBLIC_IDENTITY:
                 fail(f"{path} {method}: operation declares no security")
-            if security and platform_bearer and bearer:
+            if sum((bearer, platform_bearer, consumer_bearer)) > 1:
                 fail(f"{path} {method}: operation mixes tenant and platform security")
         for reference in _collect_refs(raw_path):
             _check_ref(reference, paths, schemas, responses, parameters)

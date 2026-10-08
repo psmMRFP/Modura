@@ -13,6 +13,8 @@ import (
 
 // Cookie names separate tenant-local and global platform sessions.
 const (
+	ConsumerRefreshCookie = "wheretolive_refresh"
+	ConsumerCSRFCookie    = "wheretolive_csrf"
 	TenantRefreshCookie   = "modura_refresh"
 	TenantCSRFCookie      = "modura_csrf"
 	PlatformRefreshCookie = "modura_platform_refresh"

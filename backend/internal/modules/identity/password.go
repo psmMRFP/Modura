@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"golang.org/x/crypto/argon2"
 )
@@ -27,8 +28,8 @@ func DefaultPasswordParameters() PasswordParameters {
 
 // HashPassword returns a self-describing Argon2id password hash.
 func HashPassword(password string, parameters PasswordParameters) (string, error) {
-	if len(password) < 12 {
-		return "", fmt.Errorf("%w: must contain at least 12 characters", ErrInvalidPassword)
+	if !utf8.ValidString(password) || utf8.RuneCountInString(password) < 12 || utf8.RuneCountInString(password) > 1024 {
+		return "", fmt.Errorf("%w: must contain 12 to 1024 characters", ErrInvalidPassword)
 	}
 	salt := make([]byte, parameters.SaltLength)
 	if _, err := rand.Read(salt); err != nil {

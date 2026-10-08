@@ -171,7 +171,7 @@ func canonicalRequest(request Request) (Request, [32]byte, error) {
 	request.AdministratorEmail = strings.TrimSpace(request.AdministratorEmail)
 	request.Reason = strings.TrimSpace(request.Reason)
 	request.CorrelationID = strings.TrimSpace(request.CorrelationID)
-	if request.IdempotencyKey == "" || request.Slug == "" || request.DisplayName == "" || request.RootDepartmentName == "" || request.AdministratorUsername == "" || request.Actor.AdministratorID == "" || request.Actor.SessionID == "" || request.Reason == "" || request.CorrelationID == "" {
+	if request.IdempotencyKey == "" || (request.Slug == "" || request.Slug == "community") || request.DisplayName == "" || request.RootDepartmentName == "" || request.AdministratorUsername == "" || request.Actor.AdministratorID == "" || request.Actor.SessionID == "" || request.Reason == "" || request.CorrelationID == "" {
 		return Request{}, [32]byte{}, fmt.Errorf("invalid tenant provisioning request")
 	}
 	digestInput := struct {

@@ -1,3 +1,4 @@
+import { authMessages } from "../features/auth/messages";
 import { useEffect } from "react";
 import { Link, Outlet, useLocation, useParams } from "react-router-dom";
 import { SearchForm } from "../features/places/PlacePages";
@@ -21,6 +22,7 @@ export function LocaleLayout() {
           WhereToLive<span aria-hidden="true">↗</span>
         </Link>
         <nav aria-label={copy.language}>
+          <Link to={`/${locale}/account`}>{authMessages[locale].account}</Link>
           {locales.map((value) => (
             <Link
               key={value}

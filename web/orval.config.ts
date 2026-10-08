@@ -4,7 +4,7 @@ export default defineConfig({
   whereToLive: {
     input: {
       target: "../api/openapi.yaml",
-      filters: { mode: "include", tags: ["public-places"] },
+      filters: { mode: "include", tags: ["public-places", "public-auth"] },
     },
     output: {
       target: "src/api/generated/places.ts",

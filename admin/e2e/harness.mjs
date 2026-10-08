@@ -100,6 +100,13 @@ export async function startBrowser() {
     flatten: true,
   });
   const page = {
+    async addInitScript(source) {
+      return send(
+        "Page.addScriptToEvaluateOnNewDocument",
+        { source },
+        sessionId,
+      );
+    },
     async goto(url) {
       await send("Page.enable", {}, sessionId);
       const loaded = new Promise((resolve) => {

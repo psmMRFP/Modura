@@ -38,16 +38,17 @@ Ces trois systèmes restent indépendants et ne sont pas encore implémentés. *
 
 Le projet est au début de son développement et s'appuie sur Modura. Le catalogue public des lieux et les bases de l'administration fonctionnent ; aucun jeu de données de production sur les lieux n'est encore disponible.
 
-| Implémenté                | Fonctionnalités                                                                                                   |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Site public               | Recherche de lieux sans compte, pagination et pages détaillées                                                    |
-| Interface multilingue     | English, 简体中文, Deutsch, Français, Español                                                                     |
-| Modèle géographique       | Pays, régions, villes, quartiers, îles, slugs stables et alias multilingues                                       |
-| Administration des lieux  | Brouillons, modification, publication, retrait, protection contre les conflits de version et audit transactionnel |
-| Contrat API               | OpenAPI commun à Go et aux deux interfaces, avec types et clients de requêtes générés                             |
-| Initialisation de la base | Création automatique d'une base dédiée absente ; rôle et base par défaut `postgres` interdits                     |
+| Implémenté                | Fonctionnalités                                                                                                                                    |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Site public               | Recherche de lieux sans compte, pagination et pages détaillées                                                                                     |
+| Interface multilingue     | English, 简体中文, Deutsch, Français, Español                                                                                                      |
+| Modèle géographique       | Pays, régions, villes, quartiers, îles, slugs stables et alias multilingues                                                                        |
+| Administration des lieux  | Brouillons, modification, publication, retrait, protection contre les conflits de version et audit transactionnel                                  |
+| Contrat API               | OpenAPI commun à Go et aux deux interfaces, avec types et clients de requêtes générés                                                              |
+| Initialisation de la base | Création automatique d'une base dédiée absente ; rôle et base par défaut `postgres` interdits                                                      |
+| Comptes publics           | Inscription, vérification e-mail, connexion, restauration de session et récupération ; désactivés jusqu’à la configuration complète du déploiement |
 
-**Prochaines étapes :** inscription publique et vérification de l'adresse e-mail → sources, preuves et versions des faits → Research Agent → visas, fiscalité et coût de la vie → retours unifiés → vérification de résidence et avis → adéquation personnelle.
+**Prochaines étapes :** sources, preuves et versions des faits → Research Agent → visas, fiscalité et coût de la vie → retours unifiés → vérification de résidence et avis → adéquation personnelle.
 
 La traduction des avis par IA est prévue lorsque la langue de lecture diffère de celle de l'avis original. Les utilisateurs pourront activer la traduction automatique et toujours consulter l'original.
 

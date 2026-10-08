@@ -318,10 +318,11 @@ func (e SettingSource) Valid() bool {
 
 // Defines values for TenantUserStatus.
 const (
-	TenantUserStatusActive   TenantUserStatus = "active"
-	TenantUserStatusDisabled TenantUserStatus = "disabled"
-	TenantUserStatusInvited  TenantUserStatus = "invited"
-	TenantUserStatusLocked   TenantUserStatus = "locked"
+	TenantUserStatusActive       TenantUserStatus = "active"
+	TenantUserStatusDisabled     TenantUserStatus = "disabled"
+	TenantUserStatusInvited      TenantUserStatus = "invited"
+	TenantUserStatusLocked       TenantUserStatus = "locked"
+	TenantUserStatusPendingEmail TenantUserStatus = "pending_email"
 )
 
 // Valid indicates whether the value is a known member of the TenantUserStatus enum.
@@ -334,6 +335,8 @@ func (e TenantUserStatus) Valid() bool {
 	case TenantUserStatusInvited:
 		return true
 	case TenantUserStatusLocked:
+		return true
+	case TenantUserStatusPendingEmail:
 		return true
 	default:
 		return false
@@ -513,6 +516,45 @@ type Configuration struct {
 
 // ConfigurationValueType defines model for ConfigurationValueType.
 type ConfigurationValueType string
+
+// ConsumerAuthStatus defines model for ConsumerAuthStatus.
+type ConsumerAuthStatus struct {
+	ChallengeSiteKey *string `json:"challengeSiteKey"`
+	Enabled          bool    `json:"enabled"`
+}
+
+// ConsumerCodeRequest defines model for ConsumerCodeRequest.
+type ConsumerCodeRequest struct {
+	Challenge string `json:"challenge"`
+	Code      string `json:"code"`
+}
+
+// ConsumerEmailRequest defines model for ConsumerEmailRequest.
+type ConsumerEmailRequest struct {
+	Challenge string              `json:"challenge"`
+	Email     openapi_types.Email `json:"email"`
+}
+
+// ConsumerLoginRequest defines model for ConsumerLoginRequest.
+type ConsumerLoginRequest struct {
+	Challenge string              `json:"challenge"`
+	Email     openapi_types.Email `json:"email"`
+	Password  string              `json:"password"`
+}
+
+// ConsumerRegistrationRequest defines model for ConsumerRegistrationRequest.
+type ConsumerRegistrationRequest struct {
+	Challenge string              `json:"challenge"`
+	Email     openapi_types.Email `json:"email"`
+	Password  string              `json:"password"`
+}
+
+// ConsumerResetRequest defines model for ConsumerResetRequest.
+type ConsumerResetRequest struct {
+	Challenge string `json:"challenge"`
+	Code      string `json:"code"`
+	Password  string `json:"password"`
+}
 
 // CreateDepartmentRequest defines model for CreateDepartmentRequest.
 type CreateDepartmentRequest struct {
@@ -1124,6 +1166,16 @@ type SuspendPlatformTenantParams struct {
 	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
 }
 
+// LogoutConsumerParams defines parameters for LogoutConsumer.
+type LogoutConsumerParams struct {
+	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
+}
+
+// RefreshConsumerParams defines parameters for RefreshConsumer.
+type RefreshConsumerParams struct {
+	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
+}
+
 // SearchPublicPlacesParams defines parameters for SearchPublicPlaces.
 type SearchPublicPlacesParams struct {
 	Q      *string                         `form:"q,omitempty" json:"q,omitempty"`
@@ -1242,6 +1294,24 @@ type ReactivatePlatformTenantJSONRequestBody = TenantLifecycleRequest
 
 // SuspendPlatformTenantJSONRequestBody defines body for SuspendPlatformTenant for application/json ContentType.
 type SuspendPlatformTenantJSONRequestBody = TenantLifecycleRequest
+
+// LoginConsumerJSONRequestBody defines body for LoginConsumer for application/json ContentType.
+type LoginConsumerJSONRequestBody = ConsumerLoginRequest
+
+// RequestConsumerRecoveryJSONRequestBody defines body for RequestConsumerRecovery for application/json ContentType.
+type RequestConsumerRecoveryJSONRequestBody = ConsumerEmailRequest
+
+// RegisterConsumerJSONRequestBody defines body for RegisterConsumer for application/json ContentType.
+type RegisterConsumerJSONRequestBody = ConsumerRegistrationRequest
+
+// ResendConsumerVerificationJSONRequestBody defines body for ResendConsumerVerification for application/json ContentType.
+type ResendConsumerVerificationJSONRequestBody = ConsumerEmailRequest
+
+// ResetConsumerPasswordJSONRequestBody defines body for ResetConsumerPassword for application/json ContentType.
+type ResetConsumerPasswordJSONRequestBody = ConsumerResetRequest
+
+// VerifyConsumerEmailJSONRequestBody defines body for VerifyConsumerEmail for application/json ContentType.
+type VerifyConsumerEmailJSONRequestBody = ConsumerCodeRequest
 
 // PutConfigurationJSONRequestBody defines body for PutConfiguration for application/json ContentType.
 type PutConfigurationJSONRequestBody = PutConfigurationRequest
@@ -1389,6 +1459,36 @@ type ServerInterface interface {
 	// SuspendPlatformTenant Suspend an active tenant with auditable reason
 	// (POST /platform/tenants/{tenantId}/suspend)
 	SuspendPlatformTenant(c *gin.Context, tenantId TenantId, params SuspendPlatformTenantParams)
+
+	// (POST /public/auth/login)
+	LoginConsumer(c *gin.Context)
+
+	// (POST /public/auth/logout)
+	LogoutConsumer(c *gin.Context, params LogoutConsumerParams)
+
+	// (GET /public/auth/me)
+	GetConsumerProfile(c *gin.Context)
+
+	// (POST /public/auth/recover)
+	RequestConsumerRecovery(c *gin.Context)
+
+	// (POST /public/auth/refresh)
+	RefreshConsumer(c *gin.Context, params RefreshConsumerParams)
+
+	// (POST /public/auth/register)
+	RegisterConsumer(c *gin.Context)
+
+	// (POST /public/auth/resend-verification)
+	ResendConsumerVerification(c *gin.Context)
+
+	// (POST /public/auth/reset-password)
+	ResetConsumerPassword(c *gin.Context)
+
+	// (GET /public/auth/status)
+	GetConsumerAuthStatus(c *gin.Context)
+
+	// (POST /public/auth/verify-email)
+	VerifyConsumerEmail(c *gin.Context)
 	// SearchPublicPlaces Search published places by stable slug, name or multilingual alias
 	// (GET /public/places)
 	SearchPublicPlaces(c *gin.Context, params SearchPublicPlacesParams)
@@ -3074,6 +3174,196 @@ func (siw *ServerInterfaceWrapper) SuspendPlatformTenant(c *gin.Context) {
 	siw.Handler.SuspendPlatformTenant(c, tenantId, params)
 }
 
+// LoginConsumer operation middleware
+func (siw *ServerInterfaceWrapper) LoginConsumer(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.LoginConsumer(c)
+}
+
+// LogoutConsumer operation middleware
+func (siw *ServerInterfaceWrapper) LogoutConsumer(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params LogoutConsumerParams
+
+	headers := c.Request.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		siw.ErrorHandler(c, fmt.Errorf("Header parameter X-CSRF-Token is required, but not found"), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.LogoutConsumer(c, params)
+}
+
+// GetConsumerProfile operation middleware
+func (siw *ServerInterfaceWrapper) GetConsumerProfile(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetConsumerProfile(c)
+}
+
+// RequestConsumerRecovery operation middleware
+func (siw *ServerInterfaceWrapper) RequestConsumerRecovery(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RequestConsumerRecovery(c)
+}
+
+// RefreshConsumer operation middleware
+func (siw *ServerInterfaceWrapper) RefreshConsumer(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RefreshConsumerParams
+
+	headers := c.Request.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		siw.ErrorHandler(c, fmt.Errorf("Header parameter X-CSRF-Token is required, but not found"), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RefreshConsumer(c, params)
+}
+
+// RegisterConsumer operation middleware
+func (siw *ServerInterfaceWrapper) RegisterConsumer(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RegisterConsumer(c)
+}
+
+// ResendConsumerVerification operation middleware
+func (siw *ServerInterfaceWrapper) ResendConsumerVerification(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ResendConsumerVerification(c)
+}
+
+// ResetConsumerPassword operation middleware
+func (siw *ServerInterfaceWrapper) ResetConsumerPassword(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ResetConsumerPassword(c)
+}
+
+// GetConsumerAuthStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetConsumerAuthStatus(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetConsumerAuthStatus(c)
+}
+
+// VerifyConsumerEmail operation middleware
+func (siw *ServerInterfaceWrapper) VerifyConsumerEmail(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.VerifyConsumerEmail(c)
+}
+
 // SearchPublicPlaces operation middleware
 func (siw *ServerInterfaceWrapper) SearchPublicPlaces(c *gin.Context) {
 
@@ -3589,6 +3879,16 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 		ErrorHandler:       errorHandler,
 	}
 
+	router.GET(options.BaseURL+"/public/auth/status", wrapper.GetConsumerAuthStatus)
+	router.POST(options.BaseURL+"/public/auth/register", wrapper.RegisterConsumer)
+	router.POST(options.BaseURL+"/public/auth/resend-verification", wrapper.ResendConsumerVerification)
+	router.POST(options.BaseURL+"/public/auth/recover", wrapper.RequestConsumerRecovery)
+	router.POST(options.BaseURL+"/public/auth/verify-email", wrapper.VerifyConsumerEmail)
+	router.POST(options.BaseURL+"/public/auth/reset-password", wrapper.ResetConsumerPassword)
+	router.POST(options.BaseURL+"/public/auth/login", wrapper.LoginConsumer)
+	router.POST(options.BaseURL+"/public/auth/refresh", wrapper.RefreshConsumer)
+	router.POST(options.BaseURL+"/public/auth/logout", wrapper.LogoutConsumer)
+	router.GET(options.BaseURL+"/public/auth/me", wrapper.GetConsumerProfile)
 	router.GET(options.BaseURL+"/platform/places", wrapper.ListPlatformPlaces)
 	router.POST(options.BaseURL+"/platform/places", wrapper.CreatePlatformPlace)
 	router.GET(options.BaseURL+"/platform/places/:placeId", wrapper.GetPlatformPlace)

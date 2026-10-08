@@ -247,3 +247,14 @@ button:focus-visible {
     flex-direction: column;
   }
 }
+
+.account-page {
+  max-width: 640px;
+  margin: 2rem auto;
+}
+.account-page .ant-alert {
+  margin-bottom: 1rem;
+}
+.account-page .ant-space {
+  margin-top: 1.5rem;
+}

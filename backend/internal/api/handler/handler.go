@@ -19,21 +19,27 @@ import (
 
 // Dependencies are the application capabilities required by HTTP delivery.
 type Dependencies struct {
-	PlatformPlaces   placeshttp.PlatformService
-	Places           placeshttp.Service
-	Identity         identityhttp.Service
-	Authorizer       organizationhttp.Authorizer
-	Authorization    authorizationhttp.Service
-	Organization     organizationhttp.Service
-	PlatformAdmin    platformadminhttp.Service
-	PlatformTenant   platformtenanthttp.Service
-	Provisioning     provisioninghttp.Service
-	Settings         settingshttp.Service
-	PlatformSettings settingshttp.PlatformService
-	Audit            audithttp.Service
-	PlatformAudit    audithttp.PlatformReader
-	Ready            func(context.Context) error
+	PublicIdentity         identityhttp.PublicService
+	PublicChallengeSiteKey string
+	PublicIdentityFailure  func()
+	PlatformPlaces         placeshttp.PlatformService
+	Places                 placeshttp.Service
+	Identity               identityhttp.Service
+	Authorizer             organizationhttp.Authorizer
+	Authorization          authorizationhttp.Service
+	Organization           organizationhttp.Service
+	PlatformAdmin          platformadminhttp.Service
+	PlatformTenant         platformtenanthttp.Service
+	Provisioning           provisioninghttp.Service
+	Settings               settingshttp.Service
+	PlatformSettings       settingshttp.PlatformService
+	Audit                  audithttp.Service
+	PlatformAudit          audithttp.PlatformReader
+	Ready                  func(context.Context) error
 }
+
+// PublicIdentity is the consumer identity capability.
+type PublicIdentity = identityhttp.PublicService
 
 // Places is the published global catalogue API consumed by HTTP delivery.
 type Places = placeshttp.Service
@@ -76,6 +82,7 @@ type PlatformAudit = audithttp.PlatformReader
 
 // Handler contains no business behavior; embedding composes the operation sets.
 type Handler struct {
+	*identityhttp.PublicIdentityHandler
 	*placeshttp.PlatformPlacesHandler
 	*placeshttp.PlacesHandler
 	*identityhttp.IdentityHandler
@@ -97,6 +104,7 @@ func New(deps Dependencies, cookieSecure bool, newCSRF func() (string, error)) *
 	identityHandler := identityhttp.NewHandler(deps.Identity, deps.Authorizer, security)
 	platformAdminHandler := platformadminhttp.NewHandler(deps.PlatformAdmin, security)
 	handler := &Handler{
+		PublicIdentityHandler:   identityhttp.NewPublicHandler(deps.PublicIdentity, security, deps.PublicChallengeSiteKey, deps.PublicIdentityFailure),
 		PlatformPlacesHandler:   placeshttp.NewPlatformHandler(deps.PlatformPlaces, platformAdminHandler, security),
 		PlacesHandler:           placeshttp.NewHandler(deps.Places, security),
 		IdentityHandler:         identityHandler,

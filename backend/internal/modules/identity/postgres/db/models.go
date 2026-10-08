@@ -36,14 +36,16 @@ type ModuraAuthLoginGuard struct {
 }
 
 type ModuraAuthOneTimeToken struct {
-	ID         string             `json:"id"`
-	TenantID   string             `json:"tenant_id"`
-	UserID     string             `json:"user_id"`
-	Purpose    string             `json:"purpose"`
-	TokenHash  []byte             `json:"token_hash"`
-	CreatedAt  time.Time          `json:"created_at"`
-	ExpiresAt  time.Time          `json:"expires_at"`
-	ConsumedAt pgtype.Timestamptz `json:"consumed_at"`
+	ID                   string             `json:"id"`
+	TenantID             string             `json:"tenant_id"`
+	UserID               string             `json:"user_id"`
+	Purpose              string             `json:"purpose"`
+	TokenHash            []byte             `json:"token_hash"`
+	CreatedAt            time.Time          `json:"created_at"`
+	ExpiresAt            time.Time          `json:"expires_at"`
+	ConsumedAt           pgtype.Timestamptz `json:"consumed_at"`
+	BoundEmail           pgtype.Text        `json:"bound_email"`
+	BoundSecurityVersion pgtype.Int8        `json:"bound_security_version"`
 }
 
 type ModuraAuthRefreshTokenUse struct {
@@ -74,6 +76,12 @@ type ModuraAuthSession struct {
 	ExpiresAt        time.Time          `json:"expires_at"`
 	RevokedAt        pgtype.Timestamptz `json:"revoked_at"`
 	RevocationReason pgtype.Text        `json:"revocation_reason"`
+}
+
+type ModuraCommunityIdentity struct {
+	Singleton bool      `json:"singleton"`
+	TenantID  string    `json:"tenant_id"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type ModuraConfigurationDefinition struct {
@@ -123,6 +131,19 @@ type ModuraGlobalDictionaryType struct {
 	Version   int64     `json:"version"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type ModuraIdentityMailQueue struct {
+	ID               string             `json:"id"`
+	TenantID         string             `json:"tenant_id"`
+	UserID           string             `json:"user_id"`
+	TokenID          string             `json:"token_id"`
+	EncryptedPayload []byte             `json:"encrypted_payload"`
+	CreatedAt        time.Time          `json:"created_at"`
+	ExpiresAt        time.Time          `json:"expires_at"`
+	AvailableAt      time.Time          `json:"available_at"`
+	LeaseUntil       pgtype.Timestamptz `json:"lease_until"`
+	Attempts         int32              `json:"attempts"`
 }
 
 type ModuraPlace struct {
@@ -192,6 +213,27 @@ type ModuraPosition struct {
 	Status         string    `json:"status"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+type ModuraPublicIdentityEvent struct {
+	ID            string      `json:"id"`
+	TenantID      string      `json:"tenant_id"`
+	UserID        pgtype.UUID `json:"user_id"`
+	ActorKind     string      `json:"actor_kind"`
+	Resource      string      `json:"resource"`
+	ResourceID    string      `json:"resource_id"`
+	Reason        string      `json:"reason"`
+	Action        string      `json:"action"`
+	Result        string      `json:"result"`
+	CorrelationID string      `json:"correlation_id"`
+	OccurredAt    time.Time   `json:"occurred_at"`
+}
+
+type ModuraPublicIdentityLimit struct {
+	TenantID        string    `json:"tenant_id"`
+	KeyHash         []byte    `json:"key_hash"`
+	WindowStartedAt time.Time `json:"window_started_at"`
+	Attempts        int32     `json:"attempts"`
 }
 
 type ModuraPublicPlace struct {
@@ -303,6 +345,7 @@ type ModuraUser struct {
 	SecurityVersion    int64              `json:"security_version"`
 	CreatedAt          time.Time          `json:"created_at"`
 	UpdatedAt          time.Time          `json:"updated_at"`
+	Consumer           bool               `json:"consumer"`
 }
 
 type ModuraUserOrganization struct {

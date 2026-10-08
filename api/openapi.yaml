@@ -6,6 +6,177 @@ info:
 servers:
   - url: /api
 paths:
+  /public/auth/status:
+    get:
+      operationId: getConsumerAuthStatus
+      tags: [public-auth]
+      security: []
+      responses:
+        "200":
+          description: Configuration availability; not a delivery health certificate
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ConsumerAuthStatus"}
+  /public/auth/register:
+    post:
+      operationId: registerConsumer
+      tags: [public-auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/ConsumerRegistrationRequest"}
+      responses:
+        "202": {description: Request accepted regardless of account existence or delivery enqueue outcome}
+        "400": {$ref: "#/components/responses/PublicInvalidQuery"}
+        "401": {$ref: "#/components/responses/AuthenticationFailed"}
+        "403": {description: Challenge or CSRF rejected}
+        "429": {description: Request budget exhausted}
+        "500": {$ref: "#/components/responses/PublicInternalError"}
+        "503": {$ref: "#/components/responses/PublicUnavailable"}
+  /public/auth/resend-verification:
+    post:
+      operationId: resendConsumerVerification
+      tags: [public-auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/ConsumerEmailRequest"}
+      responses:
+        "202": {description: Request accepted regardless of account existence or delivery enqueue outcome}
+        "400": {$ref: "#/components/responses/PublicInvalidQuery"}
+        "401": {$ref: "#/components/responses/AuthenticationFailed"}
+        "403": {description: Challenge or CSRF rejected}
+        "429": {description: Request budget exhausted}
+        "500": {$ref: "#/components/responses/PublicInternalError"}
+        "503": {$ref: "#/components/responses/PublicUnavailable"}
+  /public/auth/recover:
+    post:
+      operationId: requestConsumerRecovery
+      tags: [public-auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/ConsumerEmailRequest"}
+      responses:
+        "202": {description: Request accepted regardless of account existence or delivery enqueue outcome}
+        "400": {$ref: "#/components/responses/PublicInvalidQuery"}
+        "401": {$ref: "#/components/responses/AuthenticationFailed"}
+        "403": {description: Challenge or CSRF rejected}
+        "429": {description: Request budget exhausted}
+        "500": {$ref: "#/components/responses/PublicInternalError"}
+        "503": {$ref: "#/components/responses/PublicUnavailable"}
+  /public/auth/verify-email:
+    post:
+      operationId: verifyConsumerEmail
+      tags: [public-auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/ConsumerCodeRequest"}
+      responses:
+        "204": {description: Completed}
+        "400": {$ref: "#/components/responses/PublicInvalidQuery"}
+        "401": {$ref: "#/components/responses/AuthenticationFailed"}
+        "403": {description: Challenge or CSRF rejected}
+        "429": {description: Request budget exhausted}
+        "500": {$ref: "#/components/responses/PublicInternalError"}
+        "503": {$ref: "#/components/responses/PublicUnavailable"}
+  /public/auth/reset-password:
+    post:
+      operationId: resetConsumerPassword
+      tags: [public-auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/ConsumerResetRequest"}
+      responses:
+        "204": {description: Completed}
+        "400": {$ref: "#/components/responses/PublicInvalidQuery"}
+        "401": {$ref: "#/components/responses/AuthenticationFailed"}
+        "403": {description: Challenge or CSRF rejected}
+        "429": {description: Request budget exhausted}
+        "500": {$ref: "#/components/responses/PublicInternalError"}
+        "503": {$ref: "#/components/responses/PublicUnavailable"}
+  /public/auth/login:
+    post:
+      operationId: loginConsumer
+      tags: [public-auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/ConsumerLoginRequest"}
+      responses:
+        "200":
+          description: Consumer access token and isolated refresh cookies
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AccessTokenResponse"}
+        "400": {$ref: "#/components/responses/PublicInvalidQuery"}
+        "401": {$ref: "#/components/responses/AuthenticationFailed"}
+        "403": {description: Challenge or CSRF rejected}
+        "429": {description: Request budget exhausted}
+        "500": {$ref: "#/components/responses/PublicInternalError"}
+        "503": {$ref: "#/components/responses/PublicUnavailable"}
+  /public/auth/refresh:
+    post:
+      operationId: refreshConsumer
+      tags: [public-auth]
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+      responses:
+        "200":
+          description: Consumer access token and isolated refresh cookies
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AccessTokenResponse"}
+        "400": {$ref: "#/components/responses/PublicInvalidQuery"}
+        "401": {$ref: "#/components/responses/AuthenticationFailed"}
+        "403": {description: Challenge or CSRF rejected}
+        "429": {description: Request budget exhausted}
+        "500": {$ref: "#/components/responses/PublicInternalError"}
+        "503": {$ref: "#/components/responses/PublicUnavailable"}
+  /public/auth/logout:
+    post:
+      operationId: logoutConsumer
+      tags: [public-auth]
+      security: [{consumerBearerAuth: []}]
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+      responses:
+        "204": {description: Completed}
+        "400": {$ref: "#/components/responses/PublicInvalidQuery"}
+        "401": {$ref: "#/components/responses/AuthenticationFailed"}
+        "403": {description: Challenge or CSRF rejected}
+        "429": {description: Request budget exhausted}
+        "500": {$ref: "#/components/responses/PublicInternalError"}
+        "503": {$ref: "#/components/responses/PublicUnavailable"}
+  /public/auth/me:
+    get:
+      operationId: getConsumerProfile
+      tags: [public-auth]
+      security: [{consumerBearerAuth: []}]
+      responses:
+        "200":
+          description: Current consumer profile
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/UserProfile"}
+        "401": {$ref: "#/components/responses/AuthenticationFailed"}
+        "500": {$ref: "#/components/responses/PublicInternalError"}
+        "503": {$ref: "#/components/responses/PublicUnavailable"}
   /platform/places:
     get:
       operationId: listPlatformPlaces
@@ -1367,6 +1538,10 @@ paths:
         "401": { $ref: "#/components/responses/AuthenticationFailed" }
 components:
   securitySchemes:
+    consumerBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
     bearerAuth:
       type: http
       scheme: bearer
@@ -1493,6 +1668,51 @@ components:
           schema:
             $ref: "#/components/schemas/Problem"
   schemas:
+    ConsumerAuthStatus:
+      type: object
+      additionalProperties: false
+      required: [enabled, challengeSiteKey]
+      properties:
+        enabled: {type: boolean}
+        challengeSiteKey: {type: string, nullable: true}
+    ConsumerRegistrationRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password, challenge]
+      properties:
+        email: {type: string, format: email, maxLength: 254}
+        password: {type: string, minLength: 12, maxLength: 1024}
+        challenge: {type: string, minLength: 1, maxLength: 2048}
+    ConsumerLoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password, challenge]
+      properties:
+        email: {type: string, format: email, maxLength: 254}
+        password: {type: string, minLength: 1, maxLength: 1024}
+        challenge: {type: string, minLength: 1, maxLength: 2048}
+    ConsumerEmailRequest:
+      type: object
+      additionalProperties: false
+      required: [email, challenge]
+      properties:
+        email: {type: string, format: email, maxLength: 254}
+        challenge: {type: string, minLength: 1, maxLength: 2048}
+    ConsumerCodeRequest:
+      type: object
+      additionalProperties: false
+      required: [code, challenge]
+      properties:
+        code: {type: string, minLength: 32, maxLength: 128}
+        challenge: {type: string, minLength: 1, maxLength: 2048}
+    ConsumerResetRequest:
+      type: object
+      additionalProperties: false
+      required: [code, password, challenge]
+      properties:
+        code: {type: string, minLength: 32, maxLength: 128}
+        password: {type: string, minLength: 12, maxLength: 1024}
+        challenge: {type: string, minLength: 1, maxLength: 2048}
     PlaceAlias:
       type: object
       additionalProperties: false
@@ -1752,7 +1972,7 @@ components:
         id: { type: string, format: uuid }
         username: { type: string }
         email: { type: string, format: email, nullable: true }
-        status: { type: string, enum: [invited, active, disabled, locked] }
+        status: { type: string, enum: [invited, pending_email, active, disabled, locked] }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     DisableUserRequest:

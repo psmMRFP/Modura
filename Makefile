@@ -46,9 +46,9 @@ reference-check:
 	python3 scripts/check-reference-exclusion.py
 
 generated-clean:
-	@before="$$(find backend/internal/api/generated backend/internal/platform/database/dbgen admin/src/api/generated web/src/api/generated backend/internal/modules/places/postgres/db -type f -print0 | sort -z | xargs -0 sha256sum)"; \
+	@before="$$(find backend/internal/api/generated backend/internal/platform/database/dbgen admin/src/api/generated web/src/api/generated backend/internal/modules/identity/postgres/db backend/internal/modules/authorization/postgres/db backend/internal/modules/audit/postgres/db backend/internal/modules/places/postgres/db -type f -print0 | sort -z | xargs -0 sha256sum)"; \
 	$(MAKE) generate; \
-	after="$$(find backend/internal/api/generated backend/internal/platform/database/dbgen admin/src/api/generated web/src/api/generated backend/internal/modules/places/postgres/db -type f -print0 | sort -z | xargs -0 sha256sum)"; \
+	after="$$(find backend/internal/api/generated backend/internal/platform/database/dbgen admin/src/api/generated web/src/api/generated backend/internal/modules/identity/postgres/db backend/internal/modules/authorization/postgres/db backend/internal/modules/audit/postgres/db backend/internal/modules/places/postgres/db -type f -print0 | sort -z | xargs -0 sha256sum)"; \
 	test "$$before" = "$$after"
 
 generate: generate-go generate-admin generate-web
@@ -102,3 +102,4 @@ generate-web:
 web-e2e:
 	cd web && npm run build
 	node web/e2e/public-places.mjs
+	node web/e2e/public-auth.mjs

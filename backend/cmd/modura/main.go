@@ -157,7 +157,15 @@ func main() {
 		logger.Error("configure place management", "error", err)
 		os.Exit(1)
 	}
-	server := httpserver.New(cfg.HTTP, logger, httpserver.Dependencies{PlatformPlaces: placeManagement, Places: placesService, Identity: identityService, Authorizer: authorizationService, Authorization: authorizationService, Organization: organizationService, PlatformAdmin: platformAdminService, PlatformTenant: platformTenantService, Provisioning: provisioningService, Settings: settingsService, PlatformSettings: settingsService, Audit: auditService, PlatformAudit: auditService, Ready: pool.Ping})
+	publicIdentity, err := configurePublicIdentity(ctx, pool, cfg)
+	if err != nil {
+		logger.Error("configure consumer identity", "error", err)
+		os.Exit(1)
+	}
+	mailDone := make(chan struct{})
+	go func() { defer close(mailDone); runIdentityMail(ctx, publicIdentity, logger) }()
+	defer func() { stop(); <-mailDone }()
+	server := httpserver.New(cfg.HTTP, logger, httpserver.Dependencies{PublicIdentity: publicIdentity, PublicChallengeSiteKey: cfg.PublicIdentity.ChallengeSiteKey, PublicIdentityFailure: func() { logger.Error("consumer identity enqueue failed") }, PlatformPlaces: placeManagement, Places: placesService, Identity: identityService, Authorizer: authorizationService, Authorization: authorizationService, Organization: organizationService, PlatformAdmin: platformAdminService, PlatformTenant: platformTenantService, Provisioning: provisioningService, Settings: settingsService, PlatformSettings: settingsService, Audit: auditService, PlatformAudit: auditService, Ready: pool.Ping})
 
 	errCh := make(chan error, 1)
 	go func() {

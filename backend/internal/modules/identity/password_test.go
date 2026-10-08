@@ -1,6 +1,22 @@
 package identity
 
-import "testing"
+import (
+	"errors"
+	"strings"
+	"testing"
+)
+
+func TestPasswordUnicodeLengthAndResourceBounds(t *testing.T) {
+	parameters := PasswordParameters{Memory: 8 * 1024, Iterations: 1, Parallelism: 1, SaltLength: 16, KeyLength: 32}
+	for _, password := range []string{strings.Repeat("界", 11), strings.Repeat("a", 1025), string([]byte{0xff}) + strings.Repeat("a", 12)} {
+		if _, err := HashPassword(password, parameters); !errors.Is(err, ErrInvalidPassword) {
+			t.Fatalf("invalid length/encoding accepted: %v", err)
+		}
+	}
+	if _, err := HashPassword(strings.Repeat("界", 12), parameters); err != nil {
+		t.Fatalf("valid Unicode password rejected: %v", err)
+	}
+}
 
 func TestPasswordRoundTripAndRehash(t *testing.T) {
 	parameters := DefaultPasswordParameters()
