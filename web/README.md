@@ -17,4 +17,4 @@ The web port is 5174, separate from admin on 5173. `/api` is proxied to the exis
 
 `make web-e2e` uses installed Chromium and deterministic API contract fixtures. It checks five languages, search submission, locale-preserving stable URLs, missing metadata, empty results, errors and invalid pagination. It does not prove real PostgreSQL behavior. Set `MODURA_E2E_CHROMIUM` if the browser executable is elsewhere.
 
-Real database tests live under `backend/internal/modules/places/postgres` and require `MODURA_TEST_DATABASE_URL` targeting a dedicated database ending in `_test`; they reset its `modura` schema. See [PostgreSQL testing](../docs/development/postgresql-testing.md).
+Real database tests live under `backend/internal/modules/places/postgres` and require `MODURA_TEST_DATABASE_URL` targeting a dedicated database ending in `_test`; they reset its `modura` schema. See the [root README](../README.md#验证) for verification commands.
