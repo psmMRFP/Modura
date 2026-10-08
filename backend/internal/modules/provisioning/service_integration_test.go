@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -23,6 +22,7 @@ import (
 	"github.com/modura-dev/modura/backend/internal/modules/settings"
 	settingspostgres "github.com/modura-dev/modura/backend/internal/modules/settings/postgres"
 	"github.com/modura-dev/modura/backend/internal/platform/database"
+	"github.com/modura-dev/modura/backend/internal/platform/database/migrationtest"
 )
 
 func TestProvisionIsAtomicAndIdempotent(t *testing.T) {
@@ -49,7 +49,7 @@ func TestProvisionIsAtomicAndIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service, err := NewService(pool, identityService, organizationService, authorizationService, func() time.Time { return now }, sequentialIDs(), func() (string, error) { return strings.Repeat("v", 43), nil }, 24*time.Hour)
+	service, err := NewService(pool, identityService, organizationService, authorizationService, auditService, func() time.Time { return now }, sequentialIDs(), func() (string, error) { return strings.Repeat("v", 43), nil }, 24*time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func TestProvisionIsAtomicAndIdempotent(t *testing.T) {
 	if err := authorizationService.Authorize(context.Background(), administrator, authorization.Permission{Resource: authorization.ResourcePositions, Action: authorization.ActionDelete}); !errors.Is(err, authorization.ErrDenied) {
 		t.Fatalf("unregistered destructive permission error = %v", err)
 	}
-	if err := authorizationService.EnableManagement(authorizationpostgres.New(pool), database.NewTransactor(pool), auditService, func() time.Time { return now }, managementIDs()); err != nil {
+	if err := authorizationService.EnableManagement(authorizationpostgres.New(pool), database.NewTransactor(pool), auditService, identityService, func() time.Time { return now }, managementIDs()); err != nil {
 		t.Fatal(err)
 	}
 	write := authorization.WriteContext{Actor: administrator, CorrelationID: "request-authorization-1"}
@@ -283,30 +283,6 @@ func integrationPool(t *testing.T) *pgxpool.Pool {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	lockConnection, err := pool.Acquire(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := lockConnection.Exec(context.Background(), "SELECT pg_advisory_lock(1297040469)"); err != nil {
-		lockConnection.Release()
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		_, _ = lockConnection.Exec(context.Background(), "SELECT pg_advisory_unlock(1297040469)")
-		lockConnection.Release()
-	})
-	if _, err := pool.Exec(context.Background(), "DROP SCHEMA IF EXISTS modura CASCADE"); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _, _ = pool.Exec(context.Background(), "DROP SCHEMA IF EXISTS modura CASCADE") })
-	for _, name := range []string{"000001_initialize.up.sql", "000002_identity_foundation.up.sql", "000003_organization_foundation.up.sql", "000004_authorization_and_provisioning.up.sql", "000005_platform_identity.up.sql", "000006_platform_tenant_audit.up.sql", "000007_authorization_policies.up.sql", "000008_audit_state_snapshots.up.sql", "000009_settings_foundation.up.sql"} {
-		migration, err := os.ReadFile(filepath.Join("..", "..", "platform", "database", "migrations", name))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := pool.Exec(context.Background(), string(migration)); err != nil {
-			t.Fatalf("apply %s: %v", name, err)
-		}
-	}
+	migrationtest.Prepare(t, pool)
 	return pool
 }

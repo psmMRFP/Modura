@@ -5,227 +5,294 @@
 package dbgen
 
 import (
+	"time"
+
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type ModuraAuditEvent struct {
-	ID            pgtype.UUID        `json:"id"`
-	ActorType     string             `json:"actor_type"`
-	ActorID       pgtype.UUID        `json:"actor_id"`
-	TenantID      pgtype.UUID        `json:"tenant_id"`
-	Action        string             `json:"action"`
-	Resource      string             `json:"resource"`
-	ResourceID    pgtype.UUID        `json:"resource_id"`
-	Reason        string             `json:"reason"`
-	Result        string             `json:"result"`
-	CorrelationID string             `json:"correlation_id"`
-	OccurredAt    pgtype.Timestamptz `json:"occurred_at"`
-	BeforeState   []byte             `json:"before_state"`
-	AfterState    []byte             `json:"after_state"`
+	ID            string      `json:"id"`
+	ActorType     string      `json:"actor_type"`
+	ActorID       string      `json:"actor_id"`
+	TenantID      pgtype.UUID `json:"tenant_id"`
+	Action        string      `json:"action"`
+	Resource      string      `json:"resource"`
+	ResourceID    string      `json:"resource_id"`
+	Reason        string      `json:"reason"`
+	Result        string      `json:"result"`
+	CorrelationID string      `json:"correlation_id"`
+	OccurredAt    time.Time   `json:"occurred_at"`
+	BeforeState   []byte      `json:"before_state"`
+	AfterState    []byte      `json:"after_state"`
+}
+
+type ModuraAuthLoginGuard struct {
+	TenantSlug      string             `json:"tenant_slug"`
+	NormalizedLogin string             `json:"normalized_login"`
+	FailureCount    int32              `json:"failure_count"`
+	WindowStartedAt time.Time          `json:"window_started_at"`
+	LockedUntil     pgtype.Timestamptz `json:"locked_until"`
+	UpdatedAt       time.Time          `json:"updated_at"`
 }
 
 type ModuraAuthOneTimeToken struct {
-	ID         pgtype.UUID        `json:"id"`
-	TenantID   pgtype.UUID        `json:"tenant_id"`
-	UserID     pgtype.UUID        `json:"user_id"`
+	ID         string             `json:"id"`
+	TenantID   string             `json:"tenant_id"`
+	UserID     string             `json:"user_id"`
 	Purpose    string             `json:"purpose"`
 	TokenHash  []byte             `json:"token_hash"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt  time.Time          `json:"created_at"`
+	ExpiresAt  time.Time          `json:"expires_at"`
 	ConsumedAt pgtype.Timestamptz `json:"consumed_at"`
 }
 
 type ModuraAuthRefreshTokenUse struct {
-	TokenHash  []byte             `json:"token_hash"`
-	SessionID  pgtype.UUID        `json:"session_id"`
-	FamilyID   pgtype.UUID        `json:"family_id"`
-	ConsumedAt pgtype.Timestamptz `json:"consumed_at"`
+	TokenHash  []byte    `json:"token_hash"`
+	SessionID  string    `json:"session_id"`
+	FamilyID   string    `json:"family_id"`
+	ConsumedAt time.Time `json:"consumed_at"`
+}
+
+type ModuraAuthSecurityEvent struct {
+	ID            string      `json:"id"`
+	TenantID      pgtype.UUID `json:"tenant_id"`
+	UserID        pgtype.UUID `json:"user_id"`
+	EventType     string      `json:"event_type"`
+	CorrelationID string      `json:"correlation_id"`
+	OccurredAt    time.Time   `json:"occurred_at"`
 }
 
 type ModuraAuthSession struct {
-	ID               pgtype.UUID        `json:"id"`
-	TenantID         pgtype.UUID        `json:"tenant_id"`
-	UserID           pgtype.UUID        `json:"user_id"`
-	FamilyID         pgtype.UUID        `json:"family_id"`
+	ID               string             `json:"id"`
+	TenantID         string             `json:"tenant_id"`
+	UserID           string             `json:"user_id"`
+	FamilyID         string             `json:"family_id"`
 	RefreshTokenHash []byte             `json:"refresh_token_hash"`
 	SecurityVersion  int64              `json:"security_version"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	LastUsedAt       pgtype.Timestamptz `json:"last_used_at"`
-	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt        time.Time          `json:"created_at"`
+	LastUsedAt       time.Time          `json:"last_used_at"`
+	ExpiresAt        time.Time          `json:"expires_at"`
 	RevokedAt        pgtype.Timestamptz `json:"revoked_at"`
 	RevocationReason pgtype.Text        `json:"revocation_reason"`
 }
 
 type ModuraConfigurationDefinition struct {
-	ID                pgtype.UUID        `json:"id"`
-	Key               string             `json:"key"`
-	Name              string             `json:"name"`
-	ValueType         string             `json:"value_type"`
-	TenantOverridable bool               `json:"tenant_overridable"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	ID                string    `json:"id"`
+	Key               string    `json:"key"`
+	Name              string    `json:"name"`
+	ValueType         string    `json:"value_type"`
+	TenantOverridable bool      `json:"tenant_overridable"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
 }
 
 type ModuraDepartment struct {
-	ID             pgtype.UUID        `json:"id"`
-	TenantID       pgtype.UUID        `json:"tenant_id"`
-	ParentID       pgtype.UUID        `json:"parent_id"`
-	Name           string             `json:"name"`
-	NormalizedName string             `json:"normalized_name"`
-	SortOrder      int32              `json:"sort_order"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	ID             string      `json:"id"`
+	TenantID       string      `json:"tenant_id"`
+	ParentID       pgtype.UUID `json:"parent_id"`
+	Name           string      `json:"name"`
+	NormalizedName string      `json:"normalized_name"`
+	SortOrder      int32       `json:"sort_order"`
+	CreatedAt      time.Time   `json:"created_at"`
+	UpdatedAt      time.Time   `json:"updated_at"`
 }
 
 type ModuraGlobalConfigurationValue struct {
-	Key       string             `json:"key"`
-	Value     []byte             `json:"value"`
-	Version   int64              `json:"version"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	Key       string    `json:"key"`
+	Value     []byte    `json:"value"`
+	Version   int64     `json:"version"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type ModuraGlobalDictionaryItem struct {
-	ID               pgtype.UUID        `json:"id"`
-	DictionaryTypeID pgtype.UUID        `json:"dictionary_type_id"`
-	Code             string             `json:"code"`
-	Label            string             `json:"label"`
-	SortOrder        int32              `json:"sort_order"`
-	Enabled          bool               `json:"enabled"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	ID               string    `json:"id"`
+	DictionaryTypeID string    `json:"dictionary_type_id"`
+	Code             string    `json:"code"`
+	Label            string    `json:"label"`
+	SortOrder        int32     `json:"sort_order"`
+	Enabled          bool      `json:"enabled"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 type ModuraGlobalDictionaryType struct {
-	ID        pgtype.UUID        `json:"id"`
-	Code      string             `json:"code"`
-	Name      string             `json:"name"`
-	Version   int64              `json:"version"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	ID        string    `json:"id"`
+	Code      string    `json:"code"`
+	Name      string    `json:"name"`
+	Version   int64     `json:"version"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type ModuraPlace struct {
+	ID             string             `json:"id"`
+	Slug           string             `json:"slug"`
+	Name           string             `json:"name"`
+	NormalizedName string             `json:"normalized_name"`
+	Type           string             `json:"type"`
+	ParentID       pgtype.UUID        `json:"parent_id"`
+	CountryCode    string             `json:"country_code"`
+	Timezone       pgtype.Text        `json:"timezone"`
+	Latitude       pgtype.Float8      `json:"latitude"`
+	Longitude      pgtype.Float8      `json:"longitude"`
+	Currency       pgtype.Text        `json:"currency"`
+	Languages      []string           `json:"languages"`
+	CoverageLevel  int16              `json:"coverage_level"`
+	PublishedAt    pgtype.Timestamptz `json:"published_at"`
+	CreatedAt      time.Time          `json:"created_at"`
+	UpdatedAt      time.Time          `json:"updated_at"`
+	Version        int64              `json:"version"`
+}
+
+type ModuraPlaceAlias struct {
+	PlaceID        string `json:"place_id"`
+	Locale         string `json:"locale"`
+	Name           string `json:"name"`
+	NormalizedName string `json:"normalized_name"`
+	Preferred      bool   `json:"preferred"`
 }
 
 type ModuraPlatformAdministrator struct {
-	ID                 pgtype.UUID        `json:"id"`
-	Username           string             `json:"username"`
-	NormalizedUsername string             `json:"normalized_username"`
-	PasswordHash       string             `json:"password_hash"`
-	Status             string             `json:"status"`
-	SecurityVersion    int64              `json:"security_version"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	ID                 string    `json:"id"`
+	Username           string    `json:"username"`
+	NormalizedUsername string    `json:"normalized_username"`
+	PasswordHash       string    `json:"password_hash"`
+	Status             string    `json:"status"`
+	SecurityVersion    int64     `json:"security_version"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 type ModuraPlatformAuthSession struct {
-	ID               pgtype.UUID        `json:"id"`
-	AdministratorID  pgtype.UUID        `json:"administrator_id"`
-	FamilyID         pgtype.UUID        `json:"family_id"`
+	ID               string             `json:"id"`
+	AdministratorID  string             `json:"administrator_id"`
+	FamilyID         string             `json:"family_id"`
 	RefreshTokenHash []byte             `json:"refresh_token_hash"`
 	SecurityVersion  int64              `json:"security_version"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	LastUsedAt       pgtype.Timestamptz `json:"last_used_at"`
-	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt        time.Time          `json:"created_at"`
+	LastUsedAt       time.Time          `json:"last_used_at"`
+	ExpiresAt        time.Time          `json:"expires_at"`
 	RevokedAt        pgtype.Timestamptz `json:"revoked_at"`
 	RevocationReason pgtype.Text        `json:"revocation_reason"`
 }
 
 type ModuraPlatformRefreshTokenUse struct {
-	TokenHash  []byte             `json:"token_hash"`
-	SessionID  pgtype.UUID        `json:"session_id"`
-	FamilyID   pgtype.UUID        `json:"family_id"`
-	ConsumedAt pgtype.Timestamptz `json:"consumed_at"`
+	TokenHash  []byte    `json:"token_hash"`
+	SessionID  string    `json:"session_id"`
+	FamilyID   string    `json:"family_id"`
+	ConsumedAt time.Time `json:"consumed_at"`
 }
 
 type ModuraPosition struct {
-	ID             pgtype.UUID        `json:"id"`
-	TenantID       pgtype.UUID        `json:"tenant_id"`
+	ID             string    `json:"id"`
+	TenantID       string    `json:"tenant_id"`
+	Name           string    `json:"name"`
+	NormalizedName string    `json:"normalized_name"`
+	Status         string    `json:"status"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+type ModuraPublicPlace struct {
+	ID             string             `json:"id"`
+	Slug           string             `json:"slug"`
 	Name           string             `json:"name"`
 	NormalizedName string             `json:"normalized_name"`
-	Status         string             `json:"status"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	Type           string             `json:"type"`
+	ParentID       pgtype.UUID        `json:"parent_id"`
+	CountryCode    string             `json:"country_code"`
+	Timezone       pgtype.Text        `json:"timezone"`
+	Latitude       pgtype.Float8      `json:"latitude"`
+	Longitude      pgtype.Float8      `json:"longitude"`
+	Currency       pgtype.Text        `json:"currency"`
+	Languages      []string           `json:"languages"`
+	CoverageLevel  int16              `json:"coverage_level"`
+	PublishedAt    pgtype.Timestamptz `json:"published_at"`
+	CreatedAt      time.Time          `json:"created_at"`
+	UpdatedAt      time.Time          `json:"updated_at"`
 }
 
 type ModuraRole struct {
-	ID        pgtype.UUID        `json:"id"`
-	TenantID  pgtype.UUID        `json:"tenant_id"`
-	Code      string             `json:"code"`
-	Name      string             `json:"name"`
-	Reserved  bool               `json:"reserved"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
-	Version   int64              `json:"version"`
+	ID        string    `json:"id"`
+	TenantID  string    `json:"tenant_id"`
+	Code      string    `json:"code"`
+	Name      string    `json:"name"`
+	Reserved  bool      `json:"reserved"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Version   int64     `json:"version"`
 }
 
 type ModuraRolePolicy struct {
-	TenantID  pgtype.UUID        `json:"tenant_id"`
-	RoleID    pgtype.UUID        `json:"role_id"`
-	Resource  string             `json:"resource"`
-	Action    string             `json:"action"`
-	DataScope string             `json:"data_scope"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	TenantID  string    `json:"tenant_id"`
+	RoleID    string    `json:"role_id"`
+	Resource  string    `json:"resource"`
+	Action    string    `json:"action"`
+	DataScope string    `json:"data_scope"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type ModuraRolePolicyDepartment struct {
-	TenantID     pgtype.UUID `json:"tenant_id"`
-	RoleID       pgtype.UUID `json:"role_id"`
-	Resource     string      `json:"resource"`
-	Action       string      `json:"action"`
-	DepartmentID pgtype.UUID `json:"department_id"`
+	TenantID     string `json:"tenant_id"`
+	RoleID       string `json:"role_id"`
+	Resource     string `json:"resource"`
+	Action       string `json:"action"`
+	DepartmentID string `json:"department_id"`
 }
 
 type ModuraTenant struct {
-	ID          pgtype.UUID        `json:"id"`
-	Slug        string             `json:"slug"`
-	DisplayName string             `json:"display_name"`
-	Status      string             `json:"status"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	ID          string    `json:"id"`
+	Slug        string    `json:"slug"`
+	DisplayName string    `json:"display_name"`
+	Status      string    `json:"status"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 type ModuraTenantConfigurationValue struct {
-	TenantID  pgtype.UUID        `json:"tenant_id"`
-	Key       string             `json:"key"`
-	Value     []byte             `json:"value"`
-	Version   int64              `json:"version"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	TenantID  string    `json:"tenant_id"`
+	Key       string    `json:"key"`
+	Value     []byte    `json:"value"`
+	Version   int64     `json:"version"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type ModuraTenantDictionaryItem struct {
-	ID               pgtype.UUID        `json:"id"`
-	TenantID         pgtype.UUID        `json:"tenant_id"`
-	DictionaryTypeID pgtype.UUID        `json:"dictionary_type_id"`
-	Code             string             `json:"code"`
-	Label            string             `json:"label"`
-	SortOrder        int32              `json:"sort_order"`
-	Enabled          bool               `json:"enabled"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	ID               string    `json:"id"`
+	TenantID         string    `json:"tenant_id"`
+	DictionaryTypeID string    `json:"dictionary_type_id"`
+	Code             string    `json:"code"`
+	Label            string    `json:"label"`
+	SortOrder        int32     `json:"sort_order"`
+	Enabled          bool      `json:"enabled"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 type ModuraTenantDictionaryType struct {
-	ID        pgtype.UUID        `json:"id"`
-	TenantID  pgtype.UUID        `json:"tenant_id"`
-	Code      string             `json:"code"`
-	Name      string             `json:"name"`
-	Version   int64              `json:"version"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	ID        string    `json:"id"`
+	TenantID  string    `json:"tenant_id"`
+	Code      string    `json:"code"`
+	Name      string    `json:"name"`
+	Version   int64     `json:"version"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type ModuraTenantProvisioningRequest struct {
-	IdempotencyKey pgtype.UUID        `json:"idempotency_key"`
-	RequestDigest  []byte             `json:"request_digest"`
-	TenantID       pgtype.UUID        `json:"tenant_id"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	CompletedAt    pgtype.Timestamptz `json:"completed_at"`
+	IdempotencyKey string    `json:"idempotency_key"`
+	RequestDigest  []byte    `json:"request_digest"`
+	TenantID       string    `json:"tenant_id"`
+	CreatedAt      time.Time `json:"created_at"`
+	CompletedAt    time.Time `json:"completed_at"`
 }
 
 type ModuraUser struct {
-	ID                 pgtype.UUID        `json:"id"`
-	TenantID           pgtype.UUID        `json:"tenant_id"`
+	ID                 string             `json:"id"`
+	TenantID           string             `json:"tenant_id"`
 	Username           string             `json:"username"`
 	NormalizedUsername string             `json:"normalized_username"`
 	Email              pgtype.Text        `json:"email"`
@@ -234,29 +301,29 @@ type ModuraUser struct {
 	PasswordHash       pgtype.Text        `json:"password_hash"`
 	Status             string             `json:"status"`
 	SecurityVersion    int64              `json:"security_version"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	CreatedAt          time.Time          `json:"created_at"`
+	UpdatedAt          time.Time          `json:"updated_at"`
 }
 
 type ModuraUserOrganization struct {
-	TenantID            pgtype.UUID        `json:"tenant_id"`
-	UserID              pgtype.UUID        `json:"user_id"`
-	PrimaryDepartmentID pgtype.UUID        `json:"primary_department_id"`
-	PositionID          pgtype.UUID        `json:"position_id"`
-	CreatedAt           pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	TenantID            string      `json:"tenant_id"`
+	UserID              string      `json:"user_id"`
+	PrimaryDepartmentID string      `json:"primary_department_id"`
+	PositionID          pgtype.UUID `json:"position_id"`
+	CreatedAt           time.Time   `json:"created_at"`
+	UpdatedAt           time.Time   `json:"updated_at"`
 }
 
 type ModuraUserRole struct {
-	TenantID  pgtype.UUID        `json:"tenant_id"`
-	UserID    pgtype.UUID        `json:"user_id"`
-	RoleID    pgtype.UUID        `json:"role_id"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	TenantID  string    `json:"tenant_id"`
+	UserID    string    `json:"user_id"`
+	RoleID    string    `json:"role_id"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type ModuraUserRoleVersion struct {
-	TenantID  pgtype.UUID        `json:"tenant_id"`
-	UserID    pgtype.UUID        `json:"user_id"`
-	Version   int64              `json:"version"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	TenantID  string    `json:"tenant_id"`
+	UserID    string    `json:"user_id"`
+	Version   int64     `json:"version"`
+	UpdatedAt time.Time `json:"updated_at"`
 }

@@ -88,6 +88,7 @@ func tenantAdministratorPermissions() []authorization.Permission {
 		resource authorization.Resource
 		actions  []authorization.Action
 	}{
+		{authorization.ResourceUsers, []authorization.Action{authorization.ActionRead, authorization.ActionUpdate}},
 		{authorization.ResourceDepartments, []authorization.Action{authorization.ActionRead, authorization.ActionCreate, authorization.ActionUpdate, authorization.ActionDelete}},
 		{authorization.ResourcePositions, []authorization.Action{authorization.ActionRead, authorization.ActionCreate, authorization.ActionUpdate}},
 		{authorization.ResourceUserOrganization, []authorization.Action{authorization.ActionRead, authorization.ActionUpdate}},

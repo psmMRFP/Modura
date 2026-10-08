@@ -2,6 +2,7 @@ package identity
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -41,19 +42,31 @@ type Store interface {
 	FindActiveAccount(context.Context, string, string) (Account, error)
 	UpdatePasswordHash(context.Context, TenantID, UserID, string) error
 	CreateSession(context.Context, NewSession) error
-	RotateSession(context.Context, [32]byte, [32]byte, time.Time, time.Time) (Session, error)
-	RevokeSession(context.Context, TenantID, UserID, SessionID, string, time.Time) error
+	RotateSession(context.Context, [32]byte, [32]byte, time.Time, time.Time, string) (Session, error)
+	RevokeSession(context.Context, TenantID, UserID, SessionID, string, time.Time, string) error
 	RevokeOtherSessions(context.Context, TenantID, UserID, SessionID, string, time.Time) error
-	RevokeAllSessions(context.Context, TenantID, UserID, string, time.Time) error
+	RevokeAllSessions(context.Context, TenantID, UserID, string, time.Time, string) error
 	ValidateSession(context.Context, Session, time.Time) error
 	PasswordHash(context.Context, Actor) (string, error)
 	Profile(context.Context, Actor) (Profile, error)
-	UpdateProfile(context.Context, ProfileChange) (Profile, error)
-	ChangePassword(context.Context, Actor, string, string, [32]byte, [32]byte, time.Time, time.Time) (Session, error)
+	ListUsers(context.Context, TenantID) ([]TenantUser, error)
+	GetUser(context.Context, TenantID, UserID) (TenantUser, error)
+	GetUserTx(context.Context, pgx.Tx, TenantID, UserID) (TenantUser, error)
+	UserExistsTx(context.Context, pgx.Tx, TenantID, UserID) (bool, error)
+	UpdateProfile(context.Context, pgx.Tx, ProfileChange) (Profile, Profile, error)
+	ListTenantSummaries(context.Context) ([]TenantSummary, error)
+	LockTenantProfile(context.Context, pgx.Tx, TenantID) (TenantProfileState, error)
+	UpdateTenantProfile(context.Context, pgx.Tx, TenantID, string, time.Time) error
+	TransitionTenantStatus(context.Context, pgx.Tx, TenantID, string, string, time.Time) error
+	ChangePassword(context.Context, Actor, string, string, [32]byte, [32]byte, time.Time, time.Time, string) (Session, error)
 	CreateOneTimeToken(context.Context, TenantID, UserID, OneTimePurpose, string, [32]byte, time.Time, time.Time) error
-	ConsumeOneTimeToken(context.Context, [32]byte, OneTimePurpose, string, time.Time) error
-	DisableAccount(context.Context, TenantID, UserID, string, time.Time) error
-	UnlockAccount(context.Context, TenantID, UserID, time.Time) error
+	ConsumeOneTimeToken(context.Context, [32]byte, OneTimePurpose, string, time.Time, string) error
+	DisableAccount(context.Context, pgx.Tx, TenantID, UserID, string, string, time.Time) error
+	UnlockAccount(context.Context, pgx.Tx, TenantID, UserID, time.Time) error
+	LoginGuardLockedUntil(context.Context, string, string, time.Time) (time.Time, error)
+	RecordLoginFailure(context.Context, string, string, time.Time, time.Time, time.Time, int32) (bool, bool, error)
+	ClearLoginGuard(context.Context, string, string) error
+	RecordSecurityEvent(context.Context, SecurityEventType, TenantID, UserID, string, time.Time) error
 	ProvisionTenant(context.Context, pgx.Tx, TenantProvisioning) error
 	ActivateTenant(context.Context, pgx.Tx, TenantID, time.Time) error
 }
@@ -67,7 +80,17 @@ type Profile struct {
 	UpdatedAt time.Time
 }
 
-// ProfileChange carries an audited self-service profile update.
+// TenantUser is the non-sensitive management projection of a tenant account.
+type TenantUser struct {
+	ID        UserID
+	Username  string
+	Email     *string
+	Status    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// ProfileChange carries a self-service profile update inside the caller's transaction.
 type ProfileChange struct {
 	Actor              Actor
 	Username           string
@@ -75,8 +98,25 @@ type ProfileChange struct {
 	Email              *string
 	NormalizedEmail    *string
 	CorrelationID      string
-	AuditID            string
 	OccurredAt         time.Time
+}
+
+// TenantSummary is the platform-visible projection of a tenant.
+type TenantSummary struct {
+	ID          TenantID
+	Slug        string
+	DisplayName string
+	Status      string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+// TenantProfileState is the locked tenant profile snapshot used for optimistic checks.
+type TenantProfileState struct {
+	Slug        string
+	DisplayName string
+	Status      string
+	UpdatedAt   time.Time
 }
 
 // TenantProvisioning contains identity-owned state for atomic tenant setup.
@@ -115,29 +155,156 @@ func (s *Service) ActivateTenant(ctx context.Context, tx pgx.Tx, tenantID Tenant
 	return nil
 }
 
-// DisableAccount disables a tenant-owned user and invalidates every session.
-// The caller is responsible for completing authorization before invoking this
-// application operation; it is intentionally not exposed as an HTTP endpoint.
-func (s *Service) DisableAccount(ctx context.Context, tenantID TenantID, userID UserID, reason string) error {
-	if tenantID == "" || userID == "" || reason == "" {
-		return fmt.Errorf("invalid account disable request")
+// DisableUser disables a tenant-owned account, revokes its sessions, and
+// records audit evidence inside the same transaction. Disabling is idempotent
+// for already disabled accounts and also cancels outstanding invitations.
+func (s *Service) DisableUser(ctx context.Context, actor Actor, target UserID, reason, correlationID string) (TenantUser, error) {
+	if !validActor(actor) || s.userManagement == nil || target == "" {
+		return TenantUser{}, fmt.Errorf("invalid account disable request")
 	}
-	if err := s.store.DisableAccount(ctx, tenantID, userID, reason, s.now().UTC()); err != nil {
-		return fmt.Errorf("disable account: %w", err)
+	reason = strings.TrimSpace(reason)
+	correlationID = strings.TrimSpace(correlationID)
+	if reason == "" || len(reason) > 256 || correlationID == "" {
+		return TenantUser{}, fmt.Errorf("invalid account disable request")
 	}
+	if actor.UserID == target {
+		return TenantUser{}, fmt.Errorf("a user cannot disable their own account")
+	}
+	now := s.now().UTC()
+	var after TenantUser
+	err := s.userManagement.transactions.WithinTransaction(ctx, func(tx pgx.Tx) error {
+		before, err := s.store.GetUserTx(ctx, tx, actor.TenantID, target)
+		if err != nil {
+			return err
+		}
+		if err := s.store.DisableAccount(ctx, tx, actor.TenantID, target, reason, correlationID, now); err != nil {
+			return err
+		}
+		after, err = s.store.GetUserTx(ctx, tx, actor.TenantID, target)
+		if err != nil {
+			return err
+		}
+		return s.recordAccountEvent(ctx, tx, actor, target, "identity.user.disabled", reason, correlationID, now, before, after)
+	})
+	if err != nil {
+		return TenantUser{}, err
+	}
+	return after, nil
+}
+
+// UnlockUser restores a tenant-owned abuse-locked account to active state and
+// records audit evidence inside the same transaction. It does not reactivate
+// administratively disabled accounts.
+func (s *Service) UnlockUser(ctx context.Context, actor Actor, target UserID, correlationID string) (TenantUser, error) {
+	if !validActor(actor) || s.userManagement == nil || target == "" {
+		return TenantUser{}, fmt.Errorf("invalid account unlock request")
+	}
+	correlationID = strings.TrimSpace(correlationID)
+	if correlationID == "" {
+		return TenantUser{}, fmt.Errorf("invalid account unlock request")
+	}
+	now := s.now().UTC()
+	var after TenantUser
+	err := s.userManagement.transactions.WithinTransaction(ctx, func(tx pgx.Tx) error {
+		before, err := s.store.GetUserTx(ctx, tx, actor.TenantID, target)
+		if err != nil {
+			return err
+		}
+		if err := s.store.UnlockAccount(ctx, tx, actor.TenantID, target, now); err != nil {
+			return err
+		}
+		after, err = s.store.GetUserTx(ctx, tx, actor.TenantID, target)
+		if err != nil {
+			return err
+		}
+		return s.recordAccountEvent(ctx, tx, actor, target, "identity.user.unlocked", "authorized tenant user unlock", correlationID, now, before, after)
+	})
+	if err != nil {
+		return TenantUser{}, err
+	}
+	return after, nil
+}
+
+// Transactor supplies application-owned transaction boundaries.
+type Transactor interface {
+	WithinTransaction(context.Context, func(pgx.Tx) error) error
+}
+
+// AccountAuditor records account lifecycle evidence inside the caller's transaction.
+type AccountAuditor interface {
+	RecordAccountEvent(context.Context, pgx.Tx, AccountAuditEvent) error
+}
+
+// EnableUserManagement adds tenant account administration use cases to a service.
+func (s *Service) EnableUserManagement(transactions Transactor, auditor AccountAuditor) error {
+	if transactions == nil || auditor == nil {
+		return fmt.Errorf("invalid identity user management configuration")
+	}
+	s.userManagement = &userManagementDependencies{transactions: transactions, auditor: auditor}
 	return nil
 }
 
-// UnlockAccount restores a tenant-owned abuse-locked user to active state.
-// It does not reactivate administratively disabled users.
-func (s *Service) UnlockAccount(ctx context.Context, tenantID TenantID, userID UserID) error {
-	if tenantID == "" || userID == "" {
-		return fmt.Errorf("invalid account unlock request")
+type userManagementDependencies struct {
+	transactions Transactor
+	auditor      AccountAuditor
+}
+
+func (s *Service) recordAccountEvent(ctx context.Context, tx pgx.Tx, actor Actor, target UserID, action, reason, correlationID string, occurredAt time.Time, before, after any) error {
+	beforeJSON, err := json.Marshal(before)
+	if err != nil {
+		return fmt.Errorf("encode before audit state: %w", err)
 	}
-	if err := s.store.UnlockAccount(ctx, tenantID, userID, s.now().UTC()); err != nil {
-		return fmt.Errorf("unlock account: %w", err)
+	afterJSON, err := json.Marshal(after)
+	if err != nil {
+		return fmt.Errorf("encode after audit state: %w", err)
 	}
-	return nil
+	return s.userManagement.auditor.RecordAccountEvent(ctx, tx, AccountAuditEvent{Actor: actor, TargetUserID: target, Action: action, Resource: "user", ResourceID: string(target), Reason: reason, CorrelationID: correlationID, OccurredAt: occurredAt, BeforeState: beforeJSON, AfterState: afterJSON})
+}
+
+// UserExists reports tenant-local account existence inside the caller's
+// transaction so non-owning modules validate users without touching the table.
+func (s *Service) UserExists(ctx context.Context, tx pgx.Tx, tenantID TenantID, userID UserID) (bool, error) {
+	if tx == nil || tenantID == "" || userID == "" {
+		return false, fmt.Errorf("invalid user existence check")
+	}
+	return s.store.UserExistsTx(ctx, tx, tenantID, userID)
+}
+
+// ListTenantSummaries returns platform-visible tenant summaries through the
+// owning module's public API.
+func (s *Service) ListTenantSummaries(ctx context.Context) ([]TenantSummary, error) {
+	return s.store.ListTenantSummaries(ctx)
+}
+
+// LockTenantProfile reads tenant profile state with FOR UPDATE inside the
+// caller's transaction.
+func (s *Service) LockTenantProfile(ctx context.Context, tx pgx.Tx, tenantID TenantID) (TenantProfileState, error) {
+	if tx == nil || tenantID == "" {
+		return TenantProfileState{}, fmt.Errorf("invalid tenant profile lock")
+	}
+	return s.store.LockTenantProfile(ctx, tx, tenantID)
+}
+
+// UpdateTenantProfile writes mutable tenant presentation data inside the
+// caller's transaction.
+func (s *Service) UpdateTenantProfile(ctx context.Context, tx pgx.Tx, tenantID TenantID, displayName string, now time.Time) error {
+	if tx == nil || tenantID == "" || displayName == "" || len(displayName) > 128 {
+		return fmt.Errorf("invalid tenant profile update")
+	}
+	return s.store.UpdateTenantProfile(ctx, tx, tenantID, displayName, now.UTC())
+}
+
+// TransitionTenantStatus applies an exact lifecycle transition inside the
+// caller's transaction.
+func (s *Service) TransitionTenantStatus(ctx context.Context, tx pgx.Tx, tenantID TenantID, from, to string, now time.Time) error {
+	if tx == nil || tenantID == "" || from == "" || to == "" {
+		return fmt.Errorf("invalid tenant status transition")
+	}
+	return s.store.TransitionTenantStatus(ctx, tx, tenantID, from, to, now.UTC())
+}
+
+func validActor(actor Actor) bool {
+	return actor.TenantID != "" && actor.UserID != "" && actor.SessionID != ""
 }
 
 // IssueOneTimeToken creates a token for a trusted invitation or recovery
@@ -163,7 +330,7 @@ func (s *Service) IssueOneTimeToken(ctx context.Context, tenantID TenantID, user
 
 // ConsumeOneTimeToken atomically establishes or replaces a password and
 // invalidates all existing sessions.
-func (s *Service) ConsumeOneTimeToken(ctx context.Context, token string, purpose OneTimePurpose, newPassword string) error {
+func (s *Service) ConsumeOneTimeToken(ctx context.Context, token string, purpose OneTimePurpose, newPassword, correlationID string) error {
 	if token == "" || (purpose != PurposeInvitation && purpose != PurposePasswordReset) {
 		return ErrInvalidToken
 	}
@@ -171,7 +338,7 @@ func (s *Service) ConsumeOneTimeToken(ctx context.Context, token string, purpose
 	if err != nil {
 		return err
 	}
-	if err := s.store.ConsumeOneTimeToken(ctx, HashOpaqueToken(token), purpose, hash, s.now().UTC()); err != nil {
+	if err := s.store.ConsumeOneTimeToken(ctx, HashOpaqueToken(token), purpose, hash, s.now().UTC(), strings.TrimSpace(correlationID)); err != nil {
 		if errors.Is(err, ErrInvalidToken) || errors.Is(err, ErrExpiredToken) {
 			return err
 		}
@@ -199,6 +366,7 @@ type Service struct {
 	newID           func(time.Time) (string, error)
 	newSecret       func() (string, error)
 	dummyHash       string
+	userManagement  *userManagementDependencies
 }
 
 // NewService constructs an identity service with explicit clock and entropy dependencies.
@@ -226,19 +394,45 @@ func (s *Service) AuthenticateAccess(ctx context.Context, token string) (Actor, 
 	return Actor{TenantID: claims.TenantID, UserID: claims.Subject, SessionID: claims.SessionID}, nil
 }
 
-// Login verifies tenant-scoped credentials and establishes a session.
-func (s *Service) Login(ctx context.Context, tenantSlug, login, password string) (Tokens, error) {
-	account, err := s.store.FindActiveAccount(ctx, NormalizeLogin(tenantSlug), NormalizeLogin(login))
+// Login throttling parameters: five failed attempts within fifteen minutes
+// lock the credential pair for fifteen minutes.
+const (
+	loginFailureThreshold = 5
+	loginFailureWindow    = 15 * time.Minute
+	loginLockout          = 15 * time.Minute
+)
+
+// Login verifies tenant-scoped credentials, throttles repeated failures, and
+// establishes a session.
+func (s *Service) Login(ctx context.Context, tenantSlug, login, password, correlationID string) (Tokens, error) {
+	slug := NormalizeLogin(tenantSlug)
+	norm := NormalizeLogin(login)
+	correlationID = strings.TrimSpace(correlationID)
+	if slug == "" || norm == "" || password == "" {
+		return Tokens{}, ErrInvalidCredentials
+	}
+	now := s.now().UTC()
+	if lockedUntil, err := s.store.LoginGuardLockedUntil(ctx, slug, norm, now); err != nil {
+		return Tokens{}, fmt.Errorf("check login throttle: %w", err)
+	} else if !lockedUntil.IsZero() {
+		return Tokens{}, ErrAccountLocked
+	}
+	account, err := s.store.FindActiveAccount(ctx, slug, norm)
 	if err != nil {
 		if errors.Is(err, ErrInvalidCredentials) || errors.Is(err, ErrInactiveTenant) || errors.Is(err, ErrInactiveUser) {
 			_, _, _ = VerifyPassword(password, s.dummyHash, s.password)
+			s.recordLoginFailure(ctx, slug, norm, correlationID, now)
 			return Tokens{}, ErrInvalidCredentials
 		}
 		return Tokens{}, fmt.Errorf("find login account: %w", err)
 	}
 	valid, needsRehash, err := VerifyPassword(password, account.PasswordHash, s.password)
 	if err != nil || !valid {
+		s.recordLoginFailure(ctx, slug, norm, correlationID, now)
 		return Tokens{}, ErrInvalidCredentials
+	}
+	if err := s.store.ClearLoginGuard(ctx, slug, norm); err != nil {
+		return Tokens{}, fmt.Errorf("clear login throttle: %w", err)
 	}
 	if needsRehash {
 		hash, hashErr := HashPassword(password, s.password)
@@ -252,8 +446,25 @@ func (s *Service) Login(ctx context.Context, tenantSlug, login, password string)
 	return s.startSession(ctx, account)
 }
 
-// Refresh atomically consumes a refresh token and rotates its session secret.
-func (s *Service) Refresh(ctx context.Context, refreshToken string) (Tokens, error) {
+// recordLoginFailure counts one failed attempt and emits privacy-conscious
+// security events only at the first failure of a window and at lockout.
+func (s *Service) recordLoginFailure(ctx context.Context, slug, login, correlationID string, now time.Time) {
+	cutoff := now.Add(-loginFailureWindow)
+	first, locked, err := s.store.RecordLoginFailure(ctx, slug, login, now, cutoff, now.Add(loginLockout), loginFailureThreshold)
+	if err != nil {
+		return
+	}
+	if first {
+		_ = s.store.RecordSecurityEvent(ctx, SecurityEventLoginFailed, "", "", correlationID, now)
+	}
+	if locked {
+		_ = s.store.RecordSecurityEvent(ctx, SecurityEventLoginLocked, "", "", correlationID, now)
+	}
+}
+
+// Refresh atomically consumes a refresh token, rotates its session secret,
+// and records privacy-conscious evidence when replay is detected.
+func (s *Service) Refresh(ctx context.Context, refreshToken, correlationID string) (Tokens, error) {
 	if refreshToken == "" {
 		return Tokens{}, ErrInvalidToken
 	}
@@ -262,7 +473,7 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (Tokens, err
 		return Tokens{}, fmt.Errorf("generate refresh token: %w", err)
 	}
 	now := s.now().UTC()
-	session, err := s.store.RotateSession(ctx, HashOpaqueToken(refreshToken), HashOpaqueToken(nextSecret), now, now.Add(s.refreshLifetime))
+	session, err := s.store.RotateSession(ctx, HashOpaqueToken(refreshToken), HashOpaqueToken(nextSecret), now, now.Add(s.refreshLifetime), strings.TrimSpace(correlationID))
 	if err != nil {
 		if errors.Is(err, ErrRefreshReuse) || errors.Is(err, ErrInvalidToken) || errors.Is(err, ErrExpiredToken) {
 			return Tokens{}, err
@@ -276,9 +487,13 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (Tokens, err
 	return Tokens{AccessToken: access, RefreshToken: nextSecret, ExpiresIn: s.signer.lifetime, RefreshExpiresIn: s.refreshLifetime}, nil
 }
 
-// Logout revokes the actor's current session.
-func (s *Service) Logout(ctx context.Context, actor Actor) error {
-	return s.store.RevokeSession(ctx, actor.TenantID, actor.UserID, actor.SessionID, "logout", s.now().UTC())
+// Logout revokes the actor's current session and records security evidence.
+func (s *Service) Logout(ctx context.Context, actor Actor, correlationID string) error {
+	now := s.now().UTC()
+	if err := s.store.RevokeSession(ctx, actor.TenantID, actor.UserID, actor.SessionID, "logout", now, strings.TrimSpace(correlationID)); err != nil {
+		return err
+	}
+	return s.store.RecordSecurityEvent(ctx, SecurityEventSessionsRevoked, actor.TenantID, actor.UserID, strings.TrimSpace(correlationID), now)
 }
 
 // Profile returns the current active user's tenant-scoped profile.
@@ -286,7 +501,24 @@ func (s *Service) Profile(ctx context.Context, actor Actor) (Profile, error) {
 	return s.store.Profile(ctx, actor)
 }
 
-// UpdateProfile changes the current user's login profile and records the write.
+// ListUsers returns only users owned by the verified tenant.
+func (s *Service) ListUsers(ctx context.Context, tenantID TenantID) ([]TenantUser, error) {
+	if tenantID == "" {
+		return nil, fmt.Errorf("invalid tenant scope")
+	}
+	return s.store.ListUsers(ctx, tenantID)
+}
+
+// GetUser returns one tenant-owned user without cross-tenant disclosure.
+func (s *Service) GetUser(ctx context.Context, tenantID TenantID, userID UserID) (TenantUser, error) {
+	if tenantID == "" || userID == "" {
+		return TenantUser{}, fmt.Errorf("invalid user scope")
+	}
+	return s.store.GetUser(ctx, tenantID, userID)
+}
+
+// UpdateProfile changes the current user's login profile and records
+// transactional audit evidence inside the same database transaction.
 func (s *Service) UpdateProfile(ctx context.Context, actor Actor, username string, email *string, correlationID string) (Profile, error) {
 	username = strings.TrimSpace(username)
 	correlationID = strings.TrimSpace(correlationID)
@@ -303,26 +535,38 @@ func (s *Service) UpdateProfile(ctx context.Context, actor Actor, username strin
 		normalized := NormalizeLogin(value)
 		normalizedEmail = &normalized
 	}
+	if s.userManagement == nil {
+		return Profile{}, fmt.Errorf("invalid identity user management configuration")
+	}
 	now := s.now().UTC()
-	auditID, err := s.newID(now)
+	change := ProfileChange{Actor: actor, Username: username, NormalizedUsername: NormalizeLogin(username), Email: email, NormalizedEmail: normalizedEmail, CorrelationID: correlationID, OccurredAt: now}
+	var after Profile
+	err := s.userManagement.transactions.WithinTransaction(ctx, func(tx pgx.Tx) error {
+		before, updated, err := s.store.UpdateProfile(ctx, tx, change)
+		if err != nil {
+			return err
+		}
+		after = updated
+		return s.recordAccountEvent(ctx, tx, actor, actor.UserID, "identity.profile-updated", "self-service profile update", correlationID, now, before, after)
+	})
 	if err != nil {
-		return Profile{}, fmt.Errorf("generate audit ID: %w", err)
+		return Profile{}, err
 	}
-	profile, err := s.store.UpdateProfile(ctx, ProfileChange{Actor: actor, Username: username, NormalizedUsername: NormalizeLogin(username), Email: email, NormalizedEmail: normalizedEmail, CorrelationID: correlationID, AuditID: auditID, OccurredAt: now})
-	if err != nil {
-		return Profile{}, fmt.Errorf("update profile: %w", err)
-	}
-	return profile, nil
+	return after, nil
 }
 
 // LogoutAll revokes every session owned by the actor's tenant-local user.
-func (s *Service) LogoutAll(ctx context.Context, actor Actor) error {
-	return s.store.RevokeAllSessions(ctx, actor.TenantID, actor.UserID, "logout_all", s.now().UTC())
+func (s *Service) LogoutAll(ctx context.Context, actor Actor, correlationID string) error {
+	now := s.now().UTC()
+	if err := s.store.RevokeAllSessions(ctx, actor.TenantID, actor.UserID, "logout_all", now, strings.TrimSpace(correlationID)); err != nil {
+		return err
+	}
+	return s.store.RecordSecurityEvent(ctx, SecurityEventSessionsRevoked, actor.TenantID, actor.UserID, strings.TrimSpace(correlationID), now)
 }
 
 // ChangePassword verifies the current password, rotates the current session,
-// and revokes every other session atomically.
-func (s *Service) ChangePassword(ctx context.Context, actor Actor, currentPassword, newPassword, refreshToken string) (Tokens, error) {
+// and revokes every other session atomically with security evidence.
+func (s *Service) ChangePassword(ctx context.Context, actor Actor, currentPassword, newPassword, refreshToken, correlationID string) (Tokens, error) {
 	storedHash, err := s.store.PasswordHash(ctx, actor)
 	if err != nil {
 		return Tokens{}, ErrInvalidCredentials
@@ -340,7 +584,7 @@ func (s *Service) ChangePassword(ctx context.Context, actor Actor, currentPasswo
 		return Tokens{}, fmt.Errorf("generate refresh token: %w", err)
 	}
 	now := s.now().UTC()
-	session, err := s.store.ChangePassword(ctx, actor, storedHash, newHash, HashOpaqueToken(refreshToken), HashOpaqueToken(nextSecret), now, now.Add(s.refreshLifetime))
+	session, err := s.store.ChangePassword(ctx, actor, storedHash, newHash, HashOpaqueToken(refreshToken), HashOpaqueToken(nextSecret), now, now.Add(s.refreshLifetime), strings.TrimSpace(correlationID))
 	if err != nil {
 		if errors.Is(err, ErrInvalidCredentials) || errors.Is(err, ErrInvalidToken) {
 			return Tokens{}, err

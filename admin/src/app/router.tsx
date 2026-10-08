@@ -12,6 +12,8 @@ import {
   DictionariesRoute,
   DepartmentsRoute,
   PositionsRoute,
+  PlatformAuditRoute,
+  PlatformPlacesRoute,
   PlatformConfigurationsRoute,
   PlatformDictionariesRoute,
   PlatformTenantsRoute,
@@ -30,6 +32,8 @@ export const router = createBrowserRouter([
     element: <PlatformLayout />,
     children: [
       { index: true, element: <PlatformTenantsRoute /> },
+      { path: "audit", element: <PlatformAuditRoute /> },
+      { path: "places", element: <PlatformPlacesRoute /> },
       { path: "settings/dictionaries", element: <PlatformDictionariesRoute /> },
       {
         path: "settings/configurations",
@@ -62,7 +66,7 @@ export const router = createBrowserRouter([
       {
         path: "organization/users",
         element: (
-          <PermissionGuard permission={routePermissions.userAssignments}>
+          <PermissionGuard permission={routePermissions.users}>
             <UserAssignmentsRoute />
           </PermissionGuard>
         ),

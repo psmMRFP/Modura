@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5"
 	"github.com/modura-dev/modura/backend/internal/modules/audit"
 	auditpostgres "github.com/modura-dev/modura/backend/internal/modules/audit/postgres"
 	"github.com/modura-dev/modura/backend/internal/modules/authorization"
@@ -20,10 +20,11 @@ import (
 	identitypostgres "github.com/modura-dev/modura/backend/internal/modules/identity/postgres"
 	"github.com/modura-dev/modura/backend/internal/modules/organization"
 	organizationpostgres "github.com/modura-dev/modura/backend/internal/modules/organization/postgres"
+	"github.com/modura-dev/modura/backend/internal/modules/places"
+	placespostgres "github.com/modura-dev/modura/backend/internal/modules/places/postgres"
 	"github.com/modura-dev/modura/backend/internal/modules/platformadmin"
 	platformadminpostgres "github.com/modura-dev/modura/backend/internal/modules/platformadmin/postgres"
 	"github.com/modura-dev/modura/backend/internal/modules/platformtenant"
-	platformtenantpostgres "github.com/modura-dev/modura/backend/internal/modules/platformtenant/postgres"
 	"github.com/modura-dev/modura/backend/internal/modules/provisioning"
 	"github.com/modura-dev/modura/backend/internal/modules/settings"
 	settingspostgres "github.com/modura-dev/modura/backend/internal/modules/settings/postgres"
@@ -46,15 +47,14 @@ func main() {
 
 	startupCtx, cancelStartup := context.WithTimeout(ctx, 10*time.Second)
 	defer cancelStartup()
-	pool, err := pgxpool.New(startupCtx, cfg.Database.URL)
+	pool, created, err := database.Open(startupCtx, cfg.Database.URL, cfg.Database.AutoCreate)
 	if err != nil {
-		logger.Error("configure database", "error", err)
+		logger.Error("initialize application database", "error", err)
 		os.Exit(1)
 	}
 	defer pool.Close()
-	if err := pool.Ping(startupCtx); err != nil {
-		logger.Error("connect database", "error", err)
-		os.Exit(1)
+	if created {
+		logger.Info("application database created; apply database migrations before using business APIs")
 	}
 
 	signer, err := identity.NewAccessTokenSigner(cfg.Auth.Issuer, cfg.Auth.Audience, cfg.Auth.SigningKeyID, cfg.Auth.SigningKey, cfg.Auth.AccessLifetime)
@@ -89,7 +89,11 @@ func main() {
 		logger.Error("configure audit queries", "error", err)
 		os.Exit(1)
 	}
-	if err := authorizationService.EnableManagement(authorizationpostgres.New(pool), database.NewTransactor(pool), auditService, time.Now, func(now time.Time) (string, error) {
+	if err := identityService.EnableUserManagement(database.NewTransactor(pool), accountAuditor{service: auditService}); err != nil {
+		logger.Error("configure identity user management", "error", err)
+		os.Exit(1)
+	}
+	if err := authorizationService.EnableManagement(authorizationpostgres.New(pool), database.NewTransactor(pool), auditService, identityService, time.Now, func(now time.Time) (string, error) {
 		id, idErr := identifier.NewUUIDv7(now, nil)
 		return string(id), idErr
 	}); err != nil {
@@ -127,7 +131,7 @@ func main() {
 		logger.Error("configure platform administrator service", "error", err)
 		os.Exit(1)
 	}
-	platformTenantService, err := platformtenant.NewService(platformtenantpostgres.New(pool), time.Now, func(now time.Time) (string, error) {
+	platformTenantService, err := platformtenant.NewService(identityService, database.NewTransactor(pool), auditService, time.Now, func(now time.Time) (string, error) {
 		id, idErr := identifier.NewUUIDv7(now, nil)
 		return string(id), idErr
 	})
@@ -135,7 +139,7 @@ func main() {
 		logger.Error("configure platform tenant service", "error", err)
 		os.Exit(1)
 	}
-	provisioningService, err := provisioning.NewService(pool, identityService, organizationService, authorizationService, time.Now, func(now time.Time) (string, error) {
+	provisioningService, err := provisioning.NewService(pool, identityService, organizationService, authorizationService, auditService, time.Now, func(now time.Time) (string, error) {
 		id, idErr := identifier.NewUUIDv7(now, nil)
 		return string(id), idErr
 	}, func() (string, error) { return identity.NewOpaqueToken(32) }, cfg.Auth.InvitationLifetime)
@@ -143,7 +147,17 @@ func main() {
 		logger.Error("configure tenant provisioning service", "error", err)
 		os.Exit(1)
 	}
-	server := httpserver.New(cfg.HTTP, logger, httpserver.Dependencies{Identity: identityService, Authorizer: authorizationService, Authorization: authorizationService, Organization: organizationService, PlatformAdmin: platformAdminService, PlatformTenant: platformTenantService, Provisioning: provisioningService, Settings: settingsService, PlatformSettings: settingsService, Audit: auditService, Ready: pool.Ping})
+	placesService, err := places.NewService(placespostgres.New(pool))
+	if err != nil {
+		logger.Error("configure places service", "error", err)
+		os.Exit(1)
+	}
+	placeManagement, err := places.NewManagement(placespostgres.New(pool), database.NewTransactor(pool), auditService, time.Now, func(now time.Time) (string, error) { id, err := identifier.NewUUIDv7(now, nil); return string(id), err })
+	if err != nil {
+		logger.Error("configure place management", "error", err)
+		os.Exit(1)
+	}
+	server := httpserver.New(cfg.HTTP, logger, httpserver.Dependencies{PlatformPlaces: placeManagement, Places: placesService, Identity: identityService, Authorizer: authorizationService, Authorization: authorizationService, Organization: organizationService, PlatformAdmin: platformAdminService, PlatformTenant: platformTenantService, Provisioning: provisioningService, Settings: settingsService, PlatformSettings: settingsService, Audit: auditService, PlatformAudit: auditService, Ready: pool.Ping})
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -167,4 +181,15 @@ func main() {
 	}
 
 	logger.Info("http server stopped")
+}
+
+// accountAuditor adapts the audit module's transactional recorder to the
+// identity module's account audit contract, which cannot import audit
+// directly because audit already depends on identity types.
+type accountAuditor struct {
+	service *audit.Service
+}
+
+func (a accountAuditor) RecordAccountEvent(ctx context.Context, tx pgx.Tx, event identity.AccountAuditEvent) error {
+	return a.service.RecordTenantWrite(ctx, tx, audit.Event{ActorID: event.Actor.UserID, TenantID: event.Actor.TenantID, Action: event.Action, Resource: event.Resource, ResourceID: event.ResourceID, Reason: event.Reason, CorrelationID: event.CorrelationID, OccurredAt: event.OccurredAt, BeforeState: event.BeforeState, AfterState: event.AfterState})
 }

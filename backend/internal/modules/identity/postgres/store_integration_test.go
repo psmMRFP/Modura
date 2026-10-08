@@ -3,14 +3,19 @@ package postgres
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/modura-dev/modura/backend/internal/modules/audit"
+	auditpostgres "github.com/modura-dev/modura/backend/internal/modules/audit/postgres"
 	"github.com/modura-dev/modura/backend/internal/modules/identity"
+	"github.com/modura-dev/modura/backend/internal/platform/database"
+	"github.com/modura-dev/modura/backend/internal/platform/database/migrationtest"
 )
 
 func TestTenantIsolationAndRefreshReplay(t *testing.T) {
@@ -44,14 +49,24 @@ INSERT INTO modura.users (id, tenant_id, username, normalized_username, password
 	if alpha.TenantID == beta.TenantID || alpha.PasswordHash != "hash-alpha" || beta.PasswordHash != "hash-beta" {
 		t.Fatalf("tenant lookup leaked: alpha=%+v beta=%+v", alpha, beta)
 	}
+	alphaUsers, err := store.ListUsers(ctx, alpha.TenantID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(alphaUsers) != 2 {
+		t.Fatalf("alpha user count = %d", len(alphaUsers))
+	}
+	if _, err := store.GetUser(ctx, alpha.TenantID, beta.UserID); !errors.Is(err, identity.ErrUserNotFound) {
+		t.Fatalf("cross-tenant user lookup = %v", err)
+	}
 	invitation := identity.HashOpaqueToken("invitation-secret-that-is-long-enough")
 	if err := store.CreateOneTimeToken(ctx, alpha.TenantID, "018bcfe5-6800-7000-8000-000000000013", identity.PurposeInvitation, "018bcfe5-6800-7000-8000-000000000031", invitation, now, now.Add(15*time.Minute)); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.ConsumeOneTimeToken(ctx, invitation, identity.PurposeInvitation, "new-argon-hash", now.Add(time.Minute)); err != nil {
+	if err := store.ConsumeOneTimeToken(ctx, invitation, identity.PurposeInvitation, "new-argon-hash", now.Add(time.Minute), "request-invitation"); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.ConsumeOneTimeToken(ctx, invitation, identity.PurposeInvitation, "replacement", now.Add(2*time.Minute)); !errors.Is(err, identity.ErrInvalidToken) {
+	if err := store.ConsumeOneTimeToken(ctx, invitation, identity.PurposeInvitation, "replacement", now.Add(2*time.Minute), "request-invitation"); !errors.Is(err, identity.ErrInvalidToken) {
 		t.Fatalf("invitation replay error = %v", err)
 	}
 	var invitedStatus string
@@ -71,24 +86,27 @@ INSERT INTO modura.users (id, tenant_id, username, normalized_username, password
 	}
 	email := "shared@example.com"
 	normalizedEmail := identity.NormalizeLogin(email)
-	profile, err := store.UpdateProfile(ctx, identity.ProfileChange{Actor: identity.Actor{TenantID: alpha.TenantID, UserID: alpha.UserID, SessionID: session.ID}, Username: "Shared Admin", NormalizedUsername: "shared admin", Email: &email, NormalizedEmail: &normalizedEmail, CorrelationID: "request-profile", AuditID: "018bcfe5-6800-7000-8000-000000000032", OccurredAt: now.Add(30 * time.Second)})
+	profileTx, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
+		t.Fatal(err)
+	}
+	before, profile, err := store.UpdateProfile(ctx, profileTx, identity.ProfileChange{Actor: identity.Actor{TenantID: alpha.TenantID, UserID: alpha.UserID, SessionID: session.ID}, Username: "Shared Admin", NormalizedUsername: "shared admin", Email: &email, NormalizedEmail: &normalizedEmail, CorrelationID: "request-profile", OccurredAt: now.Add(30 * time.Second)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := profileTx.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
 	if profile.Username != "Shared Admin" || profile.Email == nil || *profile.Email != email {
 		t.Fatalf("profile = %+v", profile)
 	}
-	var profileAudit int
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM modura.audit_events WHERE tenant_id = $1 AND actor_id = $2 AND action = 'identity.profile-updated' AND before_state IS NOT NULL AND after_state IS NOT NULL`, alpha.TenantID, alpha.UserID).Scan(&profileAudit); err != nil {
+	if before.Username == profile.Username {
+		t.Fatalf("before snapshot = %+v", before)
+	}
+	if _, err := store.RotateSession(ctx, first, second, now.Add(time.Minute), now.Add(time.Hour), "request-refresh"); err != nil {
 		t.Fatal(err)
 	}
-	if profileAudit != 1 {
-		t.Fatalf("profile audit count = %d", profileAudit)
-	}
-	if _, err := store.RotateSession(ctx, first, second, now.Add(time.Minute), now.Add(time.Hour)); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := store.RotateSession(ctx, first, identity.HashOpaqueToken("third-refresh-secret-that-is-long-enough"), now.Add(2*time.Minute), now.Add(time.Hour)); !errors.Is(err, identity.ErrRefreshReuse) {
+	if _, err := store.RotateSession(ctx, first, identity.HashOpaqueToken("third-refresh-secret-that-is-long-enough"), now.Add(2*time.Minute), now.Add(time.Hour), "request-refresh"); !errors.Is(err, identity.ErrRefreshReuse) {
 		t.Fatalf("replay error = %v", err)
 	}
 	if err := store.ValidateSession(ctx, session.Session, now.Add(3*time.Minute)); !errors.Is(err, identity.ErrInvalidToken) {
@@ -98,7 +116,14 @@ INSERT INTO modura.users (id, tenant_id, username, normalized_username, password
 	if err := store.CreateSession(ctx, betaSession); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.DisableAccount(ctx, beta.TenantID, beta.UserID, "administrative_disable", now.Add(4*time.Minute)); err != nil {
+	disableTx, err := pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.DisableAccount(ctx, disableTx, beta.TenantID, beta.UserID, "administrative_disable", "request-disable", now.Add(4*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if err := disableTx.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.ValidateSession(ctx, betaSession.Session, now.Add(5*time.Minute)); !errors.Is(err, identity.ErrInvalidToken) {
@@ -112,9 +137,146 @@ INSERT INTO modura.users (id, tenant_id, username, normalized_username, password
 	if betaStatus != "disabled" || betaVersion != 2 {
 		t.Fatalf("disabled status=%q version=%d", betaStatus, betaVersion)
 	}
-	if err := store.UnlockAccount(ctx, beta.TenantID, beta.UserID, now.Add(6*time.Minute)); !errors.Is(err, identity.ErrInactiveUser) {
+	unlockTx, err := pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = unlockTx.Rollback(ctx) }()
+	if err := store.UnlockAccount(ctx, unlockTx, beta.TenantID, beta.UserID, now.Add(6*time.Minute)); !errors.Is(err, identity.ErrInactiveUser) {
 		t.Fatalf("disabled account unlock error = %v", err)
 	}
+}
+
+// TestLoginThrottlingAndSecurityEvents exercises the credential guard and
+// privacy-conscious security events against real PostgreSQL.
+func TestLoginThrottlingAndSecurityEvents(t *testing.T) {
+	pool := integrationPool(t)
+	ctx := context.Background()
+	now := time.Unix(1_700_000_000, 0).UTC()
+	if _, err := pool.Exec(ctx, `INSERT INTO modura.tenants (id, slug, display_name, status, created_at, updated_at) VALUES ('018bcfe5-6800-7000-8000-000000000301', 'gamma', 'Gamma', 'active', $1, $1)`, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO modura.users (id, tenant_id, username, normalized_username, password_hash, status, created_at, updated_at) VALUES ('018bcfe5-6800-7000-8000-000000000311', '018bcfe5-6800-7000-8000-000000000301', 'manager', 'manager', 'hash-manager', 'active', $1, $1)`, now); err != nil {
+		t.Fatal(err)
+	}
+	store := New(pool)
+	// Guard state is keyed by the submitted slug and login only.
+	for i := 1; i <= 5; i++ {
+		first, locked, err := store.RecordLoginFailure(ctx, "gamma", "missing-user", now.Add(time.Duration(i)*time.Second), now, now.Add(time.Hour), 5)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if first != (i == 1) {
+			t.Fatalf("attempt %d first=%v", i, first)
+		}
+		if locked != (i == 5) {
+			t.Fatalf("attempt %d locked=%v", i, locked)
+		}
+	}
+	lockedUntil, err := store.LoginGuardLockedUntil(ctx, "gamma", "missing-user", now.Add(10*time.Second))
+	if err != nil || lockedUntil.IsZero() {
+		t.Fatalf("guard locked until=%v err=%v", lockedUntil, err)
+	}
+	if until, err := store.LoginGuardLockedUntil(ctx, "gamma", "missing-user", now.Add(2*time.Hour)); err != nil || !until.IsZero() {
+		t.Fatalf("expired guard until=%v err=%v", until, err)
+	}
+	if err := store.RecordSecurityEvent(ctx, identity.SecurityEventSessionsRevoked, "018bcfe5-6800-7000-8000-000000000301", "018bcfe5-6800-7000-8000-000000000311", "request-security", now.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	var eventCount int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM modura.auth_security_events WHERE event_type = 'sessions_revoked' AND tenant_id = $1 AND user_id = $2`, "018bcfe5-6800-7000-8000-000000000301", "018bcfe5-6800-7000-8000-000000000311").Scan(&eventCount); err != nil {
+		t.Fatal(err)
+	}
+	if eventCount != 1 {
+		t.Fatalf("security event count = %d", eventCount)
+	}
+	if err := store.ClearLoginGuard(ctx, "gamma", "missing-user"); err != nil {
+		t.Fatal(err)
+	}
+	if until, err := store.LoginGuardLockedUntil(ctx, "gamma", "missing-user", now.Add(10*time.Second)); err != nil || !until.IsZero() {
+		t.Fatalf("cleared guard until=%v err=%v", until, err)
+	}
+}
+
+// TestDisableUserWorkflowRecordsTransactionalAudit exercises the full
+// management workflow with the real audit store so the audit row and the
+// account write demonstrably commit or roll back together.
+func TestDisableUserWorkflowRecordsTransactionalAudit(t *testing.T) {
+	pool := integrationPool(t)
+	ctx := context.Background()
+	now := time.Unix(1_700_000_000, 0).UTC()
+	if _, err := pool.Exec(ctx, `INSERT INTO modura.tenants (id, slug, display_name, status, created_at, updated_at) VALUES ('018bcfe5-6800-7000-8000-000000000301', 'gamma', 'Gamma', 'active', $1, $1)`, now); err != nil {
+		t.Fatal(err)
+	}
+	seedUsers := `
+INSERT INTO modura.users (id, tenant_id, username, normalized_username, password_hash, status, created_at, updated_at) VALUES
+('018bcfe5-6800-7000-8000-000000000311', '018bcfe5-6800-7000-8000-000000000301', 'manager', 'manager', 'hash-manager', 'active', $1, $1),
+('018bcfe5-6800-7000-8000-000000000312', '018bcfe5-6800-7000-8000-000000000301', 'target', 'target', 'hash-target', 'active', $1, $1)`
+	if _, err := pool.Exec(ctx, seedUsers, now); err != nil {
+		t.Fatal(err)
+	}
+	sequence := 0
+	newID := func(time.Time) (string, error) {
+		sequence++
+		return fmt.Sprintf("018bcfe5-6800-7000-8000-%012d", sequence), nil
+	}
+	auditService, err := audit.NewService(auditpostgres.New(pool), newID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := []byte(strings.Repeat("k", 32))
+	signer, err := identity.NewAccessTokenSigner("modura", "admin", "key-1", key, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verifier := identity.NewAccessTokenVerifier("modura", "admin", map[string][]byte{"key-1": key}, 0)
+	store := New(pool)
+	identityService, err := identity.NewService(store, signer, verifier, identity.DefaultPasswordParameters(), time.Hour, time.Now, newID, func() (string, error) { return strings.Repeat("s", 32), nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := identityService.EnableUserManagement(database.NewTransactor(pool), workflowAuditor{service: auditService}); err != nil {
+		t.Fatal(err)
+	}
+	actor := identity.Actor{TenantID: "018bcfe5-6800-7000-8000-000000000301", UserID: "018bcfe5-6800-7000-8000-000000000311", SessionID: "018bcfe5-6800-7000-8000-000000000321"}
+	disabled, err := identityService.DisableUser(ctx, actor, "018bcfe5-6800-7000-8000-000000000312", "policy violation", "request-disable-workflow")
+	if err != nil || disabled.Status != "disabled" {
+		t.Fatalf("disable err=%v user=%+v", err, disabled)
+	}
+	var action, resource, resourceID, result string
+	if err := pool.QueryRow(ctx, `SELECT action, resource, resource_id, result FROM modura.audit_events WHERE tenant_id = $1 AND correlation_id = 'request-disable-workflow'`, actor.TenantID).Scan(&action, &resource, &resourceID, &result); err != nil {
+		t.Fatalf("transactional audit row missing: %v", err)
+	}
+	if action != "identity.user.disabled" || resource != "user" || resourceID != "018bcfe5-6800-7000-8000-000000000312" || result != "succeeded" {
+		t.Fatalf("audit row action=%q resource=%q resource_id=%q result=%q", action, resource, resourceID, result)
+	}
+	lockedAt := now.Add(time.Minute)
+	if _, err := pool.Exec(ctx, `UPDATE modura.users SET status = 'locked', updated_at = $3 WHERE tenant_id = $1 AND id = $2`, actor.TenantID, "018bcfe5-6800-7000-8000-000000000312", lockedAt); err != nil {
+		t.Fatal(err)
+	}
+	unlocked, err := identityService.UnlockUser(ctx, actor, "018bcfe5-6800-7000-8000-000000000312", "request-unlock-workflow")
+	if err != nil || unlocked.Status != "active" {
+		t.Fatalf("unlock err=%v user=%+v", err, unlocked)
+	}
+	var unlockAudit int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM modura.audit_events WHERE tenant_id = $1 AND action = 'identity.user.unlocked' AND resource_id = $2`, actor.TenantID, "018bcfe5-6800-7000-8000-000000000312").Scan(&unlockAudit); err != nil {
+		t.Fatal(err)
+	}
+	if unlockAudit != 1 {
+		t.Fatalf("unlock audit count = %d", unlockAudit)
+	}
+	if _, err := identityService.DisableUser(ctx, actor, "018bcfe5-6800-7000-8000-000000000399", "missing user", "request-disable-missing"); !errors.Is(err, identity.ErrUserNotFound) {
+		t.Fatalf("missing user error = %v", err)
+	}
+}
+
+// workflowAuditor adapts the audit service to the identity account audit contract.
+type workflowAuditor struct {
+	service *audit.Service
+}
+
+func (a workflowAuditor) RecordAccountEvent(ctx context.Context, tx pgx.Tx, event identity.AccountAuditEvent) error {
+	return a.service.RecordTenantWrite(ctx, tx, audit.Event{ActorID: event.Actor.UserID, TenantID: event.Actor.TenantID, Action: event.Action, Resource: event.Resource, ResourceID: event.ResourceID, Reason: event.Reason, CorrelationID: event.CorrelationID, OccurredAt: event.OccurredAt, BeforeState: event.BeforeState, AfterState: event.AfterState})
 }
 
 func integrationPool(t *testing.T) *pgxpool.Pool {
@@ -135,30 +297,6 @@ func integrationPool(t *testing.T) *pgxpool.Pool {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	lockConnection, err := pool.Acquire(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := lockConnection.Exec(context.Background(), "SELECT pg_advisory_lock(1297040469)"); err != nil {
-		lockConnection.Release()
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		_, _ = lockConnection.Exec(context.Background(), "SELECT pg_advisory_unlock(1297040469)")
-		lockConnection.Release()
-	})
-	if _, err := pool.Exec(context.Background(), "DROP SCHEMA IF EXISTS modura CASCADE"); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _, _ = pool.Exec(context.Background(), "DROP SCHEMA IF EXISTS modura CASCADE") })
-	for _, name := range []string{"000001_initialize.up.sql", "000002_identity_foundation.up.sql", "000006_platform_tenant_audit.up.sql", "000008_audit_state_snapshots.up.sql"} {
-		migration, err := os.ReadFile(filepath.Join("..", "..", "..", "platform", "database", "migrations", name))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := pool.Exec(context.Background(), string(migration)); err != nil {
-			t.Fatalf("apply %s: %v", name, err)
-		}
-	}
+	migrationtest.Prepare(t, pool)
 	return pool
 }

@@ -6,6 +6,204 @@ info:
 servers:
   - url: /api
 paths:
+  /platform/places:
+    get:
+      operationId: listPlatformPlaces
+      summary: listPlatformPlaces
+      tags: [platform-places]
+      security: [{platformBearerAuth: []}]
+      parameters:
+        - name: q
+          in: query
+          schema: {type: string, maxLength: 120}
+        - name: limit
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 50, default: 20}
+        - name: offset
+          in: query
+          schema: {type: integer, minimum: 0, maximum: 10000, default: 0}
+      responses:
+        "200":
+          description: Platform place result
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ManagedPlacePage"}
+        "400": {$ref: "#/components/responses/PublicInvalidQuery"}
+        "401": {$ref: "#/components/responses/AuthenticationFailed"}
+        "403": {description: Platform session or CSRF verification failed}
+        "404": {description: Place not found}
+        "409": {description: "Stale edit, duplicate slug, or unpublished ancestor"}
+        "500": {$ref: "#/components/responses/PublicInternalError"}
+        "503": {$ref: "#/components/responses/PublicUnavailable"}
+    post:
+      operationId: createPlatformPlace
+      summary: createPlatformPlace
+      tags: [platform-places]
+      security: [{platformBearerAuth: []}]
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/CreatePlatformPlaceRequest"}
+      responses:
+        "201":
+          description: Platform place result
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ManagedPlace"}
+        "400": {$ref: "#/components/responses/PublicInvalidQuery"}
+        "401": {$ref: "#/components/responses/AuthenticationFailed"}
+        "403": {description: Platform session or CSRF verification failed}
+        "404": {description: Place not found}
+        "409": {description: "Stale edit, duplicate slug, or unpublished ancestor"}
+        "500": {$ref: "#/components/responses/PublicInternalError"}
+        "503": {$ref: "#/components/responses/PublicUnavailable"}
+  /platform/places/{placeId}:
+    get:
+      operationId: getPlatformPlace
+      summary: getPlatformPlace
+      tags: [platform-places]
+      security: [{platformBearerAuth: []}]
+      parameters:
+        - name: placeId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        "200":
+          description: Platform place result
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ManagedPlace"}
+        "400": {$ref: "#/components/responses/PublicInvalidQuery"}
+        "401": {$ref: "#/components/responses/AuthenticationFailed"}
+        "403": {description: Platform session or CSRF verification failed}
+        "404": {description: Place not found}
+        "409": {description: "Stale edit, duplicate slug, or unpublished ancestor"}
+        "500": {$ref: "#/components/responses/PublicInternalError"}
+        "503": {$ref: "#/components/responses/PublicUnavailable"}
+    put:
+      operationId: updatePlatformPlace
+      summary: updatePlatformPlace
+      tags: [platform-places]
+      security: [{platformBearerAuth: []}]
+      parameters:
+        - name: placeId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/UpdatePlatformPlaceRequest"}
+      responses:
+        "200":
+          description: Platform place result
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ManagedPlace"}
+        "400": {$ref: "#/components/responses/PublicInvalidQuery"}
+        "401": {$ref: "#/components/responses/AuthenticationFailed"}
+        "403": {description: Platform session or CSRF verification failed}
+        "404": {description: Place not found}
+        "409": {description: "Stale edit, duplicate slug, or unpublished ancestor"}
+        "500": {$ref: "#/components/responses/PublicInternalError"}
+        "503": {$ref: "#/components/responses/PublicUnavailable"}
+  /platform/places/{placeId}/publication:
+    put:
+      operationId: setPlacePublication
+      summary: setPlacePublication
+      tags: [platform-places]
+      security: [{platformBearerAuth: []}]
+      parameters:
+        - name: placeId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/SetPlacePublicationRequest"}
+      responses:
+        "200":
+          description: Platform place result
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ManagedPlace"}
+        "400": {$ref: "#/components/responses/PublicInvalidQuery"}
+        "401": {$ref: "#/components/responses/AuthenticationFailed"}
+        "403": {description: Platform session or CSRF verification failed}
+        "404": {description: Place not found}
+        "409": {description: "Stale edit, duplicate slug, or unpublished ancestor"}
+        "500": {$ref: "#/components/responses/PublicInternalError"}
+        "503": {$ref: "#/components/responses/PublicUnavailable"}
+  /public/places:
+    get:
+      operationId: searchPublicPlaces
+      summary: Search published places by stable slug, name or multilingual alias
+      tags: [public-places]
+      security: []
+      parameters:
+        - name: q
+          in: query
+          schema: {type: string, maxLength: 120, default: ""}
+        - $ref: "#/components/parameters/PublicLocale"
+        - name: limit
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 50, default: 20}
+        - name: offset
+          in: query
+          schema: {type: integer, minimum: 0, maximum: 10000, default: 0}
+      responses:
+        "200":
+          description: Published places only; no session is required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicPlacePage"
+        "400":
+          $ref: "#/components/responses/PublicInvalidQuery"
+        "503":
+          $ref: "#/components/responses/PublicUnavailable"
+        "500":
+          $ref: "#/components/responses/PublicInternalError"
+  /public/places/{slug}:
+    get:
+      operationId: getPublicPlace
+      summary: Read a published place by stable language-independent slug
+      tags: [public-places]
+      security: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: {type: string, maxLength: 120, pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'}
+        - $ref: "#/components/parameters/PublicLocale"
+      responses:
+        "200":
+          description: Published place with requested display language or canonical fallback
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicPlace"
+        "400":
+          $ref: "#/components/responses/PublicInvalidQuery"
+        "404":
+          description: Not found; unpublished places are indistinguishable from missing ones
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "503":
+          $ref: "#/components/responses/PublicUnavailable"
+        "500":
+          $ref: "#/components/responses/PublicInternalError"
   /livez:
     get:
       operationId: getLiveness
@@ -60,6 +258,12 @@ paths:
                 $ref: "#/components/schemas/AccessTokenResponse"
         "401":
           $ref: "#/components/responses/AuthenticationFailed"
+        "429":
+          description: Credential throttling locked this tenant and login pair
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
   /platform/auth/login:
     post:
       operationId: platformLogin
@@ -462,6 +666,93 @@ paths:
         "400": { description: Invalid or duplicate profile data }
         "401": { $ref: "#/components/responses/AuthenticationFailed" }
         "403": { $ref: "#/components/responses/CsrfFailed" }
+  /users:
+    get:
+      operationId: listTenantUsers
+      summary: List users in the authenticated tenant
+      tags: [identity]
+      security:
+        - bearerAuth: []
+      x-modura-permission: { resource: identity.users, action: read }
+      responses:
+        "200":
+          description: Tenant user catalogue
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/TenantUser" }
+        "401": { $ref: "#/components/responses/AuthenticationFailed" }
+        "403": { $ref: "#/components/responses/AuthorizationFailed" }
+  /users/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      operationId: getTenantUser
+      summary: Read a tenant-owned user
+      tags: [identity]
+      security:
+        - bearerAuth: []
+      x-modura-permission: { resource: identity.users, action: read }
+      responses:
+        "200":
+          description: Tenant user detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TenantUser" }
+        "401": { $ref: "#/components/responses/AuthenticationFailed" }
+        "403": { $ref: "#/components/responses/AuthorizationFailed" }
+        "404": { description: User not found in the tenant }
+  /users/{userId}/disable:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    post:
+      operationId: disableTenantUser
+      summary: Disable a tenant-owned user account
+      tags: [identity]
+      security:
+        - bearerAuth: []
+      x-modura-permission: { resource: identity.users, action: update }
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DisableUserRequest"
+      responses:
+        "200":
+          description: Disabled tenant user detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TenantUser" }
+        "400": { description: Invalid disable request }
+        "401": { $ref: "#/components/responses/AuthenticationFailed" }
+        "403": { $ref: "#/components/responses/CsrfFailed" }
+        "404": { description: User not found in the tenant }
+  /users/{userId}/unlock:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    post:
+      operationId: unlockTenantUser
+      summary: Restore an abuse-locked tenant user account
+      tags: [identity]
+      security:
+        - bearerAuth: []
+      x-modura-permission: { resource: identity.users, action: update }
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+      responses:
+        "200":
+          description: Unlocked tenant user detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TenantUser" }
+        "400": { description: Unlock does not apply to this account state }
+        "401": { $ref: "#/components/responses/AuthenticationFailed" }
+        "403": { $ref: "#/components/responses/CsrfFailed" }
+        "404": { description: User not found in the tenant }
   /auth/password-resets:
     post:
       operationId: resetPassword
@@ -1023,6 +1314,57 @@ paths:
         "400": { description: Invalid audit filter or page }
         "401": { $ref: "#/components/responses/AuthenticationFailed" }
         "403": { $ref: "#/components/responses/AuthorizationFailed" }
+  /audit/events/{eventId}:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+    get:
+      operationId: getAuditEvent
+      summary: Read one redacted audit event in the authenticated tenant
+      tags: [audit]
+      security: [{ bearerAuth: [] }]
+      x-modura-permission: { resource: audit.events, action: read }
+      responses:
+        "200":
+          description: Redacted audit event with state snapshots
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditEvent" }
+        "401": { $ref: "#/components/responses/AuthenticationFailed" }
+        "403": { $ref: "#/components/responses/AuthorizationFailed" }
+        "404": { description: Event not found in the tenant }
+  /platform/audit-events:
+    get:
+      operationId: listPlatformAuditEvents
+      summary: List redacted audit events across tenants as a global platform administrator
+      tags: [audit]
+      security:
+        - platformBearerAuth: []
+      parameters:
+        - name: tenantId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: action
+          in: query
+          schema: { type: string, maxLength: 128 }
+        - name: resource
+          in: query
+          schema: { type: string, maxLength: 128 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        "200":
+          description: Newest-first bounded platform audit page
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PlatformAuditEvent" }
+        "400": { description: Invalid audit filter or page }
+        "401": { $ref: "#/components/responses/AuthenticationFailed" }
 components:
   securitySchemes:
     bearerAuth:
@@ -1034,6 +1376,13 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    PublicLocale:
+      name: locale
+      in: query
+      schema:
+        type: string
+        enum: [en, zh-CN, de, fr, es]
+        default: en
     CsrfToken:
       name: X-CSRF-Token
       in: header
@@ -1070,6 +1419,13 @@ components:
       schema:
         type: string
         format: uuid
+    EventId:
+      name: eventId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     RoleId:
       name: roleId
       in: path
@@ -1100,6 +1456,24 @@ components:
         type: string
         format: uuid
   responses:
+    PublicInvalidQuery:
+      description: Invalid query
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    PublicUnavailable:
+      description: Catalogue is unavailable
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    PublicInternalError:
+      description: Internal error without private details
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
     AuthenticationFailed:
       description: Tenant or credentials are invalid, or the session is unavailable
       content:
@@ -1119,6 +1493,114 @@ components:
           schema:
             $ref: "#/components/schemas/Problem"
   schemas:
+    PlaceAlias:
+      type: object
+      additionalProperties: false
+      required: [locale, name, preferred]
+      properties:
+        locale: {type: string, maxLength: 35}
+        name: {type: string, minLength: 1, maxLength: 200}
+        preferred: {type: boolean}
+    PlaceDetails:
+      type: object
+      additionalProperties: false
+      required: [name, timezone, latitude, longitude, currency, languages, aliases]
+      properties:
+        name: {type: string, minLength: 1, maxLength: 200}
+        timezone: {type: string, nullable: true, maxLength: 128}
+        latitude: {type: number, format: double, nullable: true, minimum: -90, maximum: 90}
+        longitude: {type: number, format: double, nullable: true, minimum: -180, maximum: 180}
+        currency: {type: string, nullable: true, pattern: '^[A-Z]{3}$'}
+        languages:
+          type: array
+          maxItems: 20
+          items: {type: string, maxLength: 35}
+        aliases:
+          type: array
+          maxItems: 100
+          items: {$ref: "#/components/schemas/PlaceAlias"}
+    ManagedPlace:
+      type: object
+      required: [id, slug, type, parentId, countryCode, details, version, coverageLevel, publishedAt, createdAt, updatedAt]
+      properties:
+        id: {type: string, format: uuid}
+        slug: {type: string}
+        type: {$ref: "#/components/schemas/PublicPlaceType"}
+        parentId: {type: string, format: uuid, nullable: true}
+        countryCode: {type: string}
+        details: {$ref: "#/components/schemas/PlaceDetails"}
+        version: {type: integer, format: int64, minimum: 1}
+        coverageLevel: {type: integer, minimum: 0, maximum: 3}
+        publishedAt: {type: string, format: date-time, nullable: true}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    ManagedPlacePage:
+      type: object
+      required: [items, nextOffset]
+      properties:
+        items:
+          type: array
+          items: {$ref: "#/components/schemas/ManagedPlace"}
+        nextOffset: {type: integer, nullable: true}
+    PublicPlaceType:
+      type: string
+      enum: [country, region, island, city, district]
+    CreatePlatformPlaceRequest:
+      type: object
+      additionalProperties: false
+      required: [slug, type, parentId, countryCode, details, reason]
+      properties:
+        slug: {type: string, maxLength: 120, pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'}
+        type: {$ref: "#/components/schemas/PublicPlaceType"}
+        parentId: {type: string, format: uuid, nullable: true}
+        countryCode: {type: string, pattern: '^[A-Z]{2}$'}
+        details: {$ref: "#/components/schemas/PlaceDetails"}
+        reason: {type: string, minLength: 1, maxLength: 500}
+    UpdatePlatformPlaceRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, details, reason]
+      properties:
+        expectedVersion: {type: integer, format: int64, minimum: 1}
+        details: {$ref: "#/components/schemas/PlaceDetails"}
+        reason: {type: string, minLength: 1, maxLength: 500}
+    SetPlacePublicationRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, published, reason]
+      properties:
+        expectedVersion: {type: integer, format: int64, minimum: 1}
+        published: {type: boolean}
+        reason: {type: string, minLength: 1, maxLength: 500}
+    PublicPlace:
+      type: object
+      required: [id, slug, name, displayName, type, parentId, countryCode, timezone, latitude, longitude, currency, languages, coverageLevel, publishedAt]
+      properties:
+        id: {type: string, format: uuid}
+        slug: {type: string, maxLength: 120, pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'}
+        name: {type: string, description: Canonical name}
+        displayName: {type: string, description: Preferred localized alias or canonical name}
+        type: {$ref: "#/components/schemas/PublicPlaceType"}
+        parentId: {type: string, format: uuid, nullable: true}
+        countryCode: {type: string, pattern: '^[A-Z]{2}$'}
+        timezone: {type: string, nullable: true}
+        latitude: {type: number, format: double, minimum: -90, maximum: 90, nullable: true}
+        longitude: {type: number, format: double, minimum: -180, maximum: 180, nullable: true}
+        currency: {type: string, pattern: '^[A-Z]{3}$', nullable: true}
+        languages:
+          type: array
+          items: {type: string}
+        coverageLevel: {type: integer, minimum: 1, maximum: 3}
+        publishedAt: {type: string, format: date-time, description: Catalogue publication time; not fact verification time}
+    PublicPlacePage:
+      type: object
+      required: [items, nextOffset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicPlace"
+        nextOffset: {type: integer, nullable: true, minimum: 1}
     LoginRequest:
       type: object
       additionalProperties: false
@@ -1262,6 +1744,23 @@ components:
         email: { type: string, format: email, nullable: true }
         status: { type: string, enum: [active] }
         updatedAt: { type: string, format: date-time }
+    TenantUser:
+      type: object
+      additionalProperties: false
+      required: [id, username, status, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
+        email: { type: string, format: email, nullable: true }
+        status: { type: string, enum: [invited, active, disabled, locked] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    DisableUserRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 256 }
     UpdateUserProfileRequest:
       type: object
       additionalProperties: false
@@ -1429,7 +1928,7 @@ components:
       properties:
         resource:
           type: string
-          enum: [organization.departments, organization.positions, organization.user-organization, authorization.roles, authorization.policies, authorization.user-roles, settings.dictionaries, settings.configurations, audit.events]
+          enum: [identity.users, organization.departments, organization.positions, organization.user-organization, authorization.roles, authorization.policies, authorization.user-roles, settings.dictionaries, settings.configurations, audit.events]
         action:
           type: string
           enum: [read, create, update, delete]
@@ -1575,6 +2074,28 @@ components:
           enum: [platform_administrator, tenant_user]
         actorId: { type: string, format: uuid }
         tenantId: { type: string, format: uuid }
+        action: { type: string }
+        resource: { type: string }
+        resourceId: { type: string, format: uuid }
+        reason: { type: string }
+        result:
+          type: string
+          enum: [succeeded, failed]
+        correlationId: { type: string }
+        occurredAt: { type: string, format: date-time }
+        beforeState: {}
+        afterState: {}
+    PlatformAuditEvent:
+      type: object
+      additionalProperties: false
+      required: [id, actorType, actorId, action, resource, resourceId, reason, result, correlationId, occurredAt]
+      properties:
+        id: { type: string, format: uuid }
+        actorType:
+          type: string
+          enum: [platform_administrator, tenant_user]
+        actorId: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid, nullable: true }
         action: { type: string }
         resource: { type: string }
         resourceId: { type: string, format: uuid }

@@ -1,0 +1,57 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: modura
+          POSTGRES_PASSWORD: modura
+          POSTGRES_DB: modura_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      MODURA_TEST_DATABASE_URL: postgres://modura:modura@127.0.0.1:5432/modura_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache: true
+          cache-dependency-path: backend/go.sum
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: |
+            admin/package-lock.json
+            web/package-lock.json
+      - name: Install pinned generators
+        run: |
+          go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
+          go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+          go install github.com/google/go-licenses@v1.6.0
+      - name: Install locked frontend dependencies
+        run: |
+          npm ci --prefix admin
+          npm ci --prefix web
+      - name: Full verification
+        run: make verify
+      - name: Mandatory PostgreSQL integration and empty-database migration validation
+        run: make backend-test-integration
+      - name: Dependency vulnerability and license gates
+        run: make deps-gate

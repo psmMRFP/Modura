@@ -7,15 +7,19 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/modura-dev/modura/backend/internal/platform/database"
 )
 
 const (
 	defaultAddress         = ":8080"
 	defaultReadTimeout     = 10 * time.Second
+	defaultReadHeaderTime  = 5 * time.Second
 	defaultWriteTimeout    = 15 * time.Second
 	defaultIdleTimeout     = 60 * time.Second
 	defaultShutdownTimeout = 10 * time.Second
 	defaultMaxHeaderBytes  = 1 << 20
+	defaultMaxBodyBytes    = 1 << 20
 )
 
 // Config contains the validated application configuration.
@@ -26,7 +30,10 @@ type Config struct {
 }
 
 // Database contains PostgreSQL connection configuration.
-type Database struct{ URL string }
+type Database struct {
+	URL        string
+	AutoCreate bool
+}
 
 // Auth contains authentication and session security configuration.
 type Auth struct {
@@ -42,13 +49,16 @@ type Auth struct {
 
 // HTTP contains HTTP server configuration.
 type HTTP struct {
-	Address         string
-	ReadTimeout     time.Duration
-	WriteTimeout    time.Duration
-	IdleTimeout     time.Duration
-	ShutdownTimeout time.Duration
-	MaxHeaderBytes  int
-	CookieSecure    bool
+	Address           string
+	ReadTimeout       time.Duration
+	ReadHeaderTimeout time.Duration
+	WriteTimeout      time.Duration
+	IdleTimeout       time.Duration
+	ShutdownTimeout   time.Duration
+	MaxHeaderBytes    int
+	MaxBodyBytes      int64
+	AllowedOrigins    []string
+	CookieSecure      bool
 }
 
 // FromEnv loads configuration from environment variables and applies defaults.
@@ -70,13 +80,27 @@ func FromEnv() (Config, error) {
 	if httpConfig.MaxHeaderBytes, err = integer("MODURA_HTTP_MAX_HEADER_BYTES", defaultMaxHeaderBytes); err != nil {
 		return Config{}, err
 	}
+	if httpConfig.ReadHeaderTimeout, err = duration("MODURA_HTTP_READ_HEADER_TIMEOUT", defaultReadHeaderTime); err != nil {
+		return Config{}, err
+	}
+	if httpConfig.MaxBodyBytes, err = integer64("MODURA_HTTP_MAX_BODY_BYTES", defaultMaxBodyBytes); err != nil {
+		return Config{}, err
+	}
+	// Least-privilege CORS: without an explicit allowlist no cross-origin
+	// request receives CORS headers, so browsers fall back to same-origin.
+	for _, origin := range strings.Split(os.Getenv("MODURA_HTTP_ALLOWED_ORIGINS"), ",") {
+		if trimmed := strings.TrimSpace(origin); trimmed != "" {
+			httpConfig.AllowedOrigins = append(httpConfig.AllowedOrigins, trimmed)
+		}
+	}
 	if httpConfig.CookieSecure, err = boolean("MODURA_AUTH_COOKIE_SECURE", true); err != nil {
 		return Config{}, err
 	}
-	databaseURL := strings.TrimSpace(os.Getenv("MODURA_DATABASE_URL"))
-	if databaseURL == "" {
-		return Config{}, fmt.Errorf("MODURA_DATABASE_URL is required")
+	databaseConfig, err := DatabaseFromEnv()
+	if err != nil {
+		return Config{}, err
 	}
+
 	signingKey := []byte(os.Getenv("MODURA_AUTH_SIGNING_KEY"))
 	if len(signingKey) < 32 {
 		return Config{}, fmt.Errorf("MODURA_AUTH_SIGNING_KEY must contain at least 32 bytes")
@@ -97,7 +121,7 @@ func FromEnv() (Config, error) {
 	if auth.InvitationLifetime, err = duration("MODURA_AUTH_INVITATION_LIFETIME", 24*time.Hour); err != nil {
 		return Config{}, err
 	}
-	return Config{HTTP: httpConfig, Database: Database{URL: databaseURL}, Auth: auth}, nil
+	return Config{HTTP: httpConfig, Database: databaseConfig, Auth: auth}, nil
 }
 
 func boolean(name string, fallback bool) (bool, error) {
@@ -147,4 +171,35 @@ func integer(name string, fallback int) (int, error) {
 		return 0, fmt.Errorf("%s must be positive", name)
 	}
 	return parsed, nil
+}
+
+func integer64(name string, fallback int64) (int64, error) {
+	value := os.Getenv(name)
+	if value == "" {
+		return fallback, nil
+	}
+	parsed, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("parse %s: %w", name, err)
+	}
+	if parsed <= 0 {
+		return 0, fmt.Errorf("%s must be positive", name)
+	}
+	return parsed, nil
+}
+
+// DatabaseFromEnv validates database-only configuration for provisioning tools.
+func DatabaseFromEnv() (Database, error) {
+	url := strings.TrimSpace(os.Getenv("MODURA_DATABASE_URL"))
+	if url == "" {
+		return Database{}, fmt.Errorf("MODURA_DATABASE_URL is required")
+	}
+	if err := database.ValidateURL(url); err != nil {
+		return Database{}, fmt.Errorf("MODURA_DATABASE_URL: %w", err)
+	}
+	autoCreate, err := boolean("MODURA_DATABASE_AUTO_CREATE", true)
+	if err != nil {
+		return Database{}, err
+	}
+	return Database{URL: url, AutoCreate: autoCreate}, nil
 }

@@ -17,13 +17,15 @@ export function PlatformLayout() {
   return (
     <Layout className="admin-shell">
       <Layout.Sider breakpoint="lg" collapsedWidth="0">
-        <div className="admin-shell__brand">Modura Platform</div>
+        <div className="admin-shell__brand">WhereToLive Operations</div>
         <Menu
           theme="dark"
           selectedKeys={[location.pathname]}
           onClick={({ key }) => void navigate(key)}
           items={[
             { key: "/platform", label: "租户管理" },
+            { key: "/platform/audit", label: "平台审计" },
+            { key: "/platform/places", label: "地点目录" },
             { key: "/platform/settings/dictionaries", label: "全局字典" },
             { key: "/platform/settings/configurations", label: "全局配置" },
           ]}

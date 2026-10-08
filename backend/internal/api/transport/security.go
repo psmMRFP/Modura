@@ -60,14 +60,16 @@ func (s *Security) WriteTokens(c *gin.Context, accessToken, refreshToken string,
 	}
 	maxAge := int(refreshExpiresIn.Seconds())
 	s.setCookie(c, refreshName, refreshToken, maxAge, true, path)
-	s.setCookie(c, csrfName, csrf, maxAge, false, path)
+	// The CSRF cookie must be readable by the SPA on every route, so it is
+	// scoped to the site root even though the refresh cookie is path-limited.
+	s.setCookie(c, csrfName, csrf, maxAge, false, "/")
 	c.JSON(http.StatusOK, generated.AccessTokenResponse{AccessToken: accessToken, TokenType: generated.Bearer, ExpiresIn: int64(expiresIn.Seconds()), CsrfToken: csrf})
 }
 
 // ClearCookies expires a named refresh and CSRF cookie pair.
 func (s *Security) ClearCookies(c *gin.Context, refreshName, csrfName, path string) {
 	s.setCookie(c, refreshName, "", -1, true, path)
-	s.setCookie(c, csrfName, "", -1, false, path)
+	s.setCookie(c, csrfName, "", -1, false, "/")
 }
 
 // Problem writes a non-leaking RFC 9457-style problem response.

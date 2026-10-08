@@ -29,6 +29,7 @@ type Authorizer interface {
 // Service is the audit query API consumed by HTTP delivery.
 type Service interface {
 	List(context.Context, identity.TenantID, string, string, int, int) ([]audit.Record, error)
+	Get(context.Context, identity.TenantID, string) (audit.Record, error)
 }
 
 // AuditHandler serves immutable tenant audit queries.
@@ -92,6 +93,42 @@ func (h *AuditHandler) ListAuditEvents(c *gin.Context, params generated.ListAudi
 		response = append(response, item)
 	}
 	c.JSON(http.StatusOK, response)
+}
+
+// GetAuditEvent returns one redacted event only within the authenticated tenant.
+func (h *AuditHandler) GetAuditEvent(c *gin.Context, eventID generated.EventId) {
+	if h.service == nil || h.authorizer == nil || h.actors == nil {
+		h.security.Problem(c, http.StatusServiceUnavailable, "service unavailable")
+		return
+	}
+	actor, ok := h.actors.Actor(c)
+	if !ok {
+		return
+	}
+	permission := authorization.Permission{Resource: authorization.ResourceAuditEvents, Action: authorization.ActionRead}
+	if err := h.authorizer.Authorize(c.Request.Context(), actor, permission); err != nil {
+		if errors.Is(err, authorization.ErrDenied) {
+			h.security.Problem(c, http.StatusForbidden, "forbidden")
+		} else {
+			h.security.Problem(c, http.StatusInternalServerError, "internal server error")
+		}
+		return
+	}
+	record, err := h.service.Get(c.Request.Context(), actor.TenantID, eventID.String())
+	if errors.Is(err, audit.ErrNotFound) {
+		h.security.Problem(c, http.StatusNotFound, "not found")
+		return
+	}
+	if err != nil {
+		h.security.Problem(c, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	item, ok := auditResponse(record)
+	if !ok {
+		h.security.Problem(c, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	c.JSON(http.StatusOK, item)
 }
 
 func auditResponse(record audit.Record) (generated.AuditEvent, bool) {

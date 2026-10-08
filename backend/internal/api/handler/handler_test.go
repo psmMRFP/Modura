@@ -26,6 +26,18 @@ type identityStub struct {
 func (s *identityStub) Profile(context.Context, identity.Actor) (identity.Profile, error) {
 	return identity.Profile{ID: "018bcfe5-6800-7000-8000-000000000001", Username: "alice", Status: "active", UpdatedAt: time.Unix(1_700_000_000, 0)}, nil
 }
+func (s *identityStub) ListUsers(context.Context, identity.TenantID) ([]identity.TenantUser, error) {
+	return nil, nil
+}
+func (s *identityStub) GetUser(context.Context, identity.TenantID, identity.UserID) (identity.TenantUser, error) {
+	return identity.TenantUser{}, identity.ErrUserNotFound
+}
+func (s *identityStub) DisableUser(context.Context, identity.Actor, identity.UserID, string, string) (identity.TenantUser, error) {
+	return identity.TenantUser{ID: "018bcfe5-6800-7000-8000-000000000002", Username: "bob", Status: "disabled", UpdatedAt: time.Unix(1_700_000_000, 0)}, nil
+}
+func (s *identityStub) UnlockUser(context.Context, identity.Actor, identity.UserID, string) (identity.TenantUser, error) {
+	return identity.TenantUser{ID: "018bcfe5-6800-7000-8000-000000000002", Username: "bob", Status: "active", UpdatedAt: time.Unix(1_700_000_000, 0)}, nil
+}
 func (s *identityStub) UpdateProfile(_ context.Context, actor identity.Actor, username string, email *string, _ string) (identity.Profile, error) {
 	return identity.Profile{ID: actor.UserID, Username: username, Email: email, Status: "active", UpdatedAt: time.Unix(1_700_000_000, 0)}, nil
 }
@@ -128,13 +140,13 @@ func (organizationStub) AssignUser(context.Context, organization.WriteContext, i
 	return nil
 }
 
-func (s *identityStub) Login(_ context.Context, tenant, login, password string) (identity.Tokens, error) {
+func (s *identityStub) Login(_ context.Context, tenant, login, password, _ string) (identity.Tokens, error) {
 	if tenant != "acme" || login != "alice" || password != "secret password" {
 		return identity.Tokens{}, identity.ErrInvalidCredentials
 	}
 	return identity.Tokens{AccessToken: "access", RefreshToken: "refresh", ExpiresIn: 5 * time.Minute, RefreshExpiresIn: 24 * time.Hour}, nil
 }
-func (s *identityStub) Refresh(_ context.Context, refresh string) (identity.Tokens, error) {
+func (s *identityStub) Refresh(_ context.Context, refresh, _ string) (identity.Tokens, error) {
 	if refresh != "refresh" {
 		return identity.Tokens{}, identity.ErrInvalidToken
 	}
@@ -146,12 +158,12 @@ func (s *identityStub) AuthenticateAccess(_ context.Context, token string) (iden
 	}
 	return s.actor, nil
 }
-func (*identityStub) Logout(context.Context, identity.Actor) error    { return nil }
-func (*identityStub) LogoutAll(context.Context, identity.Actor) error { return nil }
-func (*identityStub) ChangePassword(context.Context, identity.Actor, string, string, string) (identity.Tokens, error) {
+func (*identityStub) Logout(context.Context, identity.Actor, string) error    { return nil }
+func (*identityStub) LogoutAll(context.Context, identity.Actor, string) error { return nil }
+func (*identityStub) ChangePassword(context.Context, identity.Actor, string, string, string, string) (identity.Tokens, error) {
 	return identity.Tokens{AccessToken: "changed-access", RefreshToken: "changed-refresh", ExpiresIn: 5 * time.Minute, RefreshExpiresIn: 24 * time.Hour}, nil
 }
-func (*identityStub) ConsumeOneTimeToken(_ context.Context, token string, _ identity.OneTimePurpose, password string) error {
+func (*identityStub) ConsumeOneTimeToken(_ context.Context, token string, _ identity.OneTimePurpose, password, _ string) error {
 	if token != strings.Repeat("t", 32) {
 		return identity.ErrInvalidToken
 	}
@@ -218,8 +230,14 @@ func TestPlatformLoginUsesDistinctCookies(t *testing.T) {
 		t.Fatalf("unexpected platform cookies: %+v", cookies)
 	}
 	for _, cookie := range cookies {
-		if cookie.Path != "/api/platform/auth" {
-			t.Fatalf("cookie %s path = %q", cookie.Name, cookie.Path)
+		// The refresh cookie stays scoped to the platform auth surface; the
+		// CSRF cookie is site-wide so the SPA can read it on any route.
+		want := "/api/platform/auth"
+		if cookie.Name == "modura_platform_csrf" {
+			want = "/"
+		}
+		if cookie.Path != want {
+			t.Fatalf("cookie %s path = %q, want %q", cookie.Name, cookie.Path, want)
 		}
 	}
 }

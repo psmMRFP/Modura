@@ -30,16 +30,16 @@ func (e AccessTokenResponseTokenType) Valid() bool {
 
 // Defines values for AuditEventActorType.
 const (
-	PlatformAdministrator AuditEventActorType = "platform_administrator"
-	TenantUser            AuditEventActorType = "tenant_user"
+	AuditEventActorTypePlatformAdministrator AuditEventActorType = "platform_administrator"
+	AuditEventActorTypeTenantUser            AuditEventActorType = "tenant_user"
 )
 
 // Valid indicates whether the value is a known member of the AuditEventActorType enum.
 func (e AuditEventActorType) Valid() bool {
 	switch e {
-	case PlatformAdministrator:
+	case AuditEventActorTypePlatformAdministrator:
 		return true
-	case TenantUser:
+	case AuditEventActorTypeTenantUser:
 		return true
 	default:
 		return false
@@ -48,16 +48,16 @@ func (e AuditEventActorType) Valid() bool {
 
 // Defines values for AuditEventResult.
 const (
-	Failed    AuditEventResult = "failed"
-	Succeeded AuditEventResult = "succeeded"
+	AuditEventResultFailed    AuditEventResult = "failed"
+	AuditEventResultSucceeded AuditEventResult = "succeeded"
 )
 
 // Valid indicates whether the value is a known member of the AuditEventResult enum.
 func (e AuditEventResult) Valid() bool {
 	switch e {
-	case Failed:
+	case AuditEventResultFailed:
 		return true
-	case Succeeded:
+	case AuditEventResultSucceeded:
 		return true
 	default:
 		return false
@@ -130,6 +130,42 @@ func (e HealthStatusStatus) Valid() bool {
 	}
 }
 
+// Defines values for PlatformAuditEventActorType.
+const (
+	PlatformAuditEventActorTypePlatformAdministrator PlatformAuditEventActorType = "platform_administrator"
+	PlatformAuditEventActorTypeTenantUser            PlatformAuditEventActorType = "tenant_user"
+)
+
+// Valid indicates whether the value is a known member of the PlatformAuditEventActorType enum.
+func (e PlatformAuditEventActorType) Valid() bool {
+	switch e {
+	case PlatformAuditEventActorTypePlatformAdministrator:
+		return true
+	case PlatformAuditEventActorTypeTenantUser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlatformAuditEventResult.
+const (
+	PlatformAuditEventResultFailed    PlatformAuditEventResult = "failed"
+	PlatformAuditEventResultSucceeded PlatformAuditEventResult = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the PlatformAuditEventResult enum.
+func (e PlatformAuditEventResult) Valid() bool {
+	switch e {
+	case PlatformAuditEventResultFailed:
+		return true
+	case PlatformAuditEventResultSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PlatformTenantStatus.
 const (
 	PlatformTenantStatusActive       PlatformTenantStatus = "active"
@@ -169,6 +205,33 @@ func (e PositionStatus) Valid() bool {
 	}
 }
 
+// Defines values for PublicPlaceType.
+const (
+	City     PublicPlaceType = "city"
+	Country  PublicPlaceType = "country"
+	District PublicPlaceType = "district"
+	Island   PublicPlaceType = "island"
+	Region   PublicPlaceType = "region"
+)
+
+// Valid indicates whether the value is a known member of the PublicPlaceType enum.
+func (e PublicPlaceType) Valid() bool {
+	switch e {
+	case City:
+		return true
+	case Country:
+		return true
+	case District:
+		return true
+	case Island:
+		return true
+	case Region:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RolePolicyAction.
 const (
 	Create RolePolicyAction = "create"
@@ -199,6 +262,7 @@ const (
 	AuthorizationPolicies        RolePolicyResource = "authorization.policies"
 	AuthorizationRoles           RolePolicyResource = "authorization.roles"
 	AuthorizationUserRoles       RolePolicyResource = "authorization.user-roles"
+	IdentityUsers                RolePolicyResource = "identity.users"
 	OrganizationDepartments      RolePolicyResource = "organization.departments"
 	OrganizationPositions        RolePolicyResource = "organization.positions"
 	OrganizationUserOrganization RolePolicyResource = "organization.user-organization"
@@ -216,6 +280,8 @@ func (e RolePolicyResource) Valid() bool {
 	case AuthorizationRoles:
 		return true
 	case AuthorizationUserRoles:
+		return true
+	case IdentityUsers:
 		return true
 	case OrganizationDepartments:
 		return true
@@ -250,6 +316,30 @@ func (e SettingSource) Valid() bool {
 	}
 }
 
+// Defines values for TenantUserStatus.
+const (
+	TenantUserStatusActive   TenantUserStatus = "active"
+	TenantUserStatusDisabled TenantUserStatus = "disabled"
+	TenantUserStatusInvited  TenantUserStatus = "invited"
+	TenantUserStatusLocked   TenantUserStatus = "locked"
+)
+
+// Valid indicates whether the value is a known member of the TenantUserStatus enum.
+func (e TenantUserStatus) Valid() bool {
+	switch e {
+	case TenantUserStatusActive:
+		return true
+	case TenantUserStatusDisabled:
+		return true
+	case TenantUserStatusInvited:
+		return true
+	case TenantUserStatusLocked:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UpdatePositionRequestStatus.
 const (
 	UpdatePositionRequestStatusActive   UpdatePositionRequestStatus = "active"
@@ -277,6 +367,87 @@ const (
 func (e UserProfileStatus) Valid() bool {
 	switch e {
 	case UserProfileStatusActive:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PublicLocale.
+const (
+	PublicLocaleDe   PublicLocale = "de"
+	PublicLocaleEn   PublicLocale = "en"
+	PublicLocaleEs   PublicLocale = "es"
+	PublicLocaleFr   PublicLocale = "fr"
+	PublicLocaleZhCN PublicLocale = "zh-CN"
+)
+
+// Valid indicates whether the value is a known member of the PublicLocale enum.
+func (e PublicLocale) Valid() bool {
+	switch e {
+	case PublicLocaleDe:
+		return true
+	case PublicLocaleEn:
+		return true
+	case PublicLocaleEs:
+		return true
+	case PublicLocaleFr:
+		return true
+	case PublicLocaleZhCN:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchPublicPlacesParamsLocale.
+const (
+	SearchPublicPlacesParamsLocaleDe   SearchPublicPlacesParamsLocale = "de"
+	SearchPublicPlacesParamsLocaleEn   SearchPublicPlacesParamsLocale = "en"
+	SearchPublicPlacesParamsLocaleEs   SearchPublicPlacesParamsLocale = "es"
+	SearchPublicPlacesParamsLocaleFr   SearchPublicPlacesParamsLocale = "fr"
+	SearchPublicPlacesParamsLocaleZhCN SearchPublicPlacesParamsLocale = "zh-CN"
+)
+
+// Valid indicates whether the value is a known member of the SearchPublicPlacesParamsLocale enum.
+func (e SearchPublicPlacesParamsLocale) Valid() bool {
+	switch e {
+	case SearchPublicPlacesParamsLocaleDe:
+		return true
+	case SearchPublicPlacesParamsLocaleEn:
+		return true
+	case SearchPublicPlacesParamsLocaleEs:
+		return true
+	case SearchPublicPlacesParamsLocaleFr:
+		return true
+	case SearchPublicPlacesParamsLocaleZhCN:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetPublicPlaceParamsLocale.
+const (
+	GetPublicPlaceParamsLocaleDe   GetPublicPlaceParamsLocale = "de"
+	GetPublicPlaceParamsLocaleEn   GetPublicPlaceParamsLocale = "en"
+	GetPublicPlaceParamsLocaleEs   GetPublicPlaceParamsLocale = "es"
+	GetPublicPlaceParamsLocaleFr   GetPublicPlaceParamsLocale = "fr"
+	GetPublicPlaceParamsLocaleZhCN GetPublicPlaceParamsLocale = "zh-CN"
+)
+
+// Valid indicates whether the value is a known member of the GetPublicPlaceParamsLocale enum.
+func (e GetPublicPlaceParamsLocale) Valid() bool {
+	switch e {
+	case GetPublicPlaceParamsLocaleDe:
+		return true
+	case GetPublicPlaceParamsLocaleEn:
+		return true
+	case GetPublicPlaceParamsLocaleEs:
+		return true
+	case GetPublicPlaceParamsLocaleFr:
+		return true
+	case GetPublicPlaceParamsLocaleZhCN:
 		return true
 	default:
 		return false
@@ -350,6 +521,16 @@ type CreateDepartmentRequest struct {
 	SortOrder int                `json:"sortOrder"`
 }
 
+// CreatePlatformPlaceRequest defines model for CreatePlatformPlaceRequest.
+type CreatePlatformPlaceRequest struct {
+	CountryCode string              `json:"countryCode"`
+	Details     PlaceDetails        `json:"details"`
+	ParentId    *openapi_types.UUID `json:"parentId"`
+	Reason      string              `json:"reason"`
+	Slug        string              `json:"slug"`
+	Type        PublicPlaceType     `json:"type"`
+}
+
 // CreatePositionRequest defines model for CreatePositionRequest.
 type CreatePositionRequest struct {
 	Name string `json:"name"`
@@ -389,6 +570,11 @@ type DictionaryItem struct {
 	SortOrder int    `json:"sortOrder"`
 }
 
+// DisableUserRequest defines model for DisableUserRequest.
+type DisableUserRequest struct {
+	Reason string `json:"reason"`
+}
+
 // EffectivePermission defines model for EffectivePermission.
 type EffectivePermission struct {
 	Action   string `json:"action"`
@@ -415,6 +601,27 @@ type LoginRequest struct {
 	Tenant   string  `json:"tenant"`
 }
 
+// ManagedPlace defines model for ManagedPlace.
+type ManagedPlace struct {
+	CountryCode   string              `json:"countryCode"`
+	CoverageLevel int                 `json:"coverageLevel"`
+	CreatedAt     time.Time           `json:"createdAt"`
+	Details       PlaceDetails        `json:"details"`
+	Id            openapi_types.UUID  `json:"id"`
+	ParentId      *openapi_types.UUID `json:"parentId"`
+	PublishedAt   *time.Time          `json:"publishedAt"`
+	Slug          string              `json:"slug"`
+	Type          PublicPlaceType     `json:"type"`
+	UpdatedAt     time.Time           `json:"updatedAt"`
+	Version       int64               `json:"version"`
+}
+
+// ManagedPlacePage defines model for ManagedPlacePage.
+type ManagedPlacePage struct {
+	Items      []ManagedPlace `json:"items"`
+	NextOffset *int           `json:"nextOffset"`
+}
+
 // MoveDepartmentRequest defines model for MoveDepartmentRequest.
 type MoveDepartmentRequest struct {
 	ParentId openapi_types.UUID `json:"parentId"`
@@ -425,6 +632,47 @@ type OneTimeCredentialRequest struct {
 	NewPassword *string `json:"newPassword,omitempty"`
 	Token       *string `json:"token,omitempty"`
 }
+
+// PlaceAlias defines model for PlaceAlias.
+type PlaceAlias struct {
+	Locale    string `json:"locale"`
+	Name      string `json:"name"`
+	Preferred bool   `json:"preferred"`
+}
+
+// PlaceDetails defines model for PlaceDetails.
+type PlaceDetails struct {
+	Aliases   []PlaceAlias `json:"aliases"`
+	Currency  *string      `json:"currency"`
+	Languages []string     `json:"languages"`
+	Latitude  *float64     `json:"latitude"`
+	Longitude *float64     `json:"longitude"`
+	Name      string       `json:"name"`
+	Timezone  *string      `json:"timezone"`
+}
+
+// PlatformAuditEvent defines model for PlatformAuditEvent.
+type PlatformAuditEvent struct {
+	Action        string                      `json:"action"`
+	ActorId       openapi_types.UUID          `json:"actorId"`
+	ActorType     PlatformAuditEventActorType `json:"actorType"`
+	AfterState    interface{}                 `json:"afterState,omitempty"`
+	BeforeState   interface{}                 `json:"beforeState,omitempty"`
+	CorrelationId string                      `json:"correlationId"`
+	Id            openapi_types.UUID          `json:"id"`
+	OccurredAt    time.Time                   `json:"occurredAt"`
+	Reason        string                      `json:"reason"`
+	Resource      string                      `json:"resource"`
+	ResourceId    openapi_types.UUID          `json:"resourceId"`
+	Result        PlatformAuditEventResult    `json:"result"`
+	TenantId      *openapi_types.UUID         `json:"tenantId,omitempty"`
+}
+
+// PlatformAuditEventActorType defines model for PlatformAuditEvent.ActorType.
+type PlatformAuditEventActorType string
+
+// PlatformAuditEventResult defines model for PlatformAuditEvent.Result.
+type PlatformAuditEventResult string
 
 // PlatformLoginRequest defines model for PlatformLoginRequest.
 type PlatformLoginRequest struct {
@@ -479,6 +727,39 @@ type ProvisionTenantResponse struct {
 	Created  bool               `json:"created"`
 	TenantId openapi_types.UUID `json:"tenantId"`
 }
+
+// PublicPlace defines model for PublicPlace.
+type PublicPlace struct {
+	CountryCode   string  `json:"countryCode"`
+	CoverageLevel int     `json:"coverageLevel"`
+	Currency      *string `json:"currency"`
+
+	// DisplayName Preferred localized alias or canonical name
+	DisplayName string             `json:"displayName"`
+	Id          openapi_types.UUID `json:"id"`
+	Languages   []string           `json:"languages"`
+	Latitude    *float64           `json:"latitude"`
+	Longitude   *float64           `json:"longitude"`
+
+	// Name Canonical name
+	Name     string              `json:"name"`
+	ParentId *openapi_types.UUID `json:"parentId"`
+
+	// PublishedAt Catalogue publication time; not fact verification time
+	PublishedAt time.Time       `json:"publishedAt"`
+	Slug        string          `json:"slug"`
+	Timezone    *string         `json:"timezone"`
+	Type        PublicPlaceType `json:"type"`
+}
+
+// PublicPlacePage defines model for PublicPlacePage.
+type PublicPlacePage struct {
+	Items      []PublicPlace `json:"items"`
+	NextOffset *int          `json:"nextOffset"`
+}
+
+// PublicPlaceType defines model for PublicPlaceType.
+type PublicPlaceType string
 
 // PutConfigurationRequest defines model for PutConfigurationRequest.
 type PutConfigurationRequest struct {
@@ -553,6 +834,13 @@ type RolePolicySet struct {
 	Version  int64        `json:"version"`
 }
 
+// SetPlacePublicationRequest defines model for SetPlacePublicationRequest.
+type SetPlacePublicationRequest struct {
+	ExpectedVersion int64  `json:"expectedVersion"`
+	Published       bool   `json:"published"`
+	Reason          string `json:"reason"`
+}
+
 // SettingSource defines model for SettingSource.
 type SettingSource string
 
@@ -561,10 +849,30 @@ type TenantLifecycleRequest struct {
 	Reason string `json:"reason"`
 }
 
+// TenantUser defines model for TenantUser.
+type TenantUser struct {
+	CreatedAt time.Time            `json:"createdAt"`
+	Email     *openapi_types.Email `json:"email,omitempty"`
+	Id        openapi_types.UUID   `json:"id"`
+	Status    TenantUserStatus     `json:"status"`
+	UpdatedAt time.Time            `json:"updatedAt"`
+	Username  string               `json:"username"`
+}
+
+// TenantUserStatus defines model for TenantUser.Status.
+type TenantUserStatus string
+
 // UpdateDepartmentRequest defines model for UpdateDepartmentRequest.
 type UpdateDepartmentRequest struct {
 	Name      string `json:"name"`
 	SortOrder int    `json:"sortOrder"`
+}
+
+// UpdatePlatformPlaceRequest defines model for UpdatePlatformPlaceRequest.
+type UpdatePlatformPlaceRequest struct {
+	Details         PlaceDetails `json:"details"`
+	ExpectedVersion int64        `json:"expectedVersion"`
+	Reason          string       `json:"reason"`
 }
 
 // UpdatePlatformTenantRequest defines model for UpdatePlatformTenantRequest.
@@ -624,6 +932,9 @@ type DepartmentId = openapi_types.UUID
 // DictionaryCode defines model for DictionaryCode.
 type DictionaryCode = string
 
+// EventId defines model for EventId.
+type EventId = openapi_types.UUID
+
 // ExpectedVersion defines model for ExpectedVersion.
 type ExpectedVersion = int64
 
@@ -632,6 +943,9 @@ type IdempotencyKey = openapi_types.UUID
 
 // PositionId defines model for PositionId.
 type PositionId = openapi_types.UUID
+
+// PublicLocale defines model for PublicLocale.
+type PublicLocale string
 
 // RoleId defines model for RoleId.
 type RoleId = openapi_types.UUID
@@ -650,6 +964,15 @@ type AuthorizationFailed = Problem
 
 // CsrfFailed defines model for CsrfFailed.
 type CsrfFailed = Problem
+
+// PublicInternalError defines model for PublicInternalError.
+type PublicInternalError = Problem
+
+// PublicInvalidQuery defines model for PublicInvalidQuery.
+type PublicInvalidQuery = Problem
+
+// PublicUnavailable defines model for PublicUnavailable.
+type PublicUnavailable = Problem
 
 // ListAuditEventsParams defines parameters for ListAuditEvents.
 type ListAuditEventsParams struct {
@@ -729,6 +1052,15 @@ type AssignUserOrganizationParams struct {
 	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
 }
 
+// ListPlatformAuditEventsParams defines parameters for ListPlatformAuditEvents.
+type ListPlatformAuditEventsParams struct {
+	TenantId *openapi_types.UUID `form:"tenantId,omitempty" json:"tenantId,omitempty"`
+	Action   *string             `form:"action,omitempty" json:"action,omitempty"`
+	Resource *string             `form:"resource,omitempty" json:"resource,omitempty"`
+	Limit    *int                `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset   *int                `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
 // PlatformLogoutParams defines parameters for PlatformLogout.
 type PlatformLogoutParams struct {
 	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
@@ -736,6 +1068,28 @@ type PlatformLogoutParams struct {
 
 // PlatformRefreshParams defines parameters for PlatformRefresh.
 type PlatformRefreshParams struct {
+	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
+}
+
+// ListPlatformPlacesParams defines parameters for ListPlatformPlaces.
+type ListPlatformPlacesParams struct {
+	Q      *string `form:"q,omitempty" json:"q,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *int    `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// CreatePlatformPlaceParams defines parameters for CreatePlatformPlace.
+type CreatePlatformPlaceParams struct {
+	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
+}
+
+// UpdatePlatformPlaceParams defines parameters for UpdatePlatformPlace.
+type UpdatePlatformPlaceParams struct {
+	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
+}
+
+// SetPlacePublicationParams defines parameters for SetPlacePublication.
+type SetPlacePublicationParams struct {
 	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
 }
 
@@ -770,6 +1124,25 @@ type SuspendPlatformTenantParams struct {
 	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
 }
 
+// SearchPublicPlacesParams defines parameters for SearchPublicPlaces.
+type SearchPublicPlacesParams struct {
+	Q      *string                         `form:"q,omitempty" json:"q,omitempty"`
+	Locale *SearchPublicPlacesParamsLocale `form:"locale,omitempty" json:"locale,omitempty"`
+	Limit  *int                            `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *int                            `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// SearchPublicPlacesParamsLocale defines parameters for SearchPublicPlaces.
+type SearchPublicPlacesParamsLocale string
+
+// GetPublicPlaceParams defines parameters for GetPublicPlace.
+type GetPublicPlaceParams struct {
+	Locale *GetPublicPlaceParamsLocale `form:"locale,omitempty" json:"locale,omitempty"`
+}
+
+// GetPublicPlaceParamsLocale defines parameters for GetPublicPlace.
+type GetPublicPlaceParamsLocale string
+
 // PutConfigurationParams defines parameters for PutConfiguration.
 type PutConfigurationParams struct {
 	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
@@ -788,6 +1161,16 @@ type ReplaceDictionaryParams struct {
 
 // UpdateMyProfileParams defines parameters for UpdateMyProfile.
 type UpdateMyProfileParams struct {
+	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
+}
+
+// DisableTenantUserParams defines parameters for DisableTenantUser.
+type DisableTenantUserParams struct {
+	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
+}
+
+// UnlockTenantUserParams defines parameters for UnlockTenantUser.
+type UnlockTenantUserParams struct {
 	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
 }
 
@@ -833,6 +1216,15 @@ type AssignUserOrganizationJSONRequestBody = AssignUserOrganizationRequest
 // PlatformLoginJSONRequestBody defines body for PlatformLogin for application/json ContentType.
 type PlatformLoginJSONRequestBody = PlatformLoginRequest
 
+// CreatePlatformPlaceJSONRequestBody defines body for CreatePlatformPlace for application/json ContentType.
+type CreatePlatformPlaceJSONRequestBody = CreatePlatformPlaceRequest
+
+// UpdatePlatformPlaceJSONRequestBody defines body for UpdatePlatformPlace for application/json ContentType.
+type UpdatePlatformPlaceJSONRequestBody = UpdatePlatformPlaceRequest
+
+// SetPlacePublicationJSONRequestBody defines body for SetPlacePublication for application/json ContentType.
+type SetPlacePublicationJSONRequestBody = SetPlacePublicationRequest
+
 // PutPlatformConfigurationJSONRequestBody defines body for PutPlatformConfiguration for application/json ContentType.
 type PutPlatformConfigurationJSONRequestBody = PutPlatformConfigurationRequest
 
@@ -860,11 +1252,17 @@ type ReplaceDictionaryJSONRequestBody = ReplaceDictionaryRequest
 // UpdateMyProfileJSONRequestBody defines body for UpdateMyProfile for application/json ContentType.
 type UpdateMyProfileJSONRequestBody = UpdateUserProfileRequest
 
+// DisableTenantUserJSONRequestBody defines body for DisableTenantUser for application/json ContentType.
+type DisableTenantUserJSONRequestBody = DisableUserRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// ListAuditEvents List redacted audit events in the authenticated tenant
 	// (GET /audit/events)
 	ListAuditEvents(c *gin.Context, params ListAuditEventsParams)
+	// GetAuditEvent Read one redacted audit event in the authenticated tenant
+	// (GET /audit/events/{eventId})
+	GetAuditEvent(c *gin.Context, eventId EventId)
 	// AcceptInvitation Consume an invitation and establish the first password
 	// (POST /auth/invitations/accept)
 	AcceptInvitation(c *gin.Context)
@@ -937,6 +1335,9 @@ type ServerInterface interface {
 	// AssignUserOrganization Set a user's primary department and optional position
 	// (PUT /organization/users/{userId}/assignment)
 	AssignUserOrganization(c *gin.Context, userId UserId, params AssignUserOrganizationParams)
+	// ListPlatformAuditEvents List redacted audit events across tenants as a global platform administrator
+	// (GET /platform/audit-events)
+	ListPlatformAuditEvents(c *gin.Context, params ListPlatformAuditEventsParams)
 	// PlatformLogin Establish a global platform-administrator session
 	// (POST /platform/auth/login)
 	PlatformLogin(c *gin.Context)
@@ -946,6 +1347,21 @@ type ServerInterface interface {
 	// PlatformRefresh Rotate a platform-administrator refresh secret
 	// (POST /platform/auth/refresh)
 	PlatformRefresh(c *gin.Context, params PlatformRefreshParams)
+	// ListPlatformPlaces listPlatformPlaces
+	// (GET /platform/places)
+	ListPlatformPlaces(c *gin.Context, params ListPlatformPlacesParams)
+	// CreatePlatformPlace createPlatformPlace
+	// (POST /platform/places)
+	CreatePlatformPlace(c *gin.Context, params CreatePlatformPlaceParams)
+	// GetPlatformPlace getPlatformPlace
+	// (GET /platform/places/{placeId})
+	GetPlatformPlace(c *gin.Context, placeId openapi_types.UUID)
+	// UpdatePlatformPlace updatePlatformPlace
+	// (PUT /platform/places/{placeId})
+	UpdatePlatformPlace(c *gin.Context, placeId openapi_types.UUID, params UpdatePlatformPlaceParams)
+	// SetPlacePublication setPlacePublication
+	// (PUT /platform/places/{placeId}/publication)
+	SetPlacePublication(c *gin.Context, placeId openapi_types.UUID, params SetPlacePublicationParams)
 	// ListPlatformConfigurations List global non-secret configuration definitions and defaults
 	// (GET /platform/settings/configurations)
 	ListPlatformConfigurations(c *gin.Context)
@@ -973,6 +1389,12 @@ type ServerInterface interface {
 	// SuspendPlatformTenant Suspend an active tenant with auditable reason
 	// (POST /platform/tenants/{tenantId}/suspend)
 	SuspendPlatformTenant(c *gin.Context, tenantId TenantId, params SuspendPlatformTenantParams)
+	// SearchPublicPlaces Search published places by stable slug, name or multilingual alias
+	// (GET /public/places)
+	SearchPublicPlaces(c *gin.Context, params SearchPublicPlacesParams)
+	// GetPublicPlace Read a published place by stable language-independent slug
+	// (GET /public/places/{slug})
+	GetPublicPlace(c *gin.Context, slug string, params GetPublicPlaceParams)
 	// GetReadiness Report whether the process can serve traffic
 	// (GET /readyz)
 	GetReadiness(c *gin.Context)
@@ -991,12 +1413,24 @@ type ServerInterface interface {
 	// ReplaceDictionary Create or replace a complete tenant dictionary
 	// (PUT /settings/dictionaries/{dictionaryCode})
 	ReplaceDictionary(c *gin.Context, dictionaryCode DictionaryCode, params ReplaceDictionaryParams)
+	// ListTenantUsers List users in the authenticated tenant
+	// (GET /users)
+	ListTenantUsers(c *gin.Context)
 	// GetMyProfile Read the authenticated user's profile
 	// (GET /users/me)
 	GetMyProfile(c *gin.Context)
 	// UpdateMyProfile Update the authenticated user's mutable profile
 	// (PUT /users/me)
 	UpdateMyProfile(c *gin.Context, params UpdateMyProfileParams)
+	// GetTenantUser Read a tenant-owned user
+	// (GET /users/{userId})
+	GetTenantUser(c *gin.Context, userId UserId)
+	// DisableTenantUser Disable a tenant-owned user account
+	// (POST /users/{userId}/disable)
+	DisableTenantUser(c *gin.Context, userId UserId, params DisableTenantUserParams)
+	// UnlockTenantUser Restore an abuse-locked tenant user account
+	// (POST /users/{userId}/unlock)
+	UnlockTenantUser(c *gin.Context, userId UserId, params UnlockTenantUserParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -1057,6 +1491,31 @@ func (siw *ServerInterfaceWrapper) ListAuditEvents(c *gin.Context) {
 	}
 
 	siw.Handler.ListAuditEvents(c, params)
+}
+
+// GetAuditEvent operation middleware
+func (siw *ServerInterfaceWrapper) GetAuditEvent(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "eventId" -------------
+	var eventId EventId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "eventId", c.Param("eventId"), &eventId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter eventId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetAuditEvent(c, eventId)
 }
 
 // AcceptInvitation operation middleware
@@ -1878,6 +2337,65 @@ func (siw *ServerInterfaceWrapper) AssignUserOrganization(c *gin.Context) {
 	siw.Handler.AssignUserOrganization(c, userId, params)
 }
 
+// ListPlatformAuditEvents operation middleware
+func (siw *ServerInterfaceWrapper) ListPlatformAuditEvents(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPlatformAuditEventsParams
+
+	// ------------- Optional query parameter "tenantId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "tenantId", c.Request.URL.Query(), &params.TenantId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter tenantId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "action" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "action", c.Request.URL.Query(), &params.Action, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter action: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "resource" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "resource", c.Request.URL.Query(), &params.Resource, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter resource: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", c.Request.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter limit: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", c.Request.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter offset: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListPlatformAuditEvents(c, params)
+}
+
 // PlatformLogin operation middleware
 func (siw *ServerInterfaceWrapper) PlatformLogin(c *gin.Context) {
 
@@ -1975,6 +2493,221 @@ func (siw *ServerInterfaceWrapper) PlatformRefresh(c *gin.Context) {
 	}
 
 	siw.Handler.PlatformRefresh(c, params)
+}
+
+// ListPlatformPlaces operation middleware
+func (siw *ServerInterfaceWrapper) ListPlatformPlaces(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPlatformPlacesParams
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", c.Request.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter q: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", c.Request.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter limit: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", c.Request.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter offset: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListPlatformPlaces(c, params)
+}
+
+// CreatePlatformPlace operation middleware
+func (siw *ServerInterfaceWrapper) CreatePlatformPlace(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreatePlatformPlaceParams
+
+	headers := c.Request.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		siw.ErrorHandler(c, fmt.Errorf("Header parameter X-CSRF-Token is required, but not found"), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CreatePlatformPlace(c, params)
+}
+
+// GetPlatformPlace operation middleware
+func (siw *ServerInterfaceWrapper) GetPlatformPlace(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "placeId" -------------
+	var placeId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "placeId", c.Param("placeId"), &placeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter placeId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetPlatformPlace(c, placeId)
+}
+
+// UpdatePlatformPlace operation middleware
+func (siw *ServerInterfaceWrapper) UpdatePlatformPlace(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "placeId" -------------
+	var placeId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "placeId", c.Param("placeId"), &placeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter placeId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdatePlatformPlaceParams
+
+	headers := c.Request.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		siw.ErrorHandler(c, fmt.Errorf("Header parameter X-CSRF-Token is required, but not found"), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpdatePlatformPlace(c, placeId, params)
+}
+
+// SetPlacePublication operation middleware
+func (siw *ServerInterfaceWrapper) SetPlacePublication(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "placeId" -------------
+	var placeId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "placeId", c.Param("placeId"), &placeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter placeId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SetPlacePublicationParams
+
+	headers := c.Request.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		siw.ErrorHandler(c, fmt.Errorf("Header parameter X-CSRF-Token is required, but not found"), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SetPlacePublication(c, placeId, params)
 }
 
 // ListPlatformConfigurations operation middleware
@@ -2341,6 +3074,93 @@ func (siw *ServerInterfaceWrapper) SuspendPlatformTenant(c *gin.Context) {
 	siw.Handler.SuspendPlatformTenant(c, tenantId, params)
 }
 
+// SearchPublicPlaces operation middleware
+func (siw *ServerInterfaceWrapper) SearchPublicPlaces(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SearchPublicPlacesParams
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", c.Request.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter q: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "locale", c.Request.URL.Query(), &params.Locale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter locale: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", c.Request.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter limit: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", c.Request.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter offset: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SearchPublicPlaces(c, params)
+}
+
+// GetPublicPlace operation middleware
+func (siw *ServerInterfaceWrapper) GetPublicPlace(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", c.Param("slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter slug: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPublicPlaceParams
+
+	// ------------- Optional query parameter "locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "locale", c.Request.URL.Query(), &params.Locale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter locale: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetPublicPlace(c, slug, params)
+}
+
 // GetReadiness operation middleware
 func (siw *ServerInterfaceWrapper) GetReadiness(c *gin.Context) {
 
@@ -2544,6 +3364,19 @@ func (siw *ServerInterfaceWrapper) ReplaceDictionary(c *gin.Context) {
 	siw.Handler.ReplaceDictionary(c, dictionaryCode, params)
 }
 
+// ListTenantUsers operation middleware
+func (siw *ServerInterfaceWrapper) ListTenantUsers(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListTenantUsers(c)
+}
+
 // GetMyProfile operation middleware
 func (siw *ServerInterfaceWrapper) GetMyProfile(c *gin.Context) {
 
@@ -2600,6 +3433,135 @@ func (siw *ServerInterfaceWrapper) UpdateMyProfile(c *gin.Context) {
 	siw.Handler.UpdateMyProfile(c, params)
 }
 
+// GetTenantUser operation middleware
+func (siw *ServerInterfaceWrapper) GetTenantUser(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "userId" -------------
+	var userId UserId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userId", c.Param("userId"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter userId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetTenantUser(c, userId)
+}
+
+// DisableTenantUser operation middleware
+func (siw *ServerInterfaceWrapper) DisableTenantUser(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "userId" -------------
+	var userId UserId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userId", c.Param("userId"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter userId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DisableTenantUserParams
+
+	headers := c.Request.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		siw.ErrorHandler(c, fmt.Errorf("Header parameter X-CSRF-Token is required, but not found"), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DisableTenantUser(c, userId, params)
+}
+
+// UnlockTenantUser operation middleware
+func (siw *ServerInterfaceWrapper) UnlockTenantUser(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "userId" -------------
+	var userId UserId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userId", c.Param("userId"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter userId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UnlockTenantUserParams
+
+	headers := c.Request.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		siw.ErrorHandler(c, fmt.Errorf("Header parameter X-CSRF-Token is required, but not found"), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UnlockTenantUser(c, userId, params)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -2627,6 +3589,13 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 		ErrorHandler:       errorHandler,
 	}
 
+	router.GET(options.BaseURL+"/platform/places", wrapper.ListPlatformPlaces)
+	router.POST(options.BaseURL+"/platform/places", wrapper.CreatePlatformPlace)
+	router.GET(options.BaseURL+"/platform/places/:placeId", wrapper.GetPlatformPlace)
+	router.PUT(options.BaseURL+"/platform/places/:placeId", wrapper.UpdatePlatformPlace)
+	router.PUT(options.BaseURL+"/platform/places/:placeId/publication", wrapper.SetPlacePublication)
+	router.GET(options.BaseURL+"/public/places", wrapper.SearchPublicPlaces)
+	router.GET(options.BaseURL+"/public/places/:slug", wrapper.GetPublicPlace)
 	router.GET(options.BaseURL+"/livez", wrapper.GetLiveness)
 	router.GET(options.BaseURL+"/readyz", wrapper.GetReadiness)
 	router.POST(options.BaseURL+"/auth/login", wrapper.Login)
@@ -2648,6 +3617,10 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.PUT(options.BaseURL+"/auth/password", wrapper.ChangePassword)
 	router.GET(options.BaseURL+"/users/me", wrapper.GetMyProfile)
 	router.PUT(options.BaseURL+"/users/me", wrapper.UpdateMyProfile)
+	router.GET(options.BaseURL+"/users", wrapper.ListTenantUsers)
+	router.GET(options.BaseURL+"/users/:userId", wrapper.GetTenantUser)
+	router.POST(options.BaseURL+"/users/:userId/disable", wrapper.DisableTenantUser)
+	router.POST(options.BaseURL+"/users/:userId/unlock", wrapper.UnlockTenantUser)
 	router.POST(options.BaseURL+"/auth/password-resets", wrapper.ResetPassword)
 	router.POST(options.BaseURL+"/auth/invitations/accept", wrapper.AcceptInvitation)
 	router.GET(options.BaseURL+"/organization/departments", wrapper.ListDepartments)
@@ -2672,4 +3645,6 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/settings/configurations", wrapper.ListConfigurations)
 	router.PUT(options.BaseURL+"/settings/configurations/:configurationKey", wrapper.PutConfiguration)
 	router.GET(options.BaseURL+"/audit/events", wrapper.ListAuditEvents)
+	router.GET(options.BaseURL+"/audit/events/:eventId", wrapper.GetAuditEvent)
+	router.GET(options.BaseURL+"/platform/audit-events", wrapper.ListPlatformAuditEvents)
 }

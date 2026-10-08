@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -17,6 +16,7 @@ import (
 	"github.com/modura-dev/modura/backend/internal/modules/identity"
 	"github.com/modura-dev/modura/backend/internal/modules/organization"
 	"github.com/modura-dev/modura/backend/internal/platform/database"
+	"github.com/modura-dev/modura/backend/internal/platform/database/migrationtest"
 )
 
 func TestOrganizationTenantAndTreeInvariants(t *testing.T) {
@@ -251,30 +251,6 @@ func integrationPool(t *testing.T) *pgxpool.Pool {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	lockConnection, err := pool.Acquire(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := lockConnection.Exec(context.Background(), "SELECT pg_advisory_lock(1297040469)"); err != nil {
-		lockConnection.Release()
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		_, _ = lockConnection.Exec(context.Background(), "SELECT pg_advisory_unlock(1297040469)")
-		lockConnection.Release()
-	})
-	if _, err := pool.Exec(context.Background(), "DROP SCHEMA IF EXISTS modura CASCADE"); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _, _ = pool.Exec(context.Background(), "DROP SCHEMA IF EXISTS modura CASCADE") })
-	for _, name := range []string{"000001_initialize.up.sql", "000002_identity_foundation.up.sql", "000003_organization_foundation.up.sql", "000004_authorization_and_provisioning.up.sql", "000005_platform_identity.up.sql", "000006_platform_tenant_audit.up.sql", "000007_authorization_policies.up.sql", "000008_audit_state_snapshots.up.sql", "000009_settings_foundation.up.sql"} {
-		migration, err := os.ReadFile(filepath.Join("..", "..", "..", "platform", "database", "migrations", name))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := pool.Exec(context.Background(), string(migration)); err != nil {
-			t.Fatalf("apply %s: %v", name, err)
-		}
-	}
+	migrationtest.Prepare(t, pool)
 	return pool
 }

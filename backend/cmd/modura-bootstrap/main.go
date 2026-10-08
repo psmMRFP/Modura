@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/modura-dev/modura/backend/internal/modules/identity"
 	"github.com/modura-dev/modura/backend/internal/modules/platformadmin"
 	platformadminpostgres "github.com/modura-dev/modura/backend/internal/modules/platformadmin/postgres"
 	"github.com/modura-dev/modura/backend/internal/platform/config"
+	"github.com/modura-dev/modura/backend/internal/platform/database"
 	"github.com/modura-dev/modura/backend/internal/platform/identifier"
 )
 
@@ -38,7 +38,7 @@ func main() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	pool, err := pgxpool.New(ctx, cfg.Database.URL)
+	pool, _, err := database.Open(ctx, cfg.Database.URL, cfg.Database.AutoCreate)
 	if err != nil {
 		fail("configure database: %v", err)
 	}

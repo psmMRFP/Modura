@@ -10,6 +10,7 @@ import (
 	authorizationhttp "github.com/modura-dev/modura/backend/internal/modules/authorization/transport/http"
 	identityhttp "github.com/modura-dev/modura/backend/internal/modules/identity/transport/http"
 	organizationhttp "github.com/modura-dev/modura/backend/internal/modules/organization/transport/http"
+	placeshttp "github.com/modura-dev/modura/backend/internal/modules/places/transport/http"
 	platformadminhttp "github.com/modura-dev/modura/backend/internal/modules/platformadmin/transport/http"
 	platformtenanthttp "github.com/modura-dev/modura/backend/internal/modules/platformtenant/transport/http"
 	provisioninghttp "github.com/modura-dev/modura/backend/internal/modules/provisioning/transport/http"
@@ -18,6 +19,8 @@ import (
 
 // Dependencies are the application capabilities required by HTTP delivery.
 type Dependencies struct {
+	PlatformPlaces   placeshttp.PlatformService
+	Places           placeshttp.Service
 	Identity         identityhttp.Service
 	Authorizer       organizationhttp.Authorizer
 	Authorization    authorizationhttp.Service
@@ -28,8 +31,15 @@ type Dependencies struct {
 	Settings         settingshttp.Service
 	PlatformSettings settingshttp.PlatformService
 	Audit            audithttp.Service
+	PlatformAudit    audithttp.PlatformReader
 	Ready            func(context.Context) error
 }
+
+// Places is the published global catalogue API consumed by HTTP delivery.
+type Places = placeshttp.Service
+
+// PlatformPlaces is the private catalogue management capability.
+type PlatformPlaces = placeshttp.PlatformService
 
 // Identity is the tenant identity API consumed by HTTP delivery.
 type Identity = identityhttp.Service
@@ -61,8 +71,13 @@ type PlatformSettings = settingshttp.PlatformService
 // Audit is the tenant audit query API consumed by HTTP delivery.
 type Audit = audithttp.Service
 
+// PlatformAudit is the global audit query API consumed by HTTP delivery.
+type PlatformAudit = audithttp.PlatformReader
+
 // Handler contains no business behavior; embedding composes the operation sets.
 type Handler struct {
+	*placeshttp.PlatformPlacesHandler
+	*placeshttp.PlacesHandler
 	*identityhttp.IdentityHandler
 	*authorizationhttp.AuthorizationHandler
 	*organizationhttp.OrganizationHandler
@@ -72,15 +87,18 @@ type Handler struct {
 	*settingshttp.SettingsHandler
 	*settingshttp.PlatformSettingsHandler
 	*audithttp.AuditHandler
+	*audithttp.PlatformAuditHandler
 	*SystemHandler
 }
 
 // New composes module-owned adapters into the complete generated server interface.
 func New(deps Dependencies, cookieSecure bool, newCSRF func() (string, error)) *Handler {
 	security := apihttp.NewSecurity(cookieSecure, newCSRF)
-	identityHandler := identityhttp.NewHandler(deps.Identity, security)
+	identityHandler := identityhttp.NewHandler(deps.Identity, deps.Authorizer, security)
 	platformAdminHandler := platformadminhttp.NewHandler(deps.PlatformAdmin, security)
-	return &Handler{
+	handler := &Handler{
+		PlatformPlacesHandler:   placeshttp.NewPlatformHandler(deps.PlatformPlaces, platformAdminHandler, security),
+		PlacesHandler:           placeshttp.NewHandler(deps.Places, security),
 		IdentityHandler:         identityHandler,
 		AuthorizationHandler:    authorizationhttp.NewHandler(deps.Authorization, identityHandler, security),
 		OrganizationHandler:     organizationhttp.NewHandler(deps.Organization, deps.Authorizer, identityHandler, security),
@@ -92,6 +110,8 @@ func New(deps Dependencies, cookieSecure bool, newCSRF func() (string, error)) *
 		AuditHandler:            audithttp.NewHandler(deps.Audit, deps.Authorizer, identityHandler, security),
 		SystemHandler:           newSystemHandler(deps.Ready, security),
 	}
+	handler.PlatformAuditHandler = audithttp.NewPlatformHandler(deps.PlatformAudit, platformAdminHandler, security)
+	return handler
 }
 
 var _ generated.ServerInterface = (*Handler)(nil)

@@ -1,7 +1,7 @@
 export const routePermissions = {
+  users: "identity.users/read",
   departments: "organization.departments/read",
   positions: "organization.positions/read",
-  userAssignments: "authorization.user-roles/read",
   roles: "authorization.roles/read",
   rolePolicies: "authorization.policies/read",
   dictionaries: "settings.dictionaries/read",
@@ -24,8 +24,8 @@ export const navigation = [
   },
   {
     key: "/organization/users",
-    label: "用户授权",
-    permission: routePermissions.userAssignments,
+    label: "用户管理",
+    permission: routePermissions.users,
   },
   {
     key: "/authorization/roles",

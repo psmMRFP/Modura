@@ -1,13 +1,19 @@
 // Package platformtenant owns platform-level tenant lifecycle use cases.
+// Tenant state is owned by the identity module; this module coordinates
+// platform administration through identity's public transaction-capable API
+// and records its own audit evidence inside the same transactions.
 package platformtenant
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/modura-dev/modura/backend/internal/modules/audit"
 	"github.com/modura-dev/modura/backend/internal/modules/identity"
 	"github.com/modura-dev/modura/backend/internal/modules/platformadmin"
 )
@@ -31,33 +37,56 @@ type Tenant struct {
 	UpdatedAt   time.Time
 }
 
-// LifecycleChange carries mandatory cross-tenant authorization evidence.
-type LifecycleChange struct {
-	Actor         platformadmin.Actor
-	TenantID      identity.TenantID
-	Reason        string
-	CorrelationID string
-	AuditID       string
-	OccurredAt    time.Time
+// TenantStore exposes identity-owned tenant state through the owning module's
+// public transaction-capable application API.
+type TenantStore interface {
+	ListTenantSummaries(context.Context) ([]identity.TenantSummary, error)
+	LockTenantProfile(context.Context, pgx.Tx, identity.TenantID) (identity.TenantProfileState, error)
+	UpdateTenantProfile(context.Context, pgx.Tx, identity.TenantID, string, time.Time) error
+	TransitionTenantStatus(context.Context, pgx.Tx, identity.TenantID, string, string, time.Time) error
 }
 
-// ProfileChange carries a validated optimistic tenant profile update.
-type ProfileChange struct {
-	Actor             platformadmin.Actor
-	TenantID          identity.TenantID
-	DisplayName       string
-	ExpectedUpdatedAt time.Time
-	Reason            string
-	CorrelationID     string
-	AuditID           string
-	OccurredAt        time.Time
+// Transactor supplies application-owned transaction boundaries.
+type Transactor interface {
+	WithinTransaction(context.Context, func(pgx.Tx) error) error
 }
 
-// Store is the persistence boundary consumed by platform tenant use cases.
-type Store interface {
-	List(context.Context) ([]Tenant, error)
-	UpdateProfile(context.Context, ProfileChange) error
-	ChangeStatus(context.Context, LifecycleChange, string, string) error
+// Auditor records tenant-scoped platform activity in the same transaction.
+type Auditor interface {
+	RecordTenantScopedPlatformWrite(context.Context, pgx.Tx, audit.TenantScopedPlatformEvent) error
+}
+
+// Service implements platform tenant queries and lifecycle changes.
+type Service struct {
+	tenants      TenantStore
+	transactions Transactor
+	auditor      Auditor
+	now          func() time.Time
+	newID        func(time.Time) (string, error)
+}
+
+// NewService constructs a platform tenant service.
+func NewService(tenants TenantStore, transactions Transactor, auditor Auditor, now func() time.Time, newID func(time.Time) (string, error)) (*Service, error) {
+	if tenants == nil || transactions == nil || auditor == nil || now == nil || newID == nil {
+		return nil, fmt.Errorf("invalid platform tenant service configuration")
+	}
+	return &Service{tenants: tenants, transactions: transactions, auditor: auditor, now: now, newID: newID}, nil
+}
+
+// List returns all tenants to an already verified platform actor.
+func (s *Service) List(ctx context.Context, actor platformadmin.Actor) ([]Tenant, error) {
+	if actor.AdministratorID == "" || actor.SessionID == "" {
+		return nil, platformadmin.ErrInvalidToken
+	}
+	summaries, err := s.tenants.ListTenantSummaries(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list tenants: %w", err)
+	}
+	tenants := make([]Tenant, 0, len(summaries))
+	for _, summary := range summaries {
+		tenants = append(tenants, Tenant{ID: summary.ID, Slug: summary.Slug, DisplayName: summary.DisplayName, Status: summary.Status, CreatedAt: summary.CreatedAt, UpdatedAt: summary.UpdatedAt})
+	}
+	return tenants, nil
 }
 
 // UpdateProfile changes only mutable tenant presentation data. The slug and
@@ -70,38 +99,34 @@ func (s *Service) UpdateProfile(ctx context.Context, actor platformadmin.Actor, 
 		return fmt.Errorf("invalid platform tenant profile request")
 	}
 	now := s.now().UTC()
-	auditID, err := s.newID(now)
+	err := s.transactions.WithinTransaction(ctx, func(tx pgx.Tx) error {
+		state, err := s.tenants.LockTenantProfile(ctx, tx, tenantID)
+		if err != nil {
+			return err
+		}
+		if !state.UpdatedAt.Equal(expectedUpdatedAt.UTC()) {
+			return ErrConflict
+		}
+		before, err := json.Marshal(map[string]any{"slug": state.Slug, "displayName": state.DisplayName, "status": state.Status})
+		if err != nil {
+			return fmt.Errorf("encode previous tenant profile: %w", err)
+		}
+		after, err := json.Marshal(map[string]any{"slug": state.Slug, "displayName": displayName, "status": state.Status})
+		if err != nil {
+			return fmt.Errorf("encode updated tenant profile: %w", err)
+		}
+		if err := s.tenants.UpdateTenantProfile(ctx, tx, tenantID, displayName, now); err != nil {
+			return err
+		}
+		return s.auditor.RecordTenantScopedPlatformWrite(ctx, tx, audit.TenantScopedPlatformEvent{ActorID: string(actor.AdministratorID), TenantID: tenantID, Action: "tenant.profile-updated", Resource: "tenant", ResourceID: string(tenantID), Reason: reason, CorrelationID: correlationID, OccurredAt: now, BeforeState: before, AfterState: after})
+	})
 	if err != nil {
-		return fmt.Errorf("generate audit event ID: %w", err)
-	}
-	change := ProfileChange{Actor: actor, TenantID: tenantID, DisplayName: displayName, ExpectedUpdatedAt: expectedUpdatedAt.UTC(), Reason: reason, CorrelationID: correlationID, AuditID: auditID, OccurredAt: now}
-	if err := s.store.UpdateProfile(ctx, change); err != nil {
+		if errors.Is(err, identity.ErrTenantNotFound) {
+			return ErrNotFound
+		}
 		return fmt.Errorf("update tenant profile: %w", err)
 	}
 	return nil
-}
-
-// Service implements platform tenant queries and lifecycle changes.
-type Service struct {
-	store Store
-	now   func() time.Time
-	newID func(time.Time) (string, error)
-}
-
-// NewService constructs a platform tenant service.
-func NewService(store Store, now func() time.Time, newID func(time.Time) (string, error)) (*Service, error) {
-	if store == nil || now == nil || newID == nil {
-		return nil, fmt.Errorf("invalid platform tenant service configuration")
-	}
-	return &Service{store: store, now: now, newID: newID}, nil
-}
-
-// List returns all tenants to an already verified platform actor.
-func (s *Service) List(ctx context.Context, actor platformadmin.Actor) ([]Tenant, error) {
-	if actor.AdministratorID == "" || actor.SessionID == "" {
-		return nil, platformadmin.ErrInvalidToken
-	}
-	return s.store.List(ctx)
 }
 
 // Suspend prevents tenant-local authentication and session validation.
@@ -121,12 +146,19 @@ func (s *Service) changeStatus(ctx context.Context, actor platformadmin.Actor, t
 		return fmt.Errorf("invalid platform tenant lifecycle request")
 	}
 	now := s.now().UTC()
-	auditID, err := s.newID(now)
+	err := s.transactions.WithinTransaction(ctx, func(tx pgx.Tx) error {
+		if err := s.tenants.TransitionTenantStatus(ctx, tx, tenantID, from, to, now); err != nil {
+			return err
+		}
+		return s.auditor.RecordTenantScopedPlatformWrite(ctx, tx, audit.TenantScopedPlatformEvent{ActorID: string(actor.AdministratorID), TenantID: tenantID, Action: "tenant." + to, Resource: "tenant", ResourceID: string(tenantID), Reason: reason, CorrelationID: correlationID, OccurredAt: now})
+	})
 	if err != nil {
-		return fmt.Errorf("generate audit event ID: %w", err)
-	}
-	change := LifecycleChange{Actor: actor, TenantID: tenantID, Reason: reason, CorrelationID: correlationID, AuditID: auditID, OccurredAt: now}
-	if err := s.store.ChangeStatus(ctx, change, from, to); err != nil {
+		if errors.Is(err, identity.ErrTenantNotFound) {
+			return ErrNotFound
+		}
+		if errors.Is(err, identity.ErrInvalidTenantTransition) {
+			return ErrInvalidTransition
+		}
 		return fmt.Errorf("change tenant status: %w", err)
 	}
 	return nil

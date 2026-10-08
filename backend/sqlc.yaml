@@ -10,3 +10,56 @@ sql:
         sql_package: pgx/v5
         emit_interface: false
         emit_json_tags: true
+        overrides: &appoverrides
+          # Modura application code uses string identifiers and time.Time for
+          # required columns; nullable columns keep their pgtype wrappers.
+          - db_type: "uuid"
+            go_type: "string"
+          - db_type: "pg_catalog.timestamptz"
+            go_type: "time.Time"
+          - db_type: "timestamptz"
+            go_type: "time.Time"
+  - engine: postgresql
+    queries: internal/modules/identity/postgres/query.sql
+    schema: internal/platform/database/migrations
+    gen:
+      go:
+        package: identitydb
+        out: internal/modules/identity/postgres/db
+        sql_package: pgx/v5
+        emit_interface: false
+        emit_json_tags: true
+        overrides: *appoverrides
+  - engine: postgresql
+    queries: internal/modules/audit/postgres/query.sql
+    schema: internal/platform/database/migrations
+    gen:
+      go:
+        package: auditdb
+        out: internal/modules/audit/postgres/db
+        sql_package: pgx/v5
+        emit_interface: false
+        emit_json_tags: true
+        overrides: *appoverrides
+  - engine: postgresql
+    queries: internal/modules/authorization/postgres/query.sql
+    schema: internal/platform/database/migrations
+    gen:
+      go:
+        package: authorizationdb
+        out: internal/modules/authorization/postgres/db
+        sql_package: pgx/v5
+        emit_interface: false
+        emit_json_tags: true
+        overrides: *appoverrides
+  - engine: postgresql
+    queries: internal/modules/places/postgres/query.sql
+    schema: internal/platform/database/migrations
+    gen:
+      go:
+        package: placesdb
+        out: internal/modules/places/postgres/db
+        sql_package: pgx/v5
+        emit_interface: false
+        emit_json_tags: true
+        overrides: *appoverrides

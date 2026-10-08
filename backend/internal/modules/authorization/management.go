@@ -18,7 +18,7 @@ type ManagementStore interface {
 	ListRoles(context.Context, identity.TenantID) ([]RoleView, error)
 	CreateRole(context.Context, pgx.Tx, Role) error
 	ReplaceRolePolicies(context.Context, pgx.Tx, identity.TenantID, RoleID, int64, []Policy, time.Time) ([]Policy, int64, error)
-	GetUserRoleGrants(context.Context, identity.TenantID, identity.UserID) (UserRoleGrantSet, error)
+	GetUserRoleGrants(context.Context, pgx.Tx, identity.TenantID, identity.UserID) (UserRoleGrantSet, error)
 	GetRolePolicySet(context.Context, identity.TenantID, RoleID) (RolePolicySet, error)
 	ReplaceUserRoleGrants(context.Context, pgx.Tx, identity.TenantID, identity.UserID, int64, []RoleID, time.Time) (UserRoleGrantSet, error)
 }
@@ -33,12 +33,18 @@ type Auditor interface {
 	RecordTenantWrite(context.Context, pgx.Tx, audit.Event) error
 }
 
+// UserExistence verifies tenant-local account existence through the owning
+// identity module instead of reading its tables directly.
+type UserExistence interface {
+	UserExists(context.Context, pgx.Tx, identity.TenantID, identity.UserID) (bool, error)
+}
+
 // EnableManagement adds authorization-management use cases to a service.
-func (s *Service) EnableManagement(store ManagementStore, transactions Transactor, auditor Auditor, now func() time.Time, newID func(time.Time) (string, error)) error {
-	if store == nil || transactions == nil || auditor == nil || now == nil || newID == nil {
+func (s *Service) EnableManagement(store ManagementStore, transactions Transactor, auditor Auditor, identities UserExistence, now func() time.Time, newID func(time.Time) (string, error)) error {
+	if store == nil || transactions == nil || auditor == nil || identities == nil || now == nil || newID == nil {
 		return fmt.Errorf("invalid authorization management configuration")
 	}
-	s.management = &managementDependencies{store: store, transactions: transactions, auditor: auditor, now: now, newID: newID}
+	s.management = &managementDependencies{store: store, transactions: transactions, auditor: auditor, identities: identities, now: now, newID: newID}
 	return nil
 }
 
@@ -46,6 +52,7 @@ type managementDependencies struct {
 	store        ManagementStore
 	transactions Transactor
 	auditor      Auditor
+	identities   UserExistence
 	now          func() time.Time
 	newID        func(time.Time) (string, error)
 }
@@ -127,7 +134,22 @@ func (s *Service) GetUserRoleGrants(ctx context.Context, actor identity.Actor, u
 	if !validActor(actor) || s.management == nil || userID == "" {
 		return UserRoleGrantSet{}, ErrDenied
 	}
-	return s.management.store.GetUserRoleGrants(ctx, actor.TenantID, userID)
+	var state UserRoleGrantSet
+	err := s.management.transactions.WithinTransaction(ctx, func(tx pgx.Tx) error {
+		exists, err := s.management.identities.UserExists(ctx, tx, actor.TenantID, userID)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return ErrNotFound
+		}
+		state, err = s.management.store.GetUserRoleGrants(ctx, tx, actor.TenantID, userID)
+		return err
+	})
+	if err != nil {
+		return UserRoleGrantSet{}, err
+	}
+	return state, nil
 }
 
 // ReplaceUserRoleGrants applies desired state with optimistic locking and audit snapshots.
@@ -159,7 +181,13 @@ func (s *Service) ReplaceUserRoleGrants(ctx context.Context, write WriteContext,
 	var before UserRoleGrantSet
 	var after UserRoleGrantSet
 	err := s.management.transactions.WithinTransaction(ctx, func(tx pgx.Tx) error {
-		var err error
+		exists, err := s.management.identities.UserExists(ctx, tx, write.Actor.TenantID, userID)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return ErrNotFound
+		}
 		before, err = s.management.store.ReplaceUserRoleGrants(ctx, tx, write.Actor.TenantID, userID, expectedVersion, desired, now)
 		if err != nil {
 			return err

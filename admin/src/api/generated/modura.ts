@@ -21,6 +21,187 @@ import type {
   UseQueryResult,
 } from "@tanstack/react-query";
 
+export interface PlaceAlias {
+  /** @maxLength 35 */
+  locale: string;
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
+  name: string;
+  preferred: boolean;
+}
+
+export interface PlaceDetails {
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
+  name: string;
+  /**
+   * @maxLength 128
+   * @nullable
+   */
+  timezone: string | null;
+  /**
+   * @minimum -90
+   * @maximum 90
+   * @nullable
+   */
+  latitude: number | null;
+  /**
+   * @minimum -180
+   * @maximum 180
+   * @nullable
+   */
+  longitude: number | null;
+  /**
+   * @nullable
+   * @pattern ^[A-Z]{3}$
+   */
+  currency: string | null;
+  /**
+   * @maxItems 20
+   * @items.maxLength 35
+   */
+  languages: string[];
+  /** @maxItems 100 */
+  aliases: PlaceAlias[];
+}
+
+export type PublicPlaceType =
+  (typeof PublicPlaceType)[keyof typeof PublicPlaceType];
+
+export const PublicPlaceType = {
+  country: "country",
+  region: "region",
+  island: "island",
+  city: "city",
+  district: "district",
+} as const;
+
+export interface ManagedPlace {
+  id: string;
+  slug: string;
+  type: PublicPlaceType;
+  /** @nullable */
+  parentId: string | null;
+  countryCode: string;
+  details: PlaceDetails;
+  /** @minimum 1 */
+  version: number;
+  /**
+   * @minimum 0
+   * @maximum 3
+   */
+  coverageLevel: number;
+  /** @nullable */
+  publishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ManagedPlacePage {
+  items: ManagedPlace[];
+  /** @nullable */
+  nextOffset: number | null;
+}
+
+export interface CreatePlatformPlaceRequest {
+  /**
+   * @maxLength 120
+   * @pattern ^[a-z0-9]+(-[a-z0-9]+)*$
+   */
+  slug: string;
+  type: PublicPlaceType;
+  /** @nullable */
+  parentId: string | null;
+  /** @pattern ^[A-Z]{2}$ */
+  countryCode: string;
+  details: PlaceDetails;
+  /**
+   * @minLength 1
+   * @maxLength 500
+   */
+  reason: string;
+}
+
+export interface UpdatePlatformPlaceRequest {
+  /** @minimum 1 */
+  expectedVersion: number;
+  details: PlaceDetails;
+  /**
+   * @minLength 1
+   * @maxLength 500
+   */
+  reason: string;
+}
+
+export interface SetPlacePublicationRequest {
+  /** @minimum 1 */
+  expectedVersion: number;
+  published: boolean;
+  /**
+   * @minLength 1
+   * @maxLength 500
+   */
+  reason: string;
+}
+
+export interface PublicPlace {
+  id: string;
+  /**
+   * @maxLength 120
+   * @pattern ^[a-z0-9]+(-[a-z0-9]+)*$
+   */
+  slug: string;
+  /** Canonical name */
+  name: string;
+  /** Preferred localized alias or canonical name */
+  displayName: string;
+  type: PublicPlaceType;
+  /** @nullable */
+  parentId: string | null;
+  /** @pattern ^[A-Z]{2}$ */
+  countryCode: string;
+  /** @nullable */
+  timezone: string | null;
+  /**
+   * @minimum -90
+   * @maximum 90
+   * @nullable
+   */
+  latitude: number | null;
+  /**
+   * @minimum -180
+   * @maximum 180
+   * @nullable
+   */
+  longitude: number | null;
+  /**
+   * @nullable
+   * @pattern ^[A-Z]{3}$
+   */
+  currency: string | null;
+  languages: string[];
+  /**
+   * @minimum 1
+   * @maximum 3
+   */
+  coverageLevel: number;
+  /** Catalogue publication time; not fact verification time */
+  publishedAt: string;
+}
+
+export interface PublicPlacePage {
+  items: PublicPlace[];
+  /**
+   * @minimum 1
+   * @nullable
+   */
+  nextOffset: number | null;
+}
+
 export interface LoginRequest {
   /**
    * @minLength 1
@@ -155,6 +336,34 @@ export interface UserProfile {
   email?: string | null;
   status: UserProfileStatus;
   updatedAt: string;
+}
+
+export type TenantUserStatus =
+  (typeof TenantUserStatus)[keyof typeof TenantUserStatus];
+
+export const TenantUserStatus = {
+  invited: "invited",
+  active: "active",
+  disabled: "disabled",
+  locked: "locked",
+} as const;
+
+export interface TenantUser {
+  id: string;
+  username: string;
+  /** @nullable */
+  email?: string | null;
+  status: TenantUserStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DisableUserRequest {
+  /**
+   * @minLength 1
+   * @maxLength 256
+   */
+  reason: string;
 }
 
 export interface UpdateUserProfileRequest {
@@ -313,6 +522,7 @@ export type RolePolicyResource =
   (typeof RolePolicyResource)[keyof typeof RolePolicyResource];
 
 export const RolePolicyResource = {
+  identityusers: "identity.users",
   organizationdepartments: "organization.departments",
   organizationpositions: "organization.positions",
   "organizationuser-organization": "organization.user-organization",
@@ -509,6 +719,39 @@ export interface AuditEvent {
   afterState?: unknown;
 }
 
+export type PlatformAuditEventActorType =
+  (typeof PlatformAuditEventActorType)[keyof typeof PlatformAuditEventActorType];
+
+export const PlatformAuditEventActorType = {
+  platform_administrator: "platform_administrator",
+  tenant_user: "tenant_user",
+} as const;
+
+export type PlatformAuditEventResult =
+  (typeof PlatformAuditEventResult)[keyof typeof PlatformAuditEventResult];
+
+export const PlatformAuditEventResult = {
+  succeeded: "succeeded",
+  failed: "failed",
+} as const;
+
+export interface PlatformAuditEvent {
+  id: string;
+  actorType: PlatformAuditEventActorType;
+  actorId: string;
+  /** @nullable */
+  tenantId?: string | null;
+  action: string;
+  resource: string;
+  resourceId: string;
+  reason: string;
+  result: PlatformAuditEventResult;
+  correlationId: string;
+  occurredAt: string;
+  beforeState?: unknown;
+  afterState?: unknown;
+}
+
 export type AccessTokenResponseTokenType =
   (typeof AccessTokenResponseTokenType)[keyof typeof AccessTokenResponseTokenType];
 
@@ -548,6 +791,21 @@ export interface Problem {
 }
 
 /**
+ * Invalid query
+ */
+export type PublicInvalidQueryResponse = Problem;
+
+/**
+ * Catalogue is unavailable
+ */
+export type PublicUnavailableResponse = Problem;
+
+/**
+ * Internal error without private details
+ */
+export type PublicInternalErrorResponse = Problem;
+
+/**
  * Tenant or credentials are invalid, or the session is unavailable
  */
 export type AuthenticationFailedResponse = Problem;
@@ -562,11 +820,61 @@ export type CsrfFailedResponse = Problem;
  */
 export type AuthorizationFailedResponse = Problem;
 
+export type PublicLocaleParameter =
+  (typeof PublicLocaleParameter)[keyof typeof PublicLocaleParameter];
+
+export const PublicLocaleParameter = {
+  en: "en",
+  "zh-CN": "zh-CN",
+  de: "de",
+  fr: "fr",
+  es: "es",
+} as const;
+
 export type CsrfTokenParameter = string;
 
 export type IdempotencyKeyParameter = string;
 
 export type ExpectedVersionParameter = number;
+
+export type ListPlatformPlacesParams = {
+  /**
+   * @maxLength 120
+   */
+  q?: string;
+  /**
+   * @minimum 1
+   * @maximum 50
+   */
+  limit?: number;
+  /**
+   * @minimum 0
+   * @maximum 10000
+   */
+  offset?: number;
+};
+
+export type SearchPublicPlacesParams = {
+  /**
+   * @maxLength 120
+   */
+  q?: string;
+  locale?: PublicLocaleParameter;
+  /**
+   * @minimum 1
+   * @maximum 50
+   */
+  limit?: number;
+  /**
+   * @minimum 0
+   * @maximum 10000
+   */
+  offset?: number;
+};
+
+export type GetPublicPlaceParams = {
+  locale?: PublicLocaleParameter;
+};
 
 export type DeleteDictionaryParams = {
   /**
@@ -576,6 +884,27 @@ export type DeleteDictionaryParams = {
 };
 
 export type ListAuditEventsParams = {
+  /**
+   * @maxLength 128
+   */
+  action?: string;
+  /**
+   * @maxLength 128
+   */
+  resource?: string;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: number;
+  /**
+   * @minimum 0
+   */
+  offset?: number;
+};
+
+export type ListPlatformAuditEventsParams = {
+  tenantId?: string;
   /**
    * @maxLength 128
    */
@@ -612,6 +941,1611 @@ const withQueryKey = <T extends object, K>(
   }
   return result;
 };
+
+export type listPlatformPlacesResponse200 = {
+  data: ManagedPlacePage;
+  status: 200;
+};
+
+export type listPlatformPlacesResponse400 = {
+  data: PublicInvalidQueryResponse;
+  status: 400;
+};
+
+export type listPlatformPlacesResponse401 = {
+  data: AuthenticationFailedResponse;
+  status: 401;
+};
+
+export type listPlatformPlacesResponse403 = {
+  data: void;
+  status: 403;
+};
+
+export type listPlatformPlacesResponse404 = {
+  data: void;
+  status: 404;
+};
+
+export type listPlatformPlacesResponse409 = {
+  data: void;
+  status: 409;
+};
+
+export type listPlatformPlacesResponse500 = {
+  data: PublicInternalErrorResponse;
+  status: 500;
+};
+
+export type listPlatformPlacesResponse503 = {
+  data: PublicUnavailableResponse;
+  status: 503;
+};
+
+export type listPlatformPlacesResponseSuccess =
+  listPlatformPlacesResponse200 & {
+    headers: Headers;
+  };
+export type listPlatformPlacesResponseError = (
+  | listPlatformPlacesResponse400
+  | listPlatformPlacesResponse401
+  | listPlatformPlacesResponse403
+  | listPlatformPlacesResponse404
+  | listPlatformPlacesResponse409
+  | listPlatformPlacesResponse500
+  | listPlatformPlacesResponse503
+) & {
+  headers: Headers;
+};
+
+export type listPlatformPlacesResponse =
+  listPlatformPlacesResponseSuccess | listPlatformPlacesResponseError;
+
+export const getListPlatformPlacesUrl = (params?: ListPlatformPlacesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/platform/places?${stringifiedParams}`
+    : `/api/platform/places`;
+};
+
+/**
+ * @summary listPlatformPlaces
+ */
+export const listPlatformPlaces = async (
+  params?: ListPlatformPlacesParams,
+  options?: RequestInit,
+): Promise<listPlatformPlacesResponse> => {
+  const res = await fetch(getListPlatformPlacesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPlatformPlacesResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as listPlatformPlacesResponse;
+};
+
+export const getListPlatformPlacesQueryKey = (
+  params?: ListPlatformPlacesParams,
+) => {
+  return [`/api/platform/places`, ...(params ? [params] : [])] as const;
+};
+
+export const getListPlatformPlacesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPlatformPlaces>>,
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+>(
+  params?: ListPlatformPlacesParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listPlatformPlaces>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+) => {
+  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListPlatformPlacesQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPlatformPlaces>>
+  > = ({ signal }) => listPlatformPlaces(params, { signal, ...fetchOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPlatformPlaces>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type ListPlatformPlacesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPlatformPlaces>>
+>;
+export type ListPlatformPlacesQueryError =
+  | PublicInvalidQueryResponse
+  | AuthenticationFailedResponse
+  | void
+  | PublicInternalErrorResponse
+  | PublicUnavailableResponse;
+
+export function useListPlatformPlaces<
+  TData = Awaited<ReturnType<typeof listPlatformPlaces>>,
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+>(
+  params: undefined | ListPlatformPlacesParams,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listPlatformPlaces>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listPlatformPlaces>>,
+          TError,
+          Awaited<ReturnType<typeof listPlatformPlaces>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListPlatformPlaces<
+  TData = Awaited<ReturnType<typeof listPlatformPlaces>>,
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+>(
+  params?: ListPlatformPlacesParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listPlatformPlaces>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listPlatformPlaces>>,
+          TError,
+          Awaited<ReturnType<typeof listPlatformPlaces>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListPlatformPlaces<
+  TData = Awaited<ReturnType<typeof listPlatformPlaces>>,
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+>(
+  params?: ListPlatformPlacesParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listPlatformPlaces>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary listPlatformPlaces
+ */
+
+export function useListPlatformPlaces<
+  TData = Awaited<ReturnType<typeof listPlatformPlaces>>,
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+>(
+  params?: ListPlatformPlacesParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listPlatformPlaces>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getListPlatformPlacesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export type createPlatformPlaceResponse201 = {
+  data: ManagedPlace;
+  status: 201;
+};
+
+export type createPlatformPlaceResponse400 = {
+  data: PublicInvalidQueryResponse;
+  status: 400;
+};
+
+export type createPlatformPlaceResponse401 = {
+  data: AuthenticationFailedResponse;
+  status: 401;
+};
+
+export type createPlatformPlaceResponse403 = {
+  data: void;
+  status: 403;
+};
+
+export type createPlatformPlaceResponse404 = {
+  data: void;
+  status: 404;
+};
+
+export type createPlatformPlaceResponse409 = {
+  data: void;
+  status: 409;
+};
+
+export type createPlatformPlaceResponse500 = {
+  data: PublicInternalErrorResponse;
+  status: 500;
+};
+
+export type createPlatformPlaceResponse503 = {
+  data: PublicUnavailableResponse;
+  status: 503;
+};
+
+export type createPlatformPlaceResponseSuccess =
+  createPlatformPlaceResponse201 & {
+    headers: Headers;
+  };
+export type createPlatformPlaceResponseError = (
+  | createPlatformPlaceResponse400
+  | createPlatformPlaceResponse401
+  | createPlatformPlaceResponse403
+  | createPlatformPlaceResponse404
+  | createPlatformPlaceResponse409
+  | createPlatformPlaceResponse500
+  | createPlatformPlaceResponse503
+) & {
+  headers: Headers;
+};
+
+export type createPlatformPlaceResponse =
+  createPlatformPlaceResponseSuccess | createPlatformPlaceResponseError;
+
+export const getCreatePlatformPlaceUrl = () => {
+  return `/api/platform/places`;
+};
+
+/**
+ * @summary createPlatformPlace
+ */
+export const createPlatformPlace = async (
+  createPlatformPlaceRequest: CreatePlatformPlaceRequest,
+  options?: RequestInit,
+): Promise<createPlatformPlaceResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+  const res = await fetch(getCreatePlatformPlaceUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(createPlatformPlaceRequest),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: createPlatformPlaceResponse["data"] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as createPlatformPlaceResponse;
+};
+
+export const getCreatePlatformPlaceMutationOptions = <
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPlatformPlace>>,
+    TError,
+    CreatePlatformPlaceMutationVariables,
+    TContext
+  >;
+  fetch?: RequestInit;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createPlatformPlace>>,
+  TError,
+  CreatePlatformPlaceMutationVariables,
+  TContext
+> => {
+  const mutationKey = ["createPlatformPlace"];
+  const { mutation: mutationOptions, fetch: fetchOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, fetch: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createPlatformPlace>>,
+    CreatePlatformPlaceMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createPlatformPlace(data, fetchOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreatePlatformPlaceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPlatformPlace>>
+>;
+export type CreatePlatformPlaceMutationBody = CreatePlatformPlaceRequest;
+export type CreatePlatformPlaceMutationError =
+  | PublicInvalidQueryResponse
+  | AuthenticationFailedResponse
+  | void
+  | PublicInternalErrorResponse
+  | PublicUnavailableResponse;
+export type CreatePlatformPlaceMutationVariables = {
+  data: CreatePlatformPlaceRequest;
+};
+
+/**
+ * @summary createPlatformPlace
+ */
+export const useCreatePlatformPlace = <
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof createPlatformPlace>>,
+      TError,
+      CreatePlatformPlaceMutationVariables,
+      TContext
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof createPlatformPlace>>,
+  TError,
+  CreatePlatformPlaceMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getCreatePlatformPlaceMutationOptions(options),
+    queryClient,
+  );
+};
+
+export type getPlatformPlaceResponse200 = {
+  data: ManagedPlace;
+  status: 200;
+};
+
+export type getPlatformPlaceResponse400 = {
+  data: PublicInvalidQueryResponse;
+  status: 400;
+};
+
+export type getPlatformPlaceResponse401 = {
+  data: AuthenticationFailedResponse;
+  status: 401;
+};
+
+export type getPlatformPlaceResponse403 = {
+  data: void;
+  status: 403;
+};
+
+export type getPlatformPlaceResponse404 = {
+  data: void;
+  status: 404;
+};
+
+export type getPlatformPlaceResponse409 = {
+  data: void;
+  status: 409;
+};
+
+export type getPlatformPlaceResponse500 = {
+  data: PublicInternalErrorResponse;
+  status: 500;
+};
+
+export type getPlatformPlaceResponse503 = {
+  data: PublicUnavailableResponse;
+  status: 503;
+};
+
+export type getPlatformPlaceResponseSuccess = getPlatformPlaceResponse200 & {
+  headers: Headers;
+};
+export type getPlatformPlaceResponseError = (
+  | getPlatformPlaceResponse400
+  | getPlatformPlaceResponse401
+  | getPlatformPlaceResponse403
+  | getPlatformPlaceResponse404
+  | getPlatformPlaceResponse409
+  | getPlatformPlaceResponse500
+  | getPlatformPlaceResponse503
+) & {
+  headers: Headers;
+};
+
+export type getPlatformPlaceResponse =
+  getPlatformPlaceResponseSuccess | getPlatformPlaceResponseError;
+
+export const getGetPlatformPlaceUrl = (placeId: string) => {
+  return `/api/platform/places/${placeId}`;
+};
+
+/**
+ * @summary getPlatformPlace
+ */
+export const getPlatformPlace = async (
+  placeId: string,
+  options?: RequestInit,
+): Promise<getPlatformPlaceResponse> => {
+  const res = await fetch(getGetPlatformPlaceUrl(placeId), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPlatformPlaceResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getPlatformPlaceResponse;
+};
+
+export const getGetPlatformPlaceQueryKey = (placeId: string) => {
+  return [`/api/platform/places/${placeId}`] as const;
+};
+
+export const getGetPlatformPlaceQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPlatformPlace>>,
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+>(
+  placeId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getPlatformPlace>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+) => {
+  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPlatformPlaceQueryKey(placeId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPlatformPlace>>
+  > = ({ signal }) => getPlatformPlace(placeId, { signal, ...fetchOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: placeId !== null && placeId !== undefined,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPlatformPlace>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetPlatformPlaceQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPlatformPlace>>
+>;
+export type GetPlatformPlaceQueryError =
+  | PublicInvalidQueryResponse
+  | AuthenticationFailedResponse
+  | void
+  | PublicInternalErrorResponse
+  | PublicUnavailableResponse;
+
+export function useGetPlatformPlace<
+  TData = Awaited<ReturnType<typeof getPlatformPlace>>,
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+>(
+  placeId: string,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getPlatformPlace>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPlatformPlace>>,
+          TError,
+          Awaited<ReturnType<typeof getPlatformPlace>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPlatformPlace<
+  TData = Awaited<ReturnType<typeof getPlatformPlace>>,
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+>(
+  placeId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getPlatformPlace>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPlatformPlace>>,
+          TError,
+          Awaited<ReturnType<typeof getPlatformPlace>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPlatformPlace<
+  TData = Awaited<ReturnType<typeof getPlatformPlace>>,
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+>(
+  placeId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getPlatformPlace>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary getPlatformPlace
+ */
+
+export function useGetPlatformPlace<
+  TData = Awaited<ReturnType<typeof getPlatformPlace>>,
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+>(
+  placeId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getPlatformPlace>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getGetPlatformPlaceQueryOptions(placeId, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export type updatePlatformPlaceResponse200 = {
+  data: ManagedPlace;
+  status: 200;
+};
+
+export type updatePlatformPlaceResponse400 = {
+  data: PublicInvalidQueryResponse;
+  status: 400;
+};
+
+export type updatePlatformPlaceResponse401 = {
+  data: AuthenticationFailedResponse;
+  status: 401;
+};
+
+export type updatePlatformPlaceResponse403 = {
+  data: void;
+  status: 403;
+};
+
+export type updatePlatformPlaceResponse404 = {
+  data: void;
+  status: 404;
+};
+
+export type updatePlatformPlaceResponse409 = {
+  data: void;
+  status: 409;
+};
+
+export type updatePlatformPlaceResponse500 = {
+  data: PublicInternalErrorResponse;
+  status: 500;
+};
+
+export type updatePlatformPlaceResponse503 = {
+  data: PublicUnavailableResponse;
+  status: 503;
+};
+
+export type updatePlatformPlaceResponseSuccess =
+  updatePlatformPlaceResponse200 & {
+    headers: Headers;
+  };
+export type updatePlatformPlaceResponseError = (
+  | updatePlatformPlaceResponse400
+  | updatePlatformPlaceResponse401
+  | updatePlatformPlaceResponse403
+  | updatePlatformPlaceResponse404
+  | updatePlatformPlaceResponse409
+  | updatePlatformPlaceResponse500
+  | updatePlatformPlaceResponse503
+) & {
+  headers: Headers;
+};
+
+export type updatePlatformPlaceResponse =
+  updatePlatformPlaceResponseSuccess | updatePlatformPlaceResponseError;
+
+export const getUpdatePlatformPlaceUrl = (placeId: string) => {
+  return `/api/platform/places/${placeId}`;
+};
+
+/**
+ * @summary updatePlatformPlace
+ */
+export const updatePlatformPlace = async (
+  placeId: string,
+  updatePlatformPlaceRequest: UpdatePlatformPlaceRequest,
+  options?: RequestInit,
+): Promise<updatePlatformPlaceResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+  const res = await fetch(getUpdatePlatformPlaceUrl(placeId), {
+    ...options,
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(updatePlatformPlaceRequest),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: updatePlatformPlaceResponse["data"] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as updatePlatformPlaceResponse;
+};
+
+export const getUpdatePlatformPlaceMutationOptions = <
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePlatformPlace>>,
+    TError,
+    UpdatePlatformPlaceMutationVariables,
+    TContext
+  >;
+  fetch?: RequestInit;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updatePlatformPlace>>,
+  TError,
+  UpdatePlatformPlaceMutationVariables,
+  TContext
+> => {
+  const mutationKey = ["updatePlatformPlace"];
+  const { mutation: mutationOptions, fetch: fetchOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, fetch: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updatePlatformPlace>>,
+    UpdatePlatformPlaceMutationVariables
+  > = (props) => {
+    const { placeId, data } = props ?? {};
+
+    return updatePlatformPlace(placeId, data, fetchOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdatePlatformPlaceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updatePlatformPlace>>
+>;
+export type UpdatePlatformPlaceMutationBody = UpdatePlatformPlaceRequest;
+export type UpdatePlatformPlaceMutationError =
+  | PublicInvalidQueryResponse
+  | AuthenticationFailedResponse
+  | void
+  | PublicInternalErrorResponse
+  | PublicUnavailableResponse;
+export type UpdatePlatformPlaceMutationVariables = {
+  placeId: string;
+  data: UpdatePlatformPlaceRequest;
+};
+
+/**
+ * @summary updatePlatformPlace
+ */
+export const useUpdatePlatformPlace = <
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof updatePlatformPlace>>,
+      TError,
+      UpdatePlatformPlaceMutationVariables,
+      TContext
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof updatePlatformPlace>>,
+  TError,
+  UpdatePlatformPlaceMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getUpdatePlatformPlaceMutationOptions(options),
+    queryClient,
+  );
+};
+
+export type setPlacePublicationResponse200 = {
+  data: ManagedPlace;
+  status: 200;
+};
+
+export type setPlacePublicationResponse400 = {
+  data: PublicInvalidQueryResponse;
+  status: 400;
+};
+
+export type setPlacePublicationResponse401 = {
+  data: AuthenticationFailedResponse;
+  status: 401;
+};
+
+export type setPlacePublicationResponse403 = {
+  data: void;
+  status: 403;
+};
+
+export type setPlacePublicationResponse404 = {
+  data: void;
+  status: 404;
+};
+
+export type setPlacePublicationResponse409 = {
+  data: void;
+  status: 409;
+};
+
+export type setPlacePublicationResponse500 = {
+  data: PublicInternalErrorResponse;
+  status: 500;
+};
+
+export type setPlacePublicationResponse503 = {
+  data: PublicUnavailableResponse;
+  status: 503;
+};
+
+export type setPlacePublicationResponseSuccess =
+  setPlacePublicationResponse200 & {
+    headers: Headers;
+  };
+export type setPlacePublicationResponseError = (
+  | setPlacePublicationResponse400
+  | setPlacePublicationResponse401
+  | setPlacePublicationResponse403
+  | setPlacePublicationResponse404
+  | setPlacePublicationResponse409
+  | setPlacePublicationResponse500
+  | setPlacePublicationResponse503
+) & {
+  headers: Headers;
+};
+
+export type setPlacePublicationResponse =
+  setPlacePublicationResponseSuccess | setPlacePublicationResponseError;
+
+export const getSetPlacePublicationUrl = (placeId: string) => {
+  return `/api/platform/places/${placeId}/publication`;
+};
+
+/**
+ * @summary setPlacePublication
+ */
+export const setPlacePublication = async (
+  placeId: string,
+  setPlacePublicationRequest: SetPlacePublicationRequest,
+  options?: RequestInit,
+): Promise<setPlacePublicationResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+  const res = await fetch(getSetPlacePublicationUrl(placeId), {
+    ...options,
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(setPlacePublicationRequest),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: setPlacePublicationResponse["data"] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as setPlacePublicationResponse;
+};
+
+export const getSetPlacePublicationMutationOptions = <
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setPlacePublication>>,
+    TError,
+    SetPlacePublicationMutationVariables,
+    TContext
+  >;
+  fetch?: RequestInit;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setPlacePublication>>,
+  TError,
+  SetPlacePublicationMutationVariables,
+  TContext
+> => {
+  const mutationKey = ["setPlacePublication"];
+  const { mutation: mutationOptions, fetch: fetchOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, fetch: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setPlacePublication>>,
+    SetPlacePublicationMutationVariables
+  > = (props) => {
+    const { placeId, data } = props ?? {};
+
+    return setPlacePublication(placeId, data, fetchOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetPlacePublicationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setPlacePublication>>
+>;
+export type SetPlacePublicationMutationBody = SetPlacePublicationRequest;
+export type SetPlacePublicationMutationError =
+  | PublicInvalidQueryResponse
+  | AuthenticationFailedResponse
+  | void
+  | PublicInternalErrorResponse
+  | PublicUnavailableResponse;
+export type SetPlacePublicationMutationVariables = {
+  placeId: string;
+  data: SetPlacePublicationRequest;
+};
+
+/**
+ * @summary setPlacePublication
+ */
+export const useSetPlacePublication = <
+  TError =
+    | PublicInvalidQueryResponse
+    | AuthenticationFailedResponse
+    | void
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof setPlacePublication>>,
+      TError,
+      SetPlacePublicationMutationVariables,
+      TContext
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof setPlacePublication>>,
+  TError,
+  SetPlacePublicationMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getSetPlacePublicationMutationOptions(options),
+    queryClient,
+  );
+};
+
+export type searchPublicPlacesResponse200 = {
+  data: PublicPlacePage;
+  status: 200;
+};
+
+export type searchPublicPlacesResponse400 = {
+  data: PublicInvalidQueryResponse;
+  status: 400;
+};
+
+export type searchPublicPlacesResponse500 = {
+  data: PublicInternalErrorResponse;
+  status: 500;
+};
+
+export type searchPublicPlacesResponse503 = {
+  data: PublicUnavailableResponse;
+  status: 503;
+};
+
+export type searchPublicPlacesResponseSuccess =
+  searchPublicPlacesResponse200 & {
+    headers: Headers;
+  };
+export type searchPublicPlacesResponseError = (
+  | searchPublicPlacesResponse400
+  | searchPublicPlacesResponse500
+  | searchPublicPlacesResponse503
+) & {
+  headers: Headers;
+};
+
+export type searchPublicPlacesResponse =
+  searchPublicPlacesResponseSuccess | searchPublicPlacesResponseError;
+
+export const getSearchPublicPlacesUrl = (params?: SearchPublicPlacesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/public/places?${stringifiedParams}`
+    : `/api/public/places`;
+};
+
+/**
+ * @summary Search published places by stable slug, name or multilingual alias
+ */
+export const searchPublicPlaces = async (
+  params?: SearchPublicPlacesParams,
+  options?: RequestInit,
+): Promise<searchPublicPlacesResponse> => {
+  const res = await fetch(getSearchPublicPlacesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: searchPublicPlacesResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as searchPublicPlacesResponse;
+};
+
+export const getSearchPublicPlacesQueryKey = (
+  params?: SearchPublicPlacesParams,
+) => {
+  return [`/api/public/places`, ...(params ? [params] : [])] as const;
+};
+
+export const getSearchPublicPlacesQueryOptions = <
+  TData = Awaited<ReturnType<typeof searchPublicPlaces>>,
+  TError =
+    | PublicInvalidQueryResponse
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+>(
+  params?: SearchPublicPlacesParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof searchPublicPlaces>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+) => {
+  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getSearchPublicPlacesQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof searchPublicPlaces>>
+  > = ({ signal }) => searchPublicPlaces(params, { signal, ...fetchOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof searchPublicPlaces>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type SearchPublicPlacesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchPublicPlaces>>
+>;
+export type SearchPublicPlacesQueryError =
+  | PublicInvalidQueryResponse
+  | PublicInternalErrorResponse
+  | PublicUnavailableResponse;
+
+export function useSearchPublicPlaces<
+  TData = Awaited<ReturnType<typeof searchPublicPlaces>>,
+  TError =
+    | PublicInvalidQueryResponse
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+>(
+  params: undefined | SearchPublicPlacesParams,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof searchPublicPlaces>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof searchPublicPlaces>>,
+          TError,
+          Awaited<ReturnType<typeof searchPublicPlaces>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useSearchPublicPlaces<
+  TData = Awaited<ReturnType<typeof searchPublicPlaces>>,
+  TError =
+    | PublicInvalidQueryResponse
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+>(
+  params?: SearchPublicPlacesParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof searchPublicPlaces>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof searchPublicPlaces>>,
+          TError,
+          Awaited<ReturnType<typeof searchPublicPlaces>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useSearchPublicPlaces<
+  TData = Awaited<ReturnType<typeof searchPublicPlaces>>,
+  TError =
+    | PublicInvalidQueryResponse
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+>(
+  params?: SearchPublicPlacesParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof searchPublicPlaces>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary Search published places by stable slug, name or multilingual alias
+ */
+
+export function useSearchPublicPlaces<
+  TData = Awaited<ReturnType<typeof searchPublicPlaces>>,
+  TError =
+    | PublicInvalidQueryResponse
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+>(
+  params?: SearchPublicPlacesParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof searchPublicPlaces>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getSearchPublicPlacesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export type getPublicPlaceResponse200 = {
+  data: PublicPlace;
+  status: 200;
+};
+
+export type getPublicPlaceResponse400 = {
+  data: PublicInvalidQueryResponse;
+  status: 400;
+};
+
+export type getPublicPlaceResponse404 = {
+  data: Problem;
+  status: 404;
+};
+
+export type getPublicPlaceResponse500 = {
+  data: PublicInternalErrorResponse;
+  status: 500;
+};
+
+export type getPublicPlaceResponse503 = {
+  data: PublicUnavailableResponse;
+  status: 503;
+};
+
+export type getPublicPlaceResponseSuccess = getPublicPlaceResponse200 & {
+  headers: Headers;
+};
+export type getPublicPlaceResponseError = (
+  | getPublicPlaceResponse400
+  | getPublicPlaceResponse404
+  | getPublicPlaceResponse500
+  | getPublicPlaceResponse503
+) & {
+  headers: Headers;
+};
+
+export type getPublicPlaceResponse =
+  getPublicPlaceResponseSuccess | getPublicPlaceResponseError;
+
+export const getGetPublicPlaceUrl = (
+  slug: string,
+  params?: GetPublicPlaceParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/public/places/${slug}?${stringifiedParams}`
+    : `/api/public/places/${slug}`;
+};
+
+/**
+ * @summary Read a published place by stable language-independent slug
+ */
+export const getPublicPlace = async (
+  slug: string,
+  params?: GetPublicPlaceParams,
+  options?: RequestInit,
+): Promise<getPublicPlaceResponse> => {
+  const res = await fetch(getGetPublicPlaceUrl(slug, params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPublicPlaceResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getPublicPlaceResponse;
+};
+
+export const getGetPublicPlaceQueryKey = (
+  slug: string,
+  params?: GetPublicPlaceParams,
+) => {
+  return [`/api/public/places/${slug}`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetPublicPlaceQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPublicPlace>>,
+  TError =
+    | PublicInvalidQueryResponse
+    | Problem
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+>(
+  slug: string,
+  params?: GetPublicPlaceParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getPublicPlace>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+) => {
+  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPublicPlaceQueryKey(slug, params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPublicPlace>>> = ({
+    signal,
+  }) => getPublicPlace(slug, params, { signal, ...fetchOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: slug !== null && slug !== undefined,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPublicPlace>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetPublicPlaceQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPublicPlace>>
+>;
+export type GetPublicPlaceQueryError =
+  | PublicInvalidQueryResponse
+  | Problem
+  | PublicInternalErrorResponse
+  | PublicUnavailableResponse;
+
+export function useGetPublicPlace<
+  TData = Awaited<ReturnType<typeof getPublicPlace>>,
+  TError =
+    | PublicInvalidQueryResponse
+    | Problem
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+>(
+  slug: string,
+  params: undefined | GetPublicPlaceParams,
+  options: {
+    query: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getPublicPlace>>, TError, TData>
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPublicPlace>>,
+          TError,
+          Awaited<ReturnType<typeof getPublicPlace>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPublicPlace<
+  TData = Awaited<ReturnType<typeof getPublicPlace>>,
+  TError =
+    | PublicInvalidQueryResponse
+    | Problem
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+>(
+  slug: string,
+  params?: GetPublicPlaceParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getPublicPlace>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPublicPlace>>,
+          TError,
+          Awaited<ReturnType<typeof getPublicPlace>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPublicPlace<
+  TData = Awaited<ReturnType<typeof getPublicPlace>>,
+  TError =
+    | PublicInvalidQueryResponse
+    | Problem
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+>(
+  slug: string,
+  params?: GetPublicPlaceParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getPublicPlace>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary Read a published place by stable language-independent slug
+ */
+
+export function useGetPublicPlace<
+  TData = Awaited<ReturnType<typeof getPublicPlace>>,
+  TError =
+    | PublicInvalidQueryResponse
+    | Problem
+    | PublicInternalErrorResponse
+    | PublicUnavailableResponse,
+>(
+  slug: string,
+  params?: GetPublicPlaceParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getPublicPlace>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getGetPublicPlaceQueryOptions(slug, params, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
 
 export type getLivenessResponse200 = {
   data: HealthStatus;
@@ -941,10 +2875,15 @@ export type loginResponse401 = {
   status: 401;
 };
 
+export type loginResponse429 = {
+  data: Problem;
+  status: 429;
+};
+
 export type loginResponseSuccess = loginResponse200 & {
   headers: Headers;
 };
-export type loginResponseError = loginResponse401 & {
+export type loginResponseError = (loginResponse401 | loginResponse429) & {
   headers: Headers;
 };
 
@@ -986,7 +2925,7 @@ export const login = async (
 };
 
 export const getLoginMutationOptions = <
-  TError = AuthenticationFailedResponse,
+  TError = AuthenticationFailedResponse | Problem,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -1027,14 +2966,14 @@ export type LoginMutationResult = NonNullable<
   Awaited<ReturnType<typeof login>>
 >;
 export type LoginMutationBody = LoginRequest;
-export type LoginMutationError = AuthenticationFailedResponse;
+export type LoginMutationError = AuthenticationFailedResponse | Problem;
 export type LoginMutationVariables = { data: LoginRequest };
 
 /**
  * @summary Establish a tenant-local session
  */
 export const useLogin = <
-  TError = AuthenticationFailedResponse,
+  TError = AuthenticationFailedResponse | Problem,
   TContext = unknown,
 >(
   options?: {
@@ -3775,6 +5714,677 @@ export const useUpdateMyProfile = <
   TContext
 > => {
   return useMutation(getUpdateMyProfileMutationOptions(options), queryClient);
+};
+
+export type listTenantUsersResponse200 = {
+  data: TenantUser[];
+  status: 200;
+};
+
+export type listTenantUsersResponse401 = {
+  data: AuthenticationFailedResponse;
+  status: 401;
+};
+
+export type listTenantUsersResponse403 = {
+  data: AuthorizationFailedResponse;
+  status: 403;
+};
+
+export type listTenantUsersResponseSuccess = listTenantUsersResponse200 & {
+  headers: Headers;
+};
+export type listTenantUsersResponseError = (
+  listTenantUsersResponse401 | listTenantUsersResponse403
+) & {
+  headers: Headers;
+};
+
+export type listTenantUsersResponse =
+  listTenantUsersResponseSuccess | listTenantUsersResponseError;
+
+export const getListTenantUsersUrl = () => {
+  return `/api/users`;
+};
+
+/**
+ * @summary List users in the authenticated tenant
+ */
+export const listTenantUsers = async (
+  options?: RequestInit,
+): Promise<listTenantUsersResponse> => {
+  const res = await fetch(getListTenantUsersUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listTenantUsersResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as listTenantUsersResponse;
+};
+
+export const getListTenantUsersQueryKey = () => {
+  return [`/api/users`] as const;
+};
+
+export const getListTenantUsersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTenantUsers>>,
+  TError = AuthenticationFailedResponse | AuthorizationFailedResponse,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<Awaited<ReturnType<typeof listTenantUsers>>, TError, TData>
+  >;
+  fetch?: RequestInit;
+}) => {
+  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListTenantUsersQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listTenantUsers>>> = ({
+    signal,
+  }) => listTenantUsers({ signal, ...fetchOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTenantUsers>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type ListTenantUsersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTenantUsers>>
+>;
+export type ListTenantUsersQueryError =
+  AuthenticationFailedResponse | AuthorizationFailedResponse;
+
+export function useListTenantUsers<
+  TData = Awaited<ReturnType<typeof listTenantUsers>>,
+  TError = AuthenticationFailedResponse | AuthorizationFailedResponse,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listTenantUsers>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTenantUsers>>,
+          TError,
+          Awaited<ReturnType<typeof listTenantUsers>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListTenantUsers<
+  TData = Awaited<ReturnType<typeof listTenantUsers>>,
+  TError = AuthenticationFailedResponse | AuthorizationFailedResponse,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listTenantUsers>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTenantUsers>>,
+          TError,
+          Awaited<ReturnType<typeof listTenantUsers>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListTenantUsers<
+  TData = Awaited<ReturnType<typeof listTenantUsers>>,
+  TError = AuthenticationFailedResponse | AuthorizationFailedResponse,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listTenantUsers>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary List users in the authenticated tenant
+ */
+
+export function useListTenantUsers<
+  TData = Awaited<ReturnType<typeof listTenantUsers>>,
+  TError = AuthenticationFailedResponse | AuthorizationFailedResponse,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listTenantUsers>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getListTenantUsersQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export type getTenantUserResponse200 = {
+  data: TenantUser;
+  status: 200;
+};
+
+export type getTenantUserResponse401 = {
+  data: AuthenticationFailedResponse;
+  status: 401;
+};
+
+export type getTenantUserResponse403 = {
+  data: AuthorizationFailedResponse;
+  status: 403;
+};
+
+export type getTenantUserResponse404 = {
+  data: void;
+  status: 404;
+};
+
+export type getTenantUserResponseSuccess = getTenantUserResponse200 & {
+  headers: Headers;
+};
+export type getTenantUserResponseError = (
+  getTenantUserResponse401 | getTenantUserResponse403 | getTenantUserResponse404
+) & {
+  headers: Headers;
+};
+
+export type getTenantUserResponse =
+  getTenantUserResponseSuccess | getTenantUserResponseError;
+
+export const getGetTenantUserUrl = (userId: string) => {
+  return `/api/users/${userId}`;
+};
+
+/**
+ * @summary Read a tenant-owned user
+ */
+export const getTenantUser = async (
+  userId: string,
+  options?: RequestInit,
+): Promise<getTenantUserResponse> => {
+  const res = await fetch(getGetTenantUserUrl(userId), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getTenantUserResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getTenantUserResponse;
+};
+
+export const getGetTenantUserQueryKey = (userId: string) => {
+  return [`/api/users/${userId}`] as const;
+};
+
+export const getGetTenantUserQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTenantUser>>,
+  TError = AuthenticationFailedResponse | AuthorizationFailedResponse | void,
+>(
+  userId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getTenantUser>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+) => {
+  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetTenantUserQueryKey(userId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTenantUser>>> = ({
+    signal,
+  }) => getTenantUser(userId, { signal, ...fetchOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: userId !== null && userId !== undefined,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTenantUser>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetTenantUserQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTenantUser>>
+>;
+export type GetTenantUserQueryError =
+  AuthenticationFailedResponse | AuthorizationFailedResponse | void;
+
+export function useGetTenantUser<
+  TData = Awaited<ReturnType<typeof getTenantUser>>,
+  TError = AuthenticationFailedResponse | AuthorizationFailedResponse | void,
+>(
+  userId: string,
+  options: {
+    query: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getTenantUser>>, TError, TData>
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTenantUser>>,
+          TError,
+          Awaited<ReturnType<typeof getTenantUser>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetTenantUser<
+  TData = Awaited<ReturnType<typeof getTenantUser>>,
+  TError = AuthenticationFailedResponse | AuthorizationFailedResponse | void,
+>(
+  userId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getTenantUser>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTenantUser>>,
+          TError,
+          Awaited<ReturnType<typeof getTenantUser>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetTenantUser<
+  TData = Awaited<ReturnType<typeof getTenantUser>>,
+  TError = AuthenticationFailedResponse | AuthorizationFailedResponse | void,
+>(
+  userId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getTenantUser>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary Read a tenant-owned user
+ */
+
+export function useGetTenantUser<
+  TData = Awaited<ReturnType<typeof getTenantUser>>,
+  TError = AuthenticationFailedResponse | AuthorizationFailedResponse | void,
+>(
+  userId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getTenantUser>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getGetTenantUserQueryOptions(userId, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export type disableTenantUserResponse200 = {
+  data: TenantUser;
+  status: 200;
+};
+
+export type disableTenantUserResponse400 = {
+  data: void;
+  status: 400;
+};
+
+export type disableTenantUserResponse401 = {
+  data: AuthenticationFailedResponse;
+  status: 401;
+};
+
+export type disableTenantUserResponse403 = {
+  data: CsrfFailedResponse;
+  status: 403;
+};
+
+export type disableTenantUserResponse404 = {
+  data: void;
+  status: 404;
+};
+
+export type disableTenantUserResponseSuccess = disableTenantUserResponse200 & {
+  headers: Headers;
+};
+export type disableTenantUserResponseError = (
+  | disableTenantUserResponse400
+  | disableTenantUserResponse401
+  | disableTenantUserResponse403
+  | disableTenantUserResponse404
+) & {
+  headers: Headers;
+};
+
+export type disableTenantUserResponse =
+  disableTenantUserResponseSuccess | disableTenantUserResponseError;
+
+export const getDisableTenantUserUrl = (userId: string) => {
+  return `/api/users/${userId}/disable`;
+};
+
+/**
+ * @summary Disable a tenant-owned user account
+ */
+export const disableTenantUser = async (
+  userId: string,
+  disableUserRequest: DisableUserRequest,
+  options?: RequestInit,
+): Promise<disableTenantUserResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+  const res = await fetch(getDisableTenantUserUrl(userId), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(disableUserRequest),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: disableTenantUserResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as disableTenantUserResponse;
+};
+
+export const getDisableTenantUserMutationOptions = <
+  TError = void | AuthenticationFailedResponse | CsrfFailedResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof disableTenantUser>>,
+    TError,
+    DisableTenantUserMutationVariables,
+    TContext
+  >;
+  fetch?: RequestInit;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof disableTenantUser>>,
+  TError,
+  DisableTenantUserMutationVariables,
+  TContext
+> => {
+  const mutationKey = ["disableTenantUser"];
+  const { mutation: mutationOptions, fetch: fetchOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, fetch: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof disableTenantUser>>,
+    DisableTenantUserMutationVariables
+  > = (props) => {
+    const { userId, data } = props ?? {};
+
+    return disableTenantUser(userId, data, fetchOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DisableTenantUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof disableTenantUser>>
+>;
+export type DisableTenantUserMutationBody = DisableUserRequest;
+export type DisableTenantUserMutationError =
+  void | AuthenticationFailedResponse | CsrfFailedResponse;
+export type DisableTenantUserMutationVariables = {
+  userId: string;
+  data: DisableUserRequest;
+};
+
+/**
+ * @summary Disable a tenant-owned user account
+ */
+export const useDisableTenantUser = <
+  TError = void | AuthenticationFailedResponse | CsrfFailedResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof disableTenantUser>>,
+      TError,
+      DisableTenantUserMutationVariables,
+      TContext
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof disableTenantUser>>,
+  TError,
+  DisableTenantUserMutationVariables,
+  TContext
+> => {
+  return useMutation(getDisableTenantUserMutationOptions(options), queryClient);
+};
+
+export type unlockTenantUserResponse200 = {
+  data: TenantUser;
+  status: 200;
+};
+
+export type unlockTenantUserResponse400 = {
+  data: void;
+  status: 400;
+};
+
+export type unlockTenantUserResponse401 = {
+  data: AuthenticationFailedResponse;
+  status: 401;
+};
+
+export type unlockTenantUserResponse403 = {
+  data: CsrfFailedResponse;
+  status: 403;
+};
+
+export type unlockTenantUserResponse404 = {
+  data: void;
+  status: 404;
+};
+
+export type unlockTenantUserResponseSuccess = unlockTenantUserResponse200 & {
+  headers: Headers;
+};
+export type unlockTenantUserResponseError = (
+  | unlockTenantUserResponse400
+  | unlockTenantUserResponse401
+  | unlockTenantUserResponse403
+  | unlockTenantUserResponse404
+) & {
+  headers: Headers;
+};
+
+export type unlockTenantUserResponse =
+  unlockTenantUserResponseSuccess | unlockTenantUserResponseError;
+
+export const getUnlockTenantUserUrl = (userId: string) => {
+  return `/api/users/${userId}/unlock`;
+};
+
+/**
+ * @summary Restore an abuse-locked tenant user account
+ */
+export const unlockTenantUser = async (
+  userId: string,
+  options?: RequestInit,
+): Promise<unlockTenantUserResponse> => {
+  const res = await fetch(getUnlockTenantUserUrl(userId), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: unlockTenantUserResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as unlockTenantUserResponse;
+};
+
+export const getUnlockTenantUserMutationOptions = <
+  TError = void | AuthenticationFailedResponse | CsrfFailedResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unlockTenantUser>>,
+    TError,
+    UnlockTenantUserMutationVariables,
+    TContext
+  >;
+  fetch?: RequestInit;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof unlockTenantUser>>,
+  TError,
+  UnlockTenantUserMutationVariables,
+  TContext
+> => {
+  const mutationKey = ["unlockTenantUser"];
+  const { mutation: mutationOptions, fetch: fetchOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, fetch: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof unlockTenantUser>>,
+    UnlockTenantUserMutationVariables
+  > = (props) => {
+    const { userId } = props ?? {};
+
+    return unlockTenantUser(userId, fetchOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UnlockTenantUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof unlockTenantUser>>
+>;
+
+export type UnlockTenantUserMutationError =
+  void | AuthenticationFailedResponse | CsrfFailedResponse;
+export type UnlockTenantUserMutationVariables = { userId: string };
+
+/**
+ * @summary Restore an abuse-locked tenant user account
+ */
+export const useUnlockTenantUser = <
+  TError = void | AuthenticationFailedResponse | CsrfFailedResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof unlockTenantUser>>,
+      TError,
+      UnlockTenantUserMutationVariables,
+      TContext
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof unlockTenantUser>>,
+  TError,
+  UnlockTenantUserMutationVariables,
+  TContext
+> => {
+  return useMutation(getUnlockTenantUserMutationOptions(options), queryClient);
 };
 
 export type resetPasswordResponse204 = {
@@ -7821,6 +10431,417 @@ export function useListAuditEvents<
   queryKey: DataTag<QueryKey, TData, TError>;
 } {
   const queryOptions = getListAuditEventsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export type getAuditEventResponse200 = {
+  data: AuditEvent;
+  status: 200;
+};
+
+export type getAuditEventResponse401 = {
+  data: AuthenticationFailedResponse;
+  status: 401;
+};
+
+export type getAuditEventResponse403 = {
+  data: AuthorizationFailedResponse;
+  status: 403;
+};
+
+export type getAuditEventResponse404 = {
+  data: void;
+  status: 404;
+};
+
+export type getAuditEventResponseSuccess = getAuditEventResponse200 & {
+  headers: Headers;
+};
+export type getAuditEventResponseError = (
+  getAuditEventResponse401 | getAuditEventResponse403 | getAuditEventResponse404
+) & {
+  headers: Headers;
+};
+
+export type getAuditEventResponse =
+  getAuditEventResponseSuccess | getAuditEventResponseError;
+
+export const getGetAuditEventUrl = (eventId: string) => {
+  return `/api/audit/events/${eventId}`;
+};
+
+/**
+ * @summary Read one redacted audit event in the authenticated tenant
+ */
+export const getAuditEvent = async (
+  eventId: string,
+  options?: RequestInit,
+): Promise<getAuditEventResponse> => {
+  const res = await fetch(getGetAuditEventUrl(eventId), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAuditEventResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getAuditEventResponse;
+};
+
+export const getGetAuditEventQueryKey = (eventId: string) => {
+  return [`/api/audit/events/${eventId}`] as const;
+};
+
+export const getGetAuditEventQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAuditEvent>>,
+  TError = AuthenticationFailedResponse | AuthorizationFailedResponse | void,
+>(
+  eventId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getAuditEvent>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+) => {
+  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAuditEventQueryKey(eventId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAuditEvent>>> = ({
+    signal,
+  }) => getAuditEvent(eventId, { signal, ...fetchOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: eventId !== null && eventId !== undefined,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAuditEvent>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetAuditEventQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAuditEvent>>
+>;
+export type GetAuditEventQueryError =
+  AuthenticationFailedResponse | AuthorizationFailedResponse | void;
+
+export function useGetAuditEvent<
+  TData = Awaited<ReturnType<typeof getAuditEvent>>,
+  TError = AuthenticationFailedResponse | AuthorizationFailedResponse | void,
+>(
+  eventId: string,
+  options: {
+    query: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getAuditEvent>>, TError, TData>
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAuditEvent>>,
+          TError,
+          Awaited<ReturnType<typeof getAuditEvent>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetAuditEvent<
+  TData = Awaited<ReturnType<typeof getAuditEvent>>,
+  TError = AuthenticationFailedResponse | AuthorizationFailedResponse | void,
+>(
+  eventId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getAuditEvent>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAuditEvent>>,
+          TError,
+          Awaited<ReturnType<typeof getAuditEvent>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetAuditEvent<
+  TData = Awaited<ReturnType<typeof getAuditEvent>>,
+  TError = AuthenticationFailedResponse | AuthorizationFailedResponse | void,
+>(
+  eventId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getAuditEvent>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary Read one redacted audit event in the authenticated tenant
+ */
+
+export function useGetAuditEvent<
+  TData = Awaited<ReturnType<typeof getAuditEvent>>,
+  TError = AuthenticationFailedResponse | AuthorizationFailedResponse | void,
+>(
+  eventId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getAuditEvent>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getGetAuditEventQueryOptions(eventId, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export type listPlatformAuditEventsResponse200 = {
+  data: PlatformAuditEvent[];
+  status: 200;
+};
+
+export type listPlatformAuditEventsResponse400 = {
+  data: void;
+  status: 400;
+};
+
+export type listPlatformAuditEventsResponse401 = {
+  data: AuthenticationFailedResponse;
+  status: 401;
+};
+
+export type listPlatformAuditEventsResponseSuccess =
+  listPlatformAuditEventsResponse200 & {
+    headers: Headers;
+  };
+export type listPlatformAuditEventsResponseError = (
+  listPlatformAuditEventsResponse400 | listPlatformAuditEventsResponse401
+) & {
+  headers: Headers;
+};
+
+export type listPlatformAuditEventsResponse =
+  listPlatformAuditEventsResponseSuccess | listPlatformAuditEventsResponseError;
+
+export const getListPlatformAuditEventsUrl = (
+  params?: ListPlatformAuditEventsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/platform/audit-events?${stringifiedParams}`
+    : `/api/platform/audit-events`;
+};
+
+/**
+ * @summary List redacted audit events across tenants as a global platform administrator
+ */
+export const listPlatformAuditEvents = async (
+  params?: ListPlatformAuditEventsParams,
+  options?: RequestInit,
+): Promise<listPlatformAuditEventsResponse> => {
+  const res = await fetch(getListPlatformAuditEventsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPlatformAuditEventsResponse["data"] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as listPlatformAuditEventsResponse;
+};
+
+export const getListPlatformAuditEventsQueryKey = (
+  params?: ListPlatformAuditEventsParams,
+) => {
+  return [`/api/platform/audit-events`, ...(params ? [params] : [])] as const;
+};
+
+export const getListPlatformAuditEventsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPlatformAuditEvents>>,
+  TError = void | AuthenticationFailedResponse,
+>(
+  params?: ListPlatformAuditEventsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listPlatformAuditEvents>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+) => {
+  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListPlatformAuditEventsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPlatformAuditEvents>>
+  > = ({ signal }) =>
+    listPlatformAuditEvents(params, { signal, ...fetchOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPlatformAuditEvents>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type ListPlatformAuditEventsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPlatformAuditEvents>>
+>;
+export type ListPlatformAuditEventsQueryError =
+  void | AuthenticationFailedResponse;
+
+export function useListPlatformAuditEvents<
+  TData = Awaited<ReturnType<typeof listPlatformAuditEvents>>,
+  TError = void | AuthenticationFailedResponse,
+>(
+  params: undefined | ListPlatformAuditEventsParams,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listPlatformAuditEvents>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listPlatformAuditEvents>>,
+          TError,
+          Awaited<ReturnType<typeof listPlatformAuditEvents>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListPlatformAuditEvents<
+  TData = Awaited<ReturnType<typeof listPlatformAuditEvents>>,
+  TError = void | AuthenticationFailedResponse,
+>(
+  params?: ListPlatformAuditEventsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listPlatformAuditEvents>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listPlatformAuditEvents>>,
+          TError,
+          Awaited<ReturnType<typeof listPlatformAuditEvents>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListPlatformAuditEvents<
+  TData = Awaited<ReturnType<typeof listPlatformAuditEvents>>,
+  TError = void | AuthenticationFailedResponse,
+>(
+  params?: ListPlatformAuditEventsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listPlatformAuditEvents>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary List redacted audit events across tenants as a global platform administrator
+ */
+
+export function useListPlatformAuditEvents<
+  TData = Awaited<ReturnType<typeof listPlatformAuditEvents>>,
+  TError = void | AuthenticationFailedResponse,
+>(
+  params?: ListPlatformAuditEventsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listPlatformAuditEvents>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getListPlatformAuditEventsQueryOptions(params, options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<
     TData,

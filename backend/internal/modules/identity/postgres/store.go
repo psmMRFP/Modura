@@ -1,68 +1,266 @@
-// Package postgres persists identity-owned data in PostgreSQL.
+// Package postgres persists identity-owned data in PostgreSQL through
+// generated, module-private queries.
 package postgres
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/modura-dev/modura/backend/internal/modules/identity"
+	identitydb "github.com/modura-dev/modura/backend/internal/modules/identity/postgres/db"
 )
-
-// Profile reads an active user only through the authenticated tenant/session tuple.
-func (s *Store) Profile(ctx context.Context, actor identity.Actor) (identity.Profile, error) {
-	var profile identity.Profile
-	err := s.pool.QueryRow(ctx, `SELECT u.id, u.username, u.email, u.status, u.updated_at FROM modura.users u JOIN modura.auth_sessions s ON s.tenant_id = u.tenant_id AND s.user_id = u.id WHERE u.tenant_id = $1 AND u.id = $2 AND s.id = $3 AND u.status = 'active' AND s.revoked_at IS NULL`, actor.TenantID, actor.UserID, actor.SessionID).Scan(&profile.ID, &profile.Username, &profile.Email, &profile.Status, &profile.UpdatedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return identity.Profile{}, identity.ErrInvalidToken
-	}
-	if err != nil {
-		return identity.Profile{}, fmt.Errorf("read profile: %w", err)
-	}
-	return profile, nil
-}
-
-// UpdateProfile atomically updates self-service fields and records audit snapshots.
-func (s *Store) UpdateProfile(ctx context.Context, change identity.ProfileChange) (identity.Profile, error) {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return identity.Profile{}, fmt.Errorf("begin profile update: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	var before identity.Profile
-	err = tx.QueryRow(ctx, `SELECT u.id, u.username, u.email, u.status, u.updated_at FROM modura.users u JOIN modura.auth_sessions s ON s.tenant_id = u.tenant_id AND s.user_id = u.id WHERE u.tenant_id = $1 AND u.id = $2 AND s.id = $3 AND u.status = 'active' AND s.revoked_at IS NULL FOR UPDATE OF u`, change.Actor.TenantID, change.Actor.UserID, change.Actor.SessionID).Scan(&before.ID, &before.Username, &before.Email, &before.Status, &before.UpdatedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return identity.Profile{}, identity.ErrInvalidToken
-	}
-	if err != nil {
-		return identity.Profile{}, fmt.Errorf("lock profile: %w", err)
-	}
-	_, err = tx.Exec(ctx, `UPDATE modura.users SET username = $3, normalized_username = $4, email = $5, normalized_email = $6, email_verified_at = CASE WHEN normalized_email IS NOT DISTINCT FROM $6 THEN email_verified_at ELSE NULL END, updated_at = $7 WHERE tenant_id = $1 AND id = $2`, change.Actor.TenantID, change.Actor.UserID, change.Username, change.NormalizedUsername, change.Email, change.NormalizedEmail, change.OccurredAt)
-	if err != nil {
-		return identity.Profile{}, fmt.Errorf("write profile: %w", err)
-	}
-	after := identity.Profile{ID: before.ID, Username: change.Username, Email: change.Email, Status: before.Status, UpdatedAt: change.OccurredAt}
-	beforeJSON, _ := json.Marshal(before)
-	afterJSON, _ := json.Marshal(after)
-	_, err = tx.Exec(ctx, `INSERT INTO modura.audit_events (id, actor_type, actor_id, tenant_id, action, resource, resource_id, reason, result, correlation_id, occurred_at, before_state, after_state) VALUES ($1, 'tenant_user', $2, $3, 'identity.profile-updated', 'user', $2, 'self-service profile update', 'succeeded', $4, $5, $6::jsonb, $7::jsonb)`, change.AuditID, change.Actor.UserID, change.Actor.TenantID, change.CorrelationID, change.OccurredAt, beforeJSON, afterJSON)
-	if err != nil {
-		return identity.Profile{}, fmt.Errorf("audit profile update: %w", err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return identity.Profile{}, fmt.Errorf("commit profile update: %w", err)
-	}
-	return after, nil
-}
 
 // Store persists identity data and authentication sessions.
 type Store struct{ pool *pgxpool.Pool }
 
 // New constructs a PostgreSQL identity store.
 func New(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
+
+// Profile reads an active user only through the authenticated tenant/session tuple.
+func (s *Store) Profile(ctx context.Context, actor identity.Actor) (identity.Profile, error) {
+	row, err := identitydb.New(s.pool).ProfileBySession(ctx, identitydb.ProfileBySessionParams{TenantID: string(actor.TenantID), ID: string(actor.UserID), ID_2: string(actor.SessionID)})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return identity.Profile{}, identity.ErrInvalidToken
+	}
+	if err != nil {
+		return identity.Profile{}, fmt.Errorf("read profile: %w", err)
+	}
+	return identity.Profile{ID: identity.UserID(row.ID), Username: row.Username, Email: pgString(row.Email), Status: row.Status, UpdatedAt: row.UpdatedAt}, nil
+}
+
+// UpdateProfile atomically updates self-service fields and returns the
+// before and after profile snapshots for transactional audit evidence.
+func (s *Store) UpdateProfile(ctx context.Context, tx pgx.Tx, change identity.ProfileChange) (identity.Profile, identity.Profile, error) {
+	queries := identitydb.New(tx)
+	locked, err := queries.LockSelfProfile(ctx, identitydb.LockSelfProfileParams{TenantID: string(change.Actor.TenantID), ID: string(change.Actor.UserID), ID_2: string(change.Actor.SessionID)})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return identity.Profile{}, identity.Profile{}, identity.ErrInvalidToken
+	}
+	if err != nil {
+		return identity.Profile{}, identity.Profile{}, fmt.Errorf("lock profile: %w", err)
+	}
+	before := identity.Profile{ID: change.Actor.UserID, Username: locked.Username, Email: pgString(locked.Email), Status: locked.Status, UpdatedAt: locked.UpdatedAt}
+	if err := queries.UpdateSelfProfile(ctx, identitydb.UpdateSelfProfileParams{TenantID: string(change.Actor.TenantID), ID: string(change.Actor.UserID), Username: change.Username, NormalizedUsername: change.NormalizedUsername, Email: pgText(change.Email), NormalizedEmail: pgText(change.NormalizedEmail), UpdatedAt: change.OccurredAt}); err != nil {
+		return identity.Profile{}, identity.Profile{}, fmt.Errorf("write profile: %w", err)
+	}
+	after := identity.Profile{ID: before.ID, Username: change.Username, Email: change.Email, Status: before.Status, UpdatedAt: change.OccurredAt}
+	return before, after, nil
+}
+
+// pgText converts an optional string to the generated nullable text type.
+func pgText(value *string) pgtype.Text {
+	if value == nil {
+		return pgtype.Text{}
+	}
+	return pgtype.Text{String: *value, Valid: true}
+}
+
+// textValid maps a required string to valid generated text.
+func textValid(value string) pgtype.Text {
+	return pgtype.Text{String: value, Valid: true}
+}
+
+// tsValid maps a required time to valid generated timestamptz.
+func tsValid(value time.Time) pgtype.Timestamptz {
+	return pgtype.Timestamptz{Time: value, Valid: true}
+}
+
+// textOrEmpty maps an empty string to SQL NULL and other values to valid text.
+func textOrEmpty(value string) pgtype.Text {
+	if value == "" {
+		return pgtype.Text{}
+	}
+	return pgtype.Text{String: value, Valid: true}
+}
+
+// pgString converts the generated nullable text type to an optional string.
+func pgString(value pgtype.Text) *string {
+	if !value.Valid {
+		return nil
+	}
+	copied := value.String
+	return &copied
+}
+
+// pgUUIDOpt converts an optional application identifier to the generated UUID type.
+func pgUUIDOpt(value string) pgtype.UUID {
+	if value == "" {
+		return pgtype.UUID{}
+	}
+	parsed, err := uuid.Parse(value)
+	if err != nil {
+		return pgtype.UUID{}
+	}
+	return pgtype.UUID{Bytes: parsed, Valid: true}
+}
+
+// userColumns is the stable non-sensitive projection of a management-visible user.
+const userColumns = `id, username, email, status, created_at, updated_at`
+
+func scanUser(row pgx.Row) (identity.TenantUser, error) {
+	var user identity.TenantUser
+	if err := row.Scan(&user.ID, &user.Username, &user.Email, &user.Status, &user.CreatedAt, &user.UpdatedAt); err != nil {
+		return identity.TenantUser{}, err
+	}
+	return user, nil
+}
+
+// ListUsers returns tenant-owned users in stable order without credential data.
+func (s *Store) ListUsers(ctx context.Context, tenantID identity.TenantID) ([]identity.TenantUser, error) {
+	rows, err := s.pool.Query(ctx, `SELECT `+userColumns+` FROM modura.users WHERE tenant_id = $1 ORDER BY normalized_username, id`, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("list tenant users: %w", err)
+	}
+	defer rows.Close()
+	users := make([]identity.TenantUser, 0)
+	for rows.Next() {
+		user, err := scanUser(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan tenant user: %w", err)
+		}
+		users = append(users, user)
+	}
+	return users, rows.Err()
+}
+
+// querier abstracts the row-reading surface shared by the pool and transactions.
+type querier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+// GetUser looks up one user under an explicit tenant scope.
+func (s *Store) GetUser(ctx context.Context, tenantID identity.TenantID, userID identity.UserID) (identity.TenantUser, error) {
+	return getTenantUser(ctx, s.pool, tenantID, userID)
+}
+
+// GetUserTx looks up one user inside the caller's transaction for state snapshots.
+func (s *Store) GetUserTx(ctx context.Context, tx pgx.Tx, tenantID identity.TenantID, userID identity.UserID) (identity.TenantUser, error) {
+	return getTenantUser(ctx, tx, tenantID, userID)
+}
+
+func getTenantUser(ctx context.Context, q querier, tenantID identity.TenantID, userID identity.UserID) (identity.TenantUser, error) {
+	user, err := scanUser(q.QueryRow(ctx, `SELECT `+userColumns+` FROM modura.users WHERE tenant_id = $1 AND id = $2`, tenantID, userID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return identity.TenantUser{}, identity.ErrUserNotFound
+	}
+	if err != nil {
+		return identity.TenantUser{}, fmt.Errorf("get tenant user: %w", err)
+	}
+	return user, nil
+}
+
+// UserExistsTx reports tenant-local account existence inside the caller's transaction.
+func (s *Store) UserExistsTx(ctx context.Context, tx pgx.Tx, tenantID identity.TenantID, userID identity.UserID) (bool, error) {
+	present, err := identitydb.New(tx).UserExistsInTenant(ctx, identitydb.UserExistsInTenantParams{TenantID: string(tenantID), ID: string(userID)})
+	if err != nil {
+		return false, fmt.Errorf("check user existence: %w", err)
+	}
+	return present, nil
+}
+
+// ListTenantSummaries returns platform-visible tenant summaries in stable order.
+func (s *Store) ListTenantSummaries(ctx context.Context) ([]identity.TenantSummary, error) {
+	rows, err := identitydb.New(s.pool).ListTenantSummaries(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list tenants: %w", err)
+	}
+	summaries := make([]identity.TenantSummary, 0, len(rows))
+	for _, row := range rows {
+		summaries = append(summaries, identity.TenantSummary{ID: identity.TenantID(row.ID), Slug: row.Slug, DisplayName: row.DisplayName, Status: row.Status, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt})
+	}
+	return summaries, nil
+}
+
+// LockTenantProfile reads tenant profile state with FOR UPDATE inside the caller's transaction.
+func (s *Store) LockTenantProfile(ctx context.Context, tx pgx.Tx, tenantID identity.TenantID) (identity.TenantProfileState, error) {
+	locked, err := identitydb.New(tx).LockTenantProfile(ctx, string(tenantID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return identity.TenantProfileState{}, identity.ErrTenantNotFound
+	}
+	if err != nil {
+		return identity.TenantProfileState{}, fmt.Errorf("lock tenant profile: %w", err)
+	}
+	return identity.TenantProfileState{Slug: locked.Slug, DisplayName: locked.DisplayName, Status: locked.Status, UpdatedAt: locked.UpdatedAt}, nil
+}
+
+// UpdateTenantProfile writes mutable tenant presentation data inside the caller's transaction.
+func (s *Store) UpdateTenantProfile(ctx context.Context, tx pgx.Tx, tenantID identity.TenantID, displayName string, now time.Time) error {
+	if err := identitydb.New(tx).UpdateTenantProfile(ctx, identitydb.UpdateTenantProfileParams{ID: string(tenantID), DisplayName: displayName, UpdatedAt: now}); err != nil {
+		return fmt.Errorf("update tenant profile: %w", err)
+	}
+	return nil
+}
+
+// TransitionTenantStatus applies an exact lifecycle transition inside the caller's transaction.
+func (s *Store) TransitionTenantStatus(ctx context.Context, tx pgx.Tx, tenantID identity.TenantID, from, to string, now time.Time) error {
+	changed, err := identitydb.New(tx).TransitionTenantStatus(ctx, identitydb.TransitionTenantStatusParams{ID: string(tenantID), Status: from, Status_2: to, UpdatedAt: now})
+	if err != nil {
+		return fmt.Errorf("transition tenant status: %w", err)
+	}
+	if changed == 1 {
+		return nil
+	}
+	if _, err := identitydb.New(tx).TenantStatusByID(ctx, string(tenantID)); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return identity.ErrTenantNotFound
+		}
+		return fmt.Errorf("check tenant status: %w", err)
+	}
+	return identity.ErrInvalidTenantTransition
+}
+
+// LoginGuardLockedUntil returns when a credential-throttling lockout ends.
+// A zero time means the login pair is not locked.
+func (s *Store) LoginGuardLockedUntil(ctx context.Context, tenantSlug, login string, now time.Time) (time.Time, error) {
+	lockedUntil, err := identitydb.New(s.pool).LoginGuardLockedUntil(ctx, identitydb.LoginGuardLockedUntilParams{TenantSlug: tenantSlug, NormalizedLogin: login})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return time.Time{}, nil
+	}
+	if err != nil {
+		return time.Time{}, fmt.Errorf("read login guard: %w", err)
+	}
+	if lockedUntil.Valid && lockedUntil.Time.After(now) {
+		return lockedUntil.Time, nil
+	}
+	return time.Time{}, nil
+}
+
+// RecordLoginFailure counts a failed credential attempt, enforces the
+// throttling window, and reports whether this attempt triggered the lockout.
+func (s *Store) RecordLoginFailure(ctx context.Context, tenantSlug, login string, now, windowCutoff, lockUntil time.Time, threshold int32) (bool, bool, error) {
+	state, err := identitydb.New(s.pool).RecordLoginFailure(ctx, identitydb.RecordLoginFailureParams{TenantSlug: tenantSlug, NormalizedLogin: login, Now: now, Cutoff: windowCutoff, Threshold: threshold, LockUntil: lockUntil})
+	if err != nil {
+		return false, false, fmt.Errorf("record login failure: %w", err)
+	}
+	return state.FailureCount == 1, state.LockedUntil.Valid, nil
+}
+
+// ClearLoginGuard resets throttling state after a successful login.
+func (s *Store) ClearLoginGuard(ctx context.Context, tenantSlug, login string) error {
+	if _, err := identitydb.New(s.pool).ClearLoginGuard(ctx, identitydb.ClearLoginGuardParams{TenantSlug: tenantSlug, NormalizedLogin: login}); err != nil {
+		return fmt.Errorf("clear login guard: %w", err)
+	}
+	return nil
+}
+
+// RecordSecurityEvent stores privacy-conscious authentication evidence without
+// credentials, login strings, network addresses, or user agents.
+func (s *Store) RecordSecurityEvent(ctx context.Context, eventType identity.SecurityEventType, tenantID identity.TenantID, userID identity.UserID, correlationID string, now time.Time) error {
+	return s.insertSecurityEvent(ctx, identitydb.New(s.pool), eventType, tenantID, userID, correlationID, now)
+}
+
+func (s *Store) insertSecurityEvent(ctx context.Context, queries *identitydb.Queries, eventType identity.SecurityEventType, tenantID identity.TenantID, userID identity.UserID, correlationID string, now time.Time) error {
+	if err := queries.InsertAuthSecurityEvent(ctx, identitydb.InsertAuthSecurityEventParams{ID: uuid.NewString(), TenantID: pgUUIDOpt(string(tenantID)), UserID: pgUUIDOpt(string(userID)), EventType: string(eventType), CorrelationID: correlationID, OccurredAt: now}); err != nil {
+		return fmt.Errorf("insert auth security event: %w", err)
+	}
+	return nil
+}
 
 // FindActiveAccount resolves an active tenant-local account without leaking misses.
 func (s *Store) FindActiveAccount(ctx context.Context, tenantSlug, login string) (identity.Account, error) {
@@ -85,11 +283,11 @@ WHERE t.slug = $1 AND t.status = 'active' AND u.status = 'active'
 
 // UpdatePasswordHash replaces a hash only within its owning active tenant account.
 func (s *Store) UpdatePasswordHash(ctx context.Context, tenantID identity.TenantID, userID identity.UserID, hash string) error {
-	command, err := s.pool.Exec(ctx, `UPDATE modura.users SET password_hash = $3, updated_at = now() WHERE tenant_id = $1 AND id = $2 AND status = 'active'`, tenantID, userID, hash)
+	changed, err := identitydb.New(s.pool).UpdatePasswordHash(ctx, identitydb.UpdatePasswordHashParams{TenantID: string(tenantID), ID: string(userID), PasswordHash: textValid(hash)})
 	if err != nil {
 		return fmt.Errorf("update password hash: %w", err)
 	}
-	if command.RowsAffected() != 1 {
+	if changed != 1 {
 		return identity.ErrInactiveUser
 	}
 	return nil
@@ -97,31 +295,36 @@ func (s *Store) UpdatePasswordHash(ctx context.Context, tenantID identity.Tenant
 
 // CreateSession persists a new refresh-token family.
 func (s *Store) CreateSession(ctx context.Context, session identity.NewSession) error {
-	_, err := s.pool.Exec(ctx, `
-INSERT INTO modura.auth_sessions
-    (id, tenant_id, user_id, family_id, refresh_token_hash, security_version, created_at, last_used_at, expires_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8)`, session.ID, session.TenantID, session.UserID, session.FamilyID, session.RefreshHash[:], session.SecurityVersion, session.CreatedAt, session.ExpiresAt)
-	if err != nil {
+	if err := identitydb.New(s.pool).InsertAuthSession(ctx, identitydb.InsertAuthSessionParams{ID: string(session.ID), TenantID: string(session.TenantID), UserID: string(session.UserID), FamilyID: session.FamilyID, RefreshTokenHash: session.RefreshHash[:], SecurityVersion: session.SecurityVersion, CreatedAt: session.CreatedAt, ExpiresAt: session.ExpiresAt}); err != nil {
 		return fmt.Errorf("create session: %w", err)
 	}
 	return nil
 }
 
-// RotateSession atomically consumes and replaces a refresh token.
-func (s *Store) RotateSession(ctx context.Context, presented, next [32]byte, now, expires time.Time) (identity.Session, error) {
+// RotateSession atomically consumes and replaces a refresh token, recording
+// privacy-conscious evidence when replay is detected.
+func (s *Store) RotateSession(ctx context.Context, presented, next [32]byte, now, expires time.Time, correlationID string) (identity.Session, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return identity.Session{}, fmt.Errorf("begin refresh rotation: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	queries := identitydb.New(tx)
 
-	var replayFamily string
-	err = tx.QueryRow(ctx, `SELECT family_id FROM modura.auth_refresh_token_uses WHERE token_hash = $1`, presented[:]).Scan(&replayFamily)
+	replay, err := queries.ReplayedTokenFamily(ctx, presented[:])
 	if err == nil {
-		if _, err = tx.Exec(ctx, `UPDATE modura.auth_sessions SET revoked_at = $2, revocation_reason = 'refresh_reuse' WHERE family_id = $1 AND revoked_at IS NULL`, replayFamily, now); err != nil {
+		owner, ownerErr := queries.SessionFamilyOwner(ctx, replay)
+		if ownerErr == nil {
+			if err := s.insertSecurityEvent(ctx, queries, identity.SecurityEventRefreshReplayDetected, identity.TenantID(owner.TenantID), identity.UserID(owner.UserID), correlationID, now); err != nil {
+				return identity.Session{}, err
+			}
+		} else if !errors.Is(ownerErr, pgx.ErrNoRows) {
+			return identity.Session{}, fmt.Errorf("read replayed session family: %w", ownerErr)
+		}
+		if _, err := queries.RevokeFamilySessions(ctx, identitydb.RevokeFamilySessionsParams{FamilyID: replay, RevokedAt: tsValid(now)}); err != nil {
 			return identity.Session{}, fmt.Errorf("revoke replayed token family: %w", err)
 		}
-		if err = tx.Commit(ctx); err != nil {
+		if err := tx.Commit(ctx); err != nil {
 			return identity.Session{}, fmt.Errorf("commit replay revocation: %w", err)
 		}
 		return identity.Session{}, identity.ErrRefreshReuse
@@ -130,78 +333,65 @@ func (s *Store) RotateSession(ctx context.Context, presented, next [32]byte, now
 		return identity.Session{}, fmt.Errorf("check refresh replay: %w", err)
 	}
 
-	var session identity.Session
-	var familyID string
-	var expiresAt time.Time
-	const selectCurrent = `
-SELECT s.id, s.tenant_id, s.user_id, s.security_version, s.family_id, s.expires_at
-FROM modura.auth_sessions s
-JOIN modura.users u ON u.tenant_id = s.tenant_id AND u.id = s.user_id
-JOIN modura.tenants t ON t.id = s.tenant_id
-WHERE s.refresh_token_hash = $1 AND s.revoked_at IS NULL
-  AND u.status = 'active' AND u.security_version = s.security_version AND t.status = 'active'
-FOR UPDATE OF s`
-	err = tx.QueryRow(ctx, selectCurrent, presented[:]).Scan(&session.ID, &session.TenantID, &session.UserID, &session.SecurityVersion, &familyID, &expiresAt)
+	current, err := queries.LockCurrentSession(ctx, presented[:])
 	if errors.Is(err, pgx.ErrNoRows) {
 		return identity.Session{}, identity.ErrInvalidToken
 	}
 	if err != nil {
 		return identity.Session{}, fmt.Errorf("lock refresh session: %w", err)
 	}
-	if !expiresAt.After(now) {
+	if !current.ExpiresAt.After(now) {
 		return identity.Session{}, identity.ErrExpiredToken
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO modura.auth_refresh_token_uses (token_hash, session_id, family_id, consumed_at) VALUES ($1, $2, $3, $4)`, presented[:], session.ID, familyID, now); err != nil {
+	if err := queries.RecordRefreshTokenUse(ctx, identitydb.RecordRefreshTokenUseParams{TokenHash: presented[:], SessionID: current.ID, FamilyID: current.FamilyID, ConsumedAt: now}); err != nil {
 		return identity.Session{}, fmt.Errorf("record consumed refresh token: %w", err)
 	}
-	if _, err = tx.Exec(ctx, `UPDATE modura.auth_sessions SET refresh_token_hash = $2, last_used_at = $3, expires_at = $4 WHERE id = $1`, session.ID, next[:], now, expires); err != nil {
+	if err := queries.RotateSessionSecret(ctx, identitydb.RotateSessionSecretParams{ID: current.ID, RefreshTokenHash: next[:], LastUsedAt: now, ExpiresAt: expires}); err != nil {
 		return identity.Session{}, fmt.Errorf("rotate refresh token: %w", err)
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return identity.Session{}, fmt.Errorf("commit refresh rotation: %w", err)
 	}
-	return session, nil
+	return identity.Session{ID: identity.SessionID(current.ID), TenantID: identity.TenantID(current.TenantID), UserID: identity.UserID(current.UserID), SecurityVersion: current.SecurityVersion}, nil
 }
 
-// RevokeSession revokes one tenant-bound session.
-func (s *Store) RevokeSession(ctx context.Context, tenantID identity.TenantID, userID identity.UserID, sessionID identity.SessionID, reason string, now time.Time) error {
-	return s.revoke(ctx, `UPDATE modura.auth_sessions SET revoked_at = $4, revocation_reason = $5 WHERE tenant_id = $1 AND user_id = $2 AND id = $3 AND revoked_at IS NULL`, tenantID, userID, sessionID, now, reason)
+// RevokeSession revokes one tenant-bound session and records security evidence.
+func (s *Store) RevokeSession(ctx context.Context, tenantID identity.TenantID, userID identity.UserID, sessionID identity.SessionID, reason string, now time.Time, correlationID string) error {
+	queries := identitydb.New(s.pool)
+	revoked, err := queries.RevokeUserSession(ctx, identitydb.RevokeUserSessionParams{TenantID: string(tenantID), UserID: string(userID), ID: string(sessionID), RevokedAt: tsValid(now), RevocationReason: textValid(reason)})
+	if err != nil {
+		return fmt.Errorf("revoke session: %w", err)
+	}
+	if revoked == 0 {
+		return identity.ErrInvalidToken
+	}
+	return s.insertSecurityEvent(ctx, queries, identity.SecurityEventSessionsRevoked, tenantID, userID, correlationID, now)
 }
 
 // RevokeOtherSessions revokes all of a user's sessions except the current one.
 func (s *Store) RevokeOtherSessions(ctx context.Context, tenantID identity.TenantID, userID identity.UserID, sessionID identity.SessionID, reason string, now time.Time) error {
-	_, err := s.pool.Exec(ctx, `UPDATE modura.auth_sessions SET revoked_at = $4, revocation_reason = $5 WHERE tenant_id = $1 AND user_id = $2 AND id <> $3 AND revoked_at IS NULL`, tenantID, userID, sessionID, now, reason)
-	if err != nil {
+	if err := identitydb.New(s.pool).RevokeSessionsExcept(ctx, identitydb.RevokeSessionsExceptParams{TenantID: string(tenantID), UserID: string(userID), ID: string(sessionID), RevokedAt: tsValid(now), RevocationReason: textValid(reason)}); err != nil {
 		return fmt.Errorf("revoke other sessions: %w", err)
 	}
 	return nil
 }
 
 // RevokeAllSessions revokes every session for a tenant-local user.
-func (s *Store) RevokeAllSessions(ctx context.Context, tenantID identity.TenantID, userID identity.UserID, reason string, now time.Time) error {
-	_, err := s.pool.Exec(ctx, `UPDATE modura.auth_sessions SET revoked_at = $3, revocation_reason = $4 WHERE tenant_id = $1 AND user_id = $2 AND revoked_at IS NULL`, tenantID, userID, now, reason)
-	if err != nil {
+func (s *Store) RevokeAllSessions(ctx context.Context, tenantID identity.TenantID, userID identity.UserID, reason string, now time.Time, correlationID string) error {
+	queries := identitydb.New(s.pool)
+	if err := queries.RevokeAllUserSessions(ctx, identitydb.RevokeAllUserSessionsParams{TenantID: string(tenantID), UserID: string(userID), RevokedAt: tsValid(now), RevocationReason: textValid(reason)}); err != nil {
 		return fmt.Errorf("revoke all sessions: %w", err)
 	}
-	return nil
+	return s.insertSecurityEvent(ctx, queries, identity.SecurityEventSessionsRevoked, tenantID, userID, correlationID, now)
 }
 
 // ValidateSession confirms that token claims still refer to active server-side state.
 func (s *Store) ValidateSession(ctx context.Context, session identity.Session, now time.Time) error {
-	const query = `
-SELECT 1
-FROM modura.auth_sessions s
-JOIN modura.users u ON u.tenant_id = s.tenant_id AND u.id = s.user_id
-JOIN modura.tenants t ON t.id = s.tenant_id
-WHERE s.id = $1 AND s.tenant_id = $2 AND s.user_id = $3
-  AND s.security_version = $4 AND u.security_version = $4
-  AND s.revoked_at IS NULL AND s.expires_at > $5
-  AND u.status = 'active' AND t.status = 'active'`
-	var exists int
-	if err := s.pool.QueryRow(ctx, query, session.ID, session.TenantID, session.UserID, session.SecurityVersion, now).Scan(&exists); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return identity.ErrInvalidToken
-		}
+	_, err := identitydb.New(s.pool).SessionSecurityActive(ctx, identitydb.SessionSecurityActiveParams{ID: string(session.ID), TenantID: string(session.TenantID), UserID: string(session.UserID), SecurityVersion: session.SecurityVersion, ExpiresAt: now})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return identity.ErrInvalidToken
+	}
+	if err != nil {
 		return fmt.Errorf("validate session: %w", err)
 	}
 	return nil
@@ -209,63 +399,53 @@ WHERE s.id = $1 AND s.tenant_id = $2 AND s.user_id = $3
 
 // PasswordHash reads the current credential only for the actor's active session.
 func (s *Store) PasswordHash(ctx context.Context, actor identity.Actor) (string, error) {
-	const query = `
-SELECT u.password_hash
-FROM modura.users u
-JOIN modura.auth_sessions s ON s.tenant_id = u.tenant_id AND s.user_id = u.id
-JOIN modura.tenants t ON t.id = u.tenant_id
-WHERE u.tenant_id = $1 AND u.id = $2 AND s.id = $3
-  AND u.status = 'active' AND t.status = 'active' AND s.revoked_at IS NULL`
-	var hash string
-	if err := s.pool.QueryRow(ctx, query, actor.TenantID, actor.UserID, actor.SessionID).Scan(&hash); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return "", identity.ErrInvalidCredentials
-		}
+	hash, err := identitydb.New(s.pool).PasswordHashBySession(ctx, identitydb.PasswordHashBySessionParams{TenantID: string(actor.TenantID), ID: string(actor.UserID), ID_2: string(actor.SessionID)})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", identity.ErrInvalidCredentials
+	}
+	if err != nil {
 		return "", fmt.Errorf("read password hash: %w", err)
 	}
-	return hash, nil
+	if !hash.Valid {
+		return "", identity.ErrInvalidCredentials
+	}
+	return hash.String, nil
 }
 
 // ChangePassword atomically updates credentials, rotates the current refresh
-// secret, increments security state, and revokes other sessions.
-func (s *Store) ChangePassword(ctx context.Context, actor identity.Actor, expectedHash, newHash string, presented, next [32]byte, now, expires time.Time) (identity.Session, error) {
+// secret, increments security state, revokes other sessions, and records
+// security evidence.
+func (s *Store) ChangePassword(ctx context.Context, actor identity.Actor, expectedHash, newHash string, presented, next [32]byte, now, expires time.Time, correlationID string) (identity.Session, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return identity.Session{}, fmt.Errorf("begin password change: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	var familyID string
-	var securityVersion int64
-	const lock = `
-SELECT s.family_id, u.security_version
-FROM modura.auth_sessions s
-JOIN modura.users u ON u.tenant_id = s.tenant_id AND u.id = s.user_id
-JOIN modura.tenants t ON t.id = s.tenant_id
-WHERE s.id = $1 AND s.tenant_id = $2 AND s.user_id = $3
-  AND s.refresh_token_hash = $4 AND s.revoked_at IS NULL AND s.expires_at > $5
-  AND u.password_hash = $6 AND u.status = 'active' AND t.status = 'active'
-FOR UPDATE OF s, u`
-	err = tx.QueryRow(ctx, lock, actor.SessionID, actor.TenantID, actor.UserID, presented[:], now, expectedHash).Scan(&familyID, &securityVersion)
+	queries := identitydb.New(tx)
+	locked, err := queries.LockPasswordChange(ctx, identitydb.LockPasswordChangeParams{ID: string(actor.SessionID), TenantID: string(actor.TenantID), UserID: string(actor.UserID), RefreshTokenHash: presented[:], ExpiresAt: now, PasswordHash: textValid(expectedHash)})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return identity.Session{}, identity.ErrInvalidToken
 	}
 	if err != nil {
 		return identity.Session{}, fmt.Errorf("lock password change: %w", err)
 	}
-	securityVersion++
-	if _, err = tx.Exec(ctx, `UPDATE modura.users SET password_hash = $3, security_version = $4, updated_at = $5 WHERE tenant_id = $1 AND id = $2`, actor.TenantID, actor.UserID, newHash, securityVersion, now); err != nil {
+	securityVersion := locked.SecurityVersion + 1
+	if _, err := queries.ApplyPasswordChange(ctx, identitydb.ApplyPasswordChangeParams{TenantID: string(actor.TenantID), ID: string(actor.UserID), PasswordHash: textValid(newHash), SecurityVersion: securityVersion, UpdatedAt: now}); err != nil {
 		return identity.Session{}, fmt.Errorf("update password: %w", err)
 	}
-	if _, err = tx.Exec(ctx, `UPDATE modura.auth_sessions SET revoked_at = $4, revocation_reason = 'password_changed' WHERE tenant_id = $1 AND user_id = $2 AND id <> $3 AND revoked_at IS NULL`, actor.TenantID, actor.UserID, actor.SessionID, now); err != nil {
+	if err := queries.RevokeSessionsExcept(ctx, identitydb.RevokeSessionsExceptParams{TenantID: string(actor.TenantID), UserID: string(actor.UserID), ID: string(actor.SessionID), RevokedAt: tsValid(now), RevocationReason: textValid("password_changed")}); err != nil {
 		return identity.Session{}, fmt.Errorf("revoke sessions after password change: %w", err)
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO modura.auth_refresh_token_uses (token_hash, session_id, family_id, consumed_at) VALUES ($1, $2, $3, $4)`, presented[:], actor.SessionID, familyID, now); err != nil {
+	if err := queries.RecordRefreshTokenUse(ctx, identitydb.RecordRefreshTokenUseParams{TokenHash: presented[:], SessionID: string(actor.SessionID), FamilyID: locked.FamilyID, ConsumedAt: now}); err != nil {
 		return identity.Session{}, fmt.Errorf("consume password-change refresh token: %w", err)
 	}
-	if _, err = tx.Exec(ctx, `UPDATE modura.auth_sessions SET refresh_token_hash = $2, security_version = $3, last_used_at = $4, expires_at = $5 WHERE id = $1`, actor.SessionID, next[:], securityVersion, now, expires); err != nil {
+	if err := queries.RotateSessionAfterPasswordChange(ctx, identitydb.RotateSessionAfterPasswordChangeParams{ID: string(actor.SessionID), RefreshTokenHash: next[:], SecurityVersion: securityVersion, LastUsedAt: now, ExpiresAt: expires}); err != nil {
 		return identity.Session{}, fmt.Errorf("rotate password-change session: %w", err)
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := s.insertSecurityEvent(ctx, queries, identity.SecurityEventPasswordChanged, actor.TenantID, actor.UserID, correlationID, now); err != nil {
+		return identity.Session{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return identity.Session{}, fmt.Errorf("commit password change: %w", err)
 	}
 	return identity.Session{ID: actor.SessionID, TenantID: actor.TenantID, UserID: actor.UserID, SecurityVersion: securityVersion}, nil
@@ -278,26 +458,15 @@ func (s *Store) CreateOneTimeToken(ctx context.Context, tenantID identity.Tenant
 		return fmt.Errorf("begin one-time token creation: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	_, err = tx.Exec(ctx, `
-UPDATE modura.auth_one_time_tokens
-SET consumed_at = $4
-WHERE tenant_id = $1 AND user_id = $2 AND purpose = $3 AND consumed_at IS NULL`, tenantID, userID, purpose, now)
-	if err != nil {
+	queries := identitydb.New(tx)
+	if err := queries.InvalidateOneTimeTokens(ctx, identitydb.InvalidateOneTimeTokensParams{TenantID: string(tenantID), UserID: string(userID), Purpose: string(purpose), ConsumedAt: tsValid(now)}); err != nil {
 		return fmt.Errorf("invalidate previous one-time tokens: %w", err)
 	}
-	const insert = `
-INSERT INTO modura.auth_one_time_tokens
-    (id, tenant_id, user_id, purpose, token_hash, created_at, expires_at)
-SELECT $1, u.tenant_id, u.id, $4, $5, $6, $7
-FROM modura.users u
-JOIN modura.tenants t ON t.id = u.tenant_id
-WHERE u.tenant_id = $2 AND u.id = $3 AND t.status = 'active'
-  AND (($4 = 'invitation' AND u.status = 'invited') OR ($4 = 'password_reset' AND u.status = 'active'))`
-	command, err := tx.Exec(ctx, insert, id, tenantID, userID, purpose, tokenHash[:], now, expires)
+	inserted, err := queries.InsertOneTimeToken(ctx, identitydb.InsertOneTimeTokenParams{ID: id, TenantID: string(tenantID), ID_2: string(userID), Purpose: string(purpose), TokenHash: tokenHash[:], CreatedAt: now, ExpiresAt: expires})
 	if err != nil {
 		return fmt.Errorf("insert one-time token: %w", err)
 	}
-	if command.RowsAffected() != 1 {
+	if inserted != 1 {
 		return identity.ErrInactiveUser
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -306,116 +475,91 @@ WHERE u.tenant_id = $2 AND u.id = $3 AND t.status = 'active'
 	return nil
 }
 
-// ConsumeOneTimeToken atomically consumes a token, updates credentials, and
-// invalidates every existing session for the user.
-func (s *Store) ConsumeOneTimeToken(ctx context.Context, tokenHash [32]byte, purpose identity.OneTimePurpose, passwordHash string, now time.Time) error {
+// ConsumeOneTimeToken atomically consumes a token, updates credentials,
+// invalidates every existing session for the user, and records security evidence.
+func (s *Store) ConsumeOneTimeToken(ctx context.Context, tokenHash [32]byte, purpose identity.OneTimePurpose, passwordHash string, now time.Time, correlationID string) error {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return fmt.Errorf("begin one-time token consumption: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	var tenantID identity.TenantID
-	var userID identity.UserID
-	var expiresAt time.Time
-	const lock = `
-SELECT tok.tenant_id, tok.user_id, tok.expires_at
-FROM modura.auth_one_time_tokens tok
-JOIN modura.users u ON u.tenant_id = tok.tenant_id AND u.id = tok.user_id
-JOIN modura.tenants t ON t.id = tok.tenant_id
-WHERE tok.token_hash = $1 AND tok.purpose = $2 AND tok.consumed_at IS NULL
-  AND t.status = 'active'
-  AND (($2 = 'invitation' AND u.status = 'invited') OR ($2 = 'password_reset' AND u.status = 'active'))
-FOR UPDATE OF tok, u`
-	err = tx.QueryRow(ctx, lock, tokenHash[:], purpose).Scan(&tenantID, &userID, &expiresAt)
+	queries := identitydb.New(tx)
+	locked, err := queries.LockOneTimeToken(ctx, identitydb.LockOneTimeTokenParams{TokenHash: tokenHash[:], Purpose: string(purpose)})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return identity.ErrInvalidToken
 	}
 	if err != nil {
 		return fmt.Errorf("lock one-time token: %w", err)
 	}
-	if !expiresAt.After(now) {
+	if !locked.ExpiresAt.After(now) {
 		return identity.ErrExpiredToken
 	}
-	var updateUser string
 	if purpose == identity.PurposeInvitation {
-		updateUser = `
-UPDATE modura.users
-SET password_hash = $3, security_version = security_version + 1, status = 'active',
-    email_verified_at = CASE WHEN email IS NULL THEN NULL ELSE COALESCE(email_verified_at, $4) END,
-    updated_at = $4
-WHERE tenant_id = $1 AND id = $2`
+		if err := queries.ApplyInvitationActivation(ctx, identitydb.ApplyInvitationActivationParams{TenantID: locked.TenantID, ID: locked.UserID, PasswordHash: textValid(passwordHash), UpdatedAt: now}); err != nil {
+			return fmt.Errorf("update one-time token credential: %w", err)
+		}
 	} else {
-		updateUser = `
-UPDATE modura.users
-SET password_hash = $3, security_version = security_version + 1, updated_at = $4
-WHERE tenant_id = $1 AND id = $2`
+		if err := queries.ApplyPasswordReset(ctx, identitydb.ApplyPasswordResetParams{TenantID: locked.TenantID, ID: locked.UserID, PasswordHash: textValid(passwordHash), UpdatedAt: now}); err != nil {
+			return fmt.Errorf("update one-time token credential: %w", err)
+		}
 	}
-	if _, err = tx.Exec(ctx, updateUser, tenantID, userID, passwordHash, now); err != nil {
-		return fmt.Errorf("update one-time token credential: %w", err)
-	}
-	if _, err = tx.Exec(ctx, `UPDATE modura.auth_one_time_tokens SET consumed_at = $2 WHERE token_hash = $1`, tokenHash[:], now); err != nil {
+	if _, err := queries.ConsumeOneTimeTokenRow(ctx, identitydb.ConsumeOneTimeTokenRowParams{TokenHash: tokenHash[:], ConsumedAt: tsValid(now)}); err != nil {
 		return fmt.Errorf("consume one-time token: %w", err)
 	}
-	if _, err = tx.Exec(ctx, `UPDATE modura.auth_sessions SET revoked_at = $3, revocation_reason = $4 WHERE tenant_id = $1 AND user_id = $2 AND revoked_at IS NULL`, tenantID, userID, now, string(purpose)); err != nil {
+	if err := queries.RevokeAllUserSessions(ctx, identitydb.RevokeAllUserSessionsParams{TenantID: locked.TenantID, UserID: locked.UserID, RevokedAt: tsValid(now), RevocationReason: textValid(string(purpose))}); err != nil {
 		return fmt.Errorf("revoke sessions after one-time token: %w", err)
 	}
-	if err = tx.Commit(ctx); err != nil {
+	if err := s.insertSecurityEvent(ctx, queries, identity.SecurityEventPasswordChanged, identity.TenantID(locked.TenantID), identity.UserID(locked.UserID), correlationID, now); err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit one-time token consumption: %w", err)
 	}
 	return nil
 }
 
 // DisableAccount atomically disables a user, advances its security version,
-// and revokes all sessions. Repeated disable requests are idempotent.
-func (s *Store) DisableAccount(ctx context.Context, tenantID identity.TenantID, userID identity.UserID, reason string, now time.Time) error {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return fmt.Errorf("begin account disable: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	command, err := tx.Exec(ctx, `
-UPDATE modura.users
-SET status = 'disabled', security_version = security_version + 1, updated_at = $3
-WHERE tenant_id = $1 AND id = $2 AND status IN ('active', 'locked')`, tenantID, userID, now)
+// and revokes all sessions inside the caller's transaction. Disabling is
+// idempotent and also cancels outstanding invitations and recovery tokens.
+func (s *Store) DisableAccount(ctx context.Context, tx pgx.Tx, tenantID identity.TenantID, userID identity.UserID, reason, correlationID string, now time.Time) error {
+	queries := identitydb.New(tx)
+	changed, err := queries.DisableTenantUser(ctx, identitydb.DisableTenantUserParams{TenantID: string(tenantID), ID: string(userID), UpdatedAt: now})
 	if err != nil {
 		return fmt.Errorf("update disabled account: %w", err)
 	}
-	if command.RowsAffected() == 0 {
-		var status string
-		if err := tx.QueryRow(ctx, `SELECT status FROM modura.users WHERE tenant_id = $1 AND id = $2`, tenantID, userID).Scan(&status); err != nil {
+	if changed == 0 {
+		if _, err := queries.TenantUserStatusByID(ctx, identitydb.TenantUserStatusByIDParams{TenantID: string(tenantID), ID: string(userID)}); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return identity.ErrInactiveUser
+				return identity.ErrUserNotFound
 			}
 			return fmt.Errorf("check disabled account: %w", err)
 		}
-		if status != "disabled" {
-			return identity.ErrInactiveUser
-		}
 	}
-	if _, err := tx.Exec(ctx, `UPDATE modura.auth_sessions SET revoked_at = $3, revocation_reason = $4 WHERE tenant_id = $1 AND user_id = $2 AND revoked_at IS NULL`, tenantID, userID, now, reason); err != nil {
+	if err := queries.RevokeTenantUserSessions(ctx, identitydb.RevokeTenantUserSessionsParams{TenantID: string(tenantID), UserID: string(userID), RevokedAt: pgtype.Timestamptz{Time: now, Valid: true}, RevocationReason: pgtype.Text{String: reason, Valid: true}}); err != nil {
 		return fmt.Errorf("revoke disabled account sessions: %w", err)
 	}
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit account disable: %w", err)
+	if err := queries.ConsumeTenantUserOneTimeTokens(ctx, identitydb.ConsumeTenantUserOneTimeTokensParams{TenantID: string(tenantID), UserID: string(userID), ConsumedAt: pgtype.Timestamptz{Time: now, Valid: true}}); err != nil {
+		return fmt.Errorf("consume disabled account tokens: %w", err)
 	}
-	return nil
+	return s.insertSecurityEvent(ctx, queries, identity.SecurityEventSessionsRevoked, tenantID, userID, correlationID, now)
 }
 
-// UnlockAccount restores only abuse-locked users; active retries are
-// idempotent and administratively disabled users remain disabled.
-func (s *Store) UnlockAccount(ctx context.Context, tenantID identity.TenantID, userID identity.UserID, now time.Time) error {
-	command, err := s.pool.Exec(ctx, `UPDATE modura.users SET status = 'active', updated_at = $3 WHERE tenant_id = $1 AND id = $2 AND status = 'locked'`, tenantID, userID, now)
+// UnlockAccount restores only abuse-locked users inside the caller's
+// transaction; active retries are idempotent and administratively disabled
+// users remain disabled.
+func (s *Store) UnlockAccount(ctx context.Context, tx pgx.Tx, tenantID identity.TenantID, userID identity.UserID, now time.Time) error {
+	changed, err := identitydb.New(tx).UnlockTenantUser(ctx, identitydb.UnlockTenantUserParams{TenantID: string(tenantID), ID: string(userID), UpdatedAt: now})
 	if err != nil {
 		return fmt.Errorf("unlock account: %w", err)
 	}
-	if command.RowsAffected() == 1 {
+	if changed == 1 {
 		return nil
 	}
-	var status string
-	if err := s.pool.QueryRow(ctx, `SELECT status FROM modura.users WHERE tenant_id = $1 AND id = $2`, tenantID, userID).Scan(&status); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return identity.ErrInactiveUser
-		}
+	status, err := identitydb.New(tx).TenantUserStatusByID(ctx, identitydb.TenantUserStatusByIDParams{TenantID: string(tenantID), ID: string(userID)})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return identity.ErrUserNotFound
+	}
+	if err != nil {
 		return fmt.Errorf("check unlocked account: %w", err)
 	}
 	if status == "active" {
@@ -426,26 +570,14 @@ func (s *Store) UnlockAccount(ctx context.Context, tenantID identity.TenantID, u
 
 // ProvisionTenant creates identity-owned provisioning records in a workflow transaction.
 func (s *Store) ProvisionTenant(ctx context.Context, tx pgx.Tx, provisioning identity.TenantProvisioning) error {
-	if _, err := tx.Exec(ctx, `
-INSERT INTO modura.tenants (id, slug, display_name, status, created_at, updated_at)
-VALUES ($1, $2, $3, 'provisioning', $4, $4)`, provisioning.TenantID, provisioning.Slug, provisioning.DisplayName, provisioning.CreatedAt); err != nil {
+	queries := identitydb.New(tx)
+	if err := queries.InsertProvisioningTenant(ctx, identitydb.InsertProvisioningTenantParams{ID: string(provisioning.TenantID), Slug: provisioning.Slug, DisplayName: provisioning.DisplayName, CreatedAt: provisioning.CreatedAt}); err != nil {
 		return fmt.Errorf("insert provisioning tenant: %w", err)
 	}
-	var email any
-	var normalizedEmail any
-	if provisioning.Email != "" {
-		email, normalizedEmail = provisioning.Email, provisioning.NormalizedEmail
-	}
-	if _, err := tx.Exec(ctx, `
-INSERT INTO modura.users
-    (id, tenant_id, username, normalized_username, email, normalized_email, status, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, 'invited', $7, $7)`, provisioning.AdministratorID, provisioning.TenantID, provisioning.Username, provisioning.NormalizedUsername, email, normalizedEmail, provisioning.CreatedAt); err != nil {
+	if err := queries.InsertInvitedAdministrator(ctx, identitydb.InsertInvitedAdministratorParams{ID: string(provisioning.AdministratorID), TenantID: string(provisioning.TenantID), Username: provisioning.Username, NormalizedUsername: provisioning.NormalizedUsername, Email: textOrEmpty(provisioning.Email), NormalizedEmail: textOrEmpty(provisioning.NormalizedEmail), CreatedAt: provisioning.CreatedAt}); err != nil {
 		return fmt.Errorf("insert invited administrator: %w", err)
 	}
-	if _, err := tx.Exec(ctx, `
-INSERT INTO modura.auth_one_time_tokens
-    (id, tenant_id, user_id, purpose, token_hash, created_at, expires_at)
-VALUES ($1, $2, $3, 'invitation', $4, $5, $6)`, provisioning.InvitationID, provisioning.TenantID, provisioning.AdministratorID, provisioning.InvitationHash[:], provisioning.CreatedAt, provisioning.InvitationExpires); err != nil {
+	if err := queries.InsertAdministratorInvitation(ctx, identitydb.InsertAdministratorInvitationParams{ID: provisioning.InvitationID, TenantID: string(provisioning.TenantID), UserID: string(provisioning.AdministratorID), TokenHash: provisioning.InvitationHash[:], CreatedAt: provisioning.CreatedAt, ExpiresAt: provisioning.InvitationExpires}); err != nil {
 		return fmt.Errorf("insert administrator invitation: %w", err)
 	}
 	return nil
@@ -453,20 +585,12 @@ VALUES ($1, $2, $3, 'invitation', $4, $5, $6)`, provisioning.InvitationID, provi
 
 // ActivateTenant transitions only a provisioning tenant to active.
 func (s *Store) ActivateTenant(ctx context.Context, tx pgx.Tx, tenantID identity.TenantID, now time.Time) error {
-	command, err := tx.Exec(ctx, `UPDATE modura.tenants SET status = 'active', updated_at = $2 WHERE id = $1 AND status = 'provisioning'`, tenantID, now)
+	activated, err := identitydb.New(tx).ActivateProvisioningTenant(ctx, identitydb.ActivateProvisioningTenantParams{ID: string(tenantID), UpdatedAt: now})
 	if err != nil {
 		return fmt.Errorf("update tenant active: %w", err)
 	}
-	if command.RowsAffected() != 1 {
+	if activated != 1 {
 		return identity.ErrInactiveTenant
-	}
-	return nil
-}
-
-func (s *Store) revoke(ctx context.Context, query string, tenantID identity.TenantID, userID identity.UserID, sessionID identity.SessionID, now time.Time, reason string) error {
-	_, err := s.pool.Exec(ctx, query, tenantID, userID, sessionID, now, reason)
-	if err != nil {
-		return fmt.Errorf("revoke session: %w", err)
 	}
 	return nil
 }

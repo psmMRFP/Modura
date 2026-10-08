@@ -33,13 +33,13 @@ go.work.sum
 # Project build output and local caches
 backend/modura
 backend/bin/
-backend/.cache/
 admin/node_modules/
 admin/dist/
 admin/.vite/
 admin/coverage/
-admin/.cache/
 admin/*.tsbuildinfo
+/.cache/
+.mimosa/
 *.log
 
 # Editor/IDE
@@ -47,3 +47,13 @@ admin/*.tsbuildinfo
 .vscode/
 .DS_Store
 Thumbs.db
+
+# WhereToLive public website
+web/node_modules/
+web/dist/
+web/.vite/
+web/coverage/
+web/*.tsbuildinfo
+
+# Nested development caches
+**/.cache/

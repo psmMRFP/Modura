@@ -1,9 +1,13 @@
 # Modura Agent Contract
 
-Version: 1.0.0
-Effective date: 2026-08-28
+Version: 1.1.0
+Effective date: 2026-10-08
 
 This file is the executable entry point for every human or coding agent working in this repository. Read it before changing files.
+
+The product is **WhereToLive**; **Modura Atlas** is the transformation codename.
+The implementation baseline is [docs/atlas](docs/atlas/README.md). Existing Modura
+module paths, database schema, and deployment identifiers remain compatible.
 
 ## 1. Authority and language
 
@@ -58,7 +62,9 @@ backend/internal/modules/    business modules
 backend/internal/platform/   shared technical infrastructure
 api/                 authoritative HTTP contract
 proto/               gRPC contracts when independently justified
-admin/               AI-assisted React administration/development workspace
+admin/               operations and moderation React workspace
+web/                 public WhereToLive React website
+agents/              versioned runtime research/feedback policies and prompts
 docs/                architecture, security, ADRs, and research
 skills/              project-specific agent skills when introduced
 ```
@@ -123,6 +129,8 @@ MFA, SAML, enterprise SSO, passkeys, service accounts, social login, and operati
 
 Credentials, tokens, secrets, session identifiers, and sensitive personal data MUST NOT appear in logs, error details, URLs, source control, or generated artifacts.
 
+WhereToLive public registration and email verification follow [ADR 0006](docs/adr/0006-public-registration.md). Consumer accounts use the server-resolved community tenant under [ADR 0005](docs/adr/0005-community-tenant-and-public-data.md); they receive no tenant administration authority. Public flows remain disabled until delivery and abuse controls are configured and tested.
+
 ## 8. Go and error-handling rules
 
 - Dependencies MUST be passed through explicit constructors. Hidden service locators and global request containers are forbidden.
@@ -136,7 +144,8 @@ Credentials, tokens, secrets, session identifiers, and sensitive personal data M
 
 ## 9. Frontend rules
 
-- Organize `admin/src` by feature, with shared application composition and generated API directories.
+- Apply these frontend rules to both `admin/` and `web/`; each has a synchronized committed package lock and uses `npm ci`.
+- Organize `admin/src` and `web/src` by feature, with shared application composition and generated API directories.
 - `admin/package-lock.json` MUST be committed and synchronized with `package.json`. Local clean installs and CI MUST use `npm ci`; dependency changes are the only time `npm install` or `npm install --package-lock-only` may update the lock, and they require user-managed network access.
 - Use React, TypeScript, Vite, React Router, TanStack Query, Ant Design, native `fetch`, and the generated OpenAPI client by default.
 - Server state belongs in TanStack Query, URL state in React Router, local UI state in React state, and standard forms in Ant Design Form.
@@ -191,6 +200,10 @@ Use [docs/adr](docs/adr/README.md) for durable decisions that change a default, 
 
 An exception MUST identify the exact rule, scope, reason, risks, compensating controls, owner, and expiry/review condition. Permanent exceptions amend this contract through an accepted ADR and a version/changelog update.
 
+WhereToLive source, AI, privacy, and commercial-independence rules are defined in [Atlas governance](docs/atlas/policies.md). Advertising MUST NOT influence coverage priority, Data Score, Resident Score, or Your Fit.
+
 ### Changelog
+
+- 1.1.0 (2026-10-08): Adopt WhereToLive product direction, public web rules, community boundary and scoped public registration decisions.
 
 - 1.0.0 (2026-08-28): Initial executable contract derived from the Project Constitution and SpringBlade business research.

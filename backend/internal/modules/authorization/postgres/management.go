@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/modura-dev/modura/backend/internal/modules/authorization"
+	authorizationdb "github.com/modura-dev/modura/backend/internal/modules/authorization/postgres/db"
 	"github.com/modura-dev/modura/backend/internal/modules/identity"
 )
 
@@ -120,47 +121,36 @@ func (s Store) GetRolePolicySet(ctx context.Context, tenantID identity.TenantID,
 }
 
 // GetUserRoleGrants returns version 1 for a valid user with no prior grants.
-func (s Store) GetUserRoleGrants(ctx context.Context, tenantID identity.TenantID, userID identity.UserID) (authorization.UserRoleGrantSet, error) {
-	var userExists bool
-	if err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM modura.users WHERE tenant_id = $1 AND id = $2)`, tenantID, userID).Scan(&userExists); err != nil {
-		return authorization.UserRoleGrantSet{}, fmt.Errorf("check role grant user: %w", err)
-	}
-	if !userExists {
-		return authorization.UserRoleGrantSet{}, authorization.ErrNotFound
-	}
+// User existence is verified by the identity module before this read.
+func (s Store) GetUserRoleGrants(ctx context.Context, tx pgx.Tx, tenantID identity.TenantID, userID identity.UserID) (authorization.UserRoleGrantSet, error) {
+	queries := authorizationdb.New(tx)
 	state := authorization.UserRoleGrantSet{Version: 1, RoleIDs: []authorization.RoleID{}}
-	if err := s.pool.QueryRow(ctx, `SELECT version FROM modura.user_role_versions WHERE tenant_id = $1 AND user_id = $2`, tenantID, userID).Scan(&state.Version); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+	version, err := queries.UserRoleVersion(ctx, authorizationdb.UserRoleVersionParams{TenantID: string(tenantID), UserID: string(userID)})
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return authorization.UserRoleGrantSet{}, fmt.Errorf("query user role version: %w", err)
 	}
-	rows, err := s.pool.Query(ctx, `SELECT ur.role_id FROM modura.user_roles ur JOIN modura.roles r ON r.tenant_id = ur.tenant_id AND r.id = ur.role_id WHERE ur.tenant_id = $1 AND ur.user_id = $2 AND r.reserved = false ORDER BY ur.role_id`, tenantID, userID)
+	if err == nil {
+		state.Version = version
+	}
+	roleIDs, err := queries.NonReservedRoleIDsByUser(ctx, authorizationdb.NonReservedRoleIDsByUserParams{TenantID: string(tenantID), UserID: string(userID)})
 	if err != nil {
 		return authorization.UserRoleGrantSet{}, fmt.Errorf("query user roles: %w", err)
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var roleID authorization.RoleID
-		if err := rows.Scan(&roleID); err != nil {
-			return authorization.UserRoleGrantSet{}, fmt.Errorf("scan user role: %w", err)
-		}
-		state.RoleIDs = append(state.RoleIDs, roleID)
+	for _, roleID := range roleIDs {
+		state.RoleIDs = append(state.RoleIDs, authorization.RoleID(roleID))
 	}
-	return state, rows.Err()
+	return state, nil
 }
 
-// ReplaceUserRoleGrants replaces non-reserved role grants with optimistic locking.
+// ReplaceUserRoleGrants replaces non-reserved role grants with optimistic
+// locking. User existence is verified by the identity module beforehand.
 func (Store) ReplaceUserRoleGrants(ctx context.Context, tx pgx.Tx, tenantID identity.TenantID, userID identity.UserID, expectedVersion int64, desired []authorization.RoleID, now time.Time) (authorization.UserRoleGrantSet, error) {
-	command, err := tx.Exec(ctx, `INSERT INTO modura.user_role_versions (tenant_id, user_id, version, updated_at) SELECT $1, $2, 1, $3 WHERE EXISTS (SELECT 1 FROM modura.users WHERE tenant_id = $1 AND id = $2) ON CONFLICT (tenant_id, user_id) DO NOTHING`, tenantID, userID, now)
-	if err != nil {
+	queries := authorizationdb.New(tx)
+	if _, err := queries.InitializeUserRoleVersion(ctx, authorizationdb.InitializeUserRoleVersionParams{TenantID: string(tenantID), UserID: string(userID), UpdatedAt: now}); err != nil {
 		return authorization.UserRoleGrantSet{}, fmt.Errorf("initialize user role version: %w", err)
 	}
-	if command.RowsAffected() == 0 {
-		var exists bool
-		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM modura.users WHERE tenant_id = $1 AND id = $2)`, tenantID, userID).Scan(&exists); err != nil || !exists {
-			return authorization.UserRoleGrantSet{}, authorization.ErrNotFound
-		}
-	}
-	var version int64
-	if err := tx.QueryRow(ctx, `SELECT version FROM modura.user_role_versions WHERE tenant_id = $1 AND user_id = $2 FOR UPDATE`, tenantID, userID).Scan(&version); err != nil {
+	version, err := queries.LockUserRoleVersion(ctx, authorizationdb.LockUserRoleVersionParams{TenantID: string(tenantID), UserID: string(userID)})
+	if err != nil {
 		return authorization.UserRoleGrantSet{}, fmt.Errorf("lock user role version: %w", err)
 	}
 	if version != expectedVersion {

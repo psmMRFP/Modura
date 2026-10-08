@@ -59,6 +59,10 @@ export const PlatformTenantsRoute = deferred(
   () => import("../features/platform/TenantsPage"),
   (module) => module.TenantsPage,
 );
+export const PlatformAuditRoute = deferred(
+  () => import("../features/platform/PlatformAuditPage"),
+  (module) => module.PlatformAuditPage,
+);
 export const PlatformDictionariesRoute = deferred(
   () => import("../features/platform/PlatformDictionariesPage"),
   (module) => module.PlatformDictionariesPage,
@@ -66,4 +70,9 @@ export const PlatformDictionariesRoute = deferred(
 export const PlatformConfigurationsRoute = deferred(
   () => import("../features/platform/PlatformConfigurationsPage"),
   (module) => module.PlatformConfigurationsPage,
+);
+
+export const PlatformPlacesRoute = deferred(
+  () => import("../features/places/PlatformPlacesPage"),
+  (module) => module.PlatformPlacesPage,
 );

@@ -15,6 +15,7 @@ import (
 type Store interface {
 	Record(context.Context, pgx.Tx, Event) error
 	RecordPlatform(context.Context, pgx.Tx, PlatformEvent) error
+	RecordTenantScopedPlatform(context.Context, pgx.Tx, TenantScopedPlatformEvent) error
 }
 
 // RecordPlatformWrite records successful global-administrator activity in the supplied transaction.
@@ -49,9 +50,11 @@ type Service struct {
 	queries QueryStore
 }
 
-// QueryStore loads immutable tenant audit projections.
+// QueryStore loads immutable audit projections.
 type QueryStore interface {
 	List(context.Context, Query) ([]Record, error)
+	Get(context.Context, identity.TenantID, string) (Record, error)
+	ListPlatform(context.Context, PlatformQuery) ([]Record, error)
 }
 
 // NewService constructs the audit application service.
@@ -81,6 +84,40 @@ func (s *Service) List(ctx context.Context, tenantID identity.TenantID, action, 
 	records, err := s.queries.List(ctx, Query{TenantID: tenantID, Action: action, Resource: resource, Limit: limit, Offset: offset})
 	if err != nil {
 		return nil, fmt.Errorf("list audit events: %w", err)
+	}
+	for i := range records {
+		records[i].BeforeState = redactState(records[i].BeforeState)
+		records[i].AfterState = redactState(records[i].AfterState)
+	}
+	return records, nil
+}
+
+// Get returns one redacted audit event only within the verified tenant.
+func (s *Service) Get(ctx context.Context, tenantID identity.TenantID, eventID string) (Record, error) {
+	eventID = strings.TrimSpace(eventID)
+	if tenantID == "" || s.queries == nil || eventID == "" || len(eventID) > 128 {
+		return Record{}, fmt.Errorf("invalid audit lookup")
+	}
+	record, err := s.queries.Get(ctx, tenantID, eventID)
+	if err != nil {
+		return Record{}, err
+	}
+	record.BeforeState = redactState(record.BeforeState)
+	record.AfterState = redactState(record.AfterState)
+	return record, nil
+}
+
+// ListPlatform returns a bounded redacted audit page across tenants for
+// platform administrators. An empty tenant filter lists platform events too.
+func (s *Service) ListPlatform(ctx context.Context, query PlatformQuery) ([]Record, error) {
+	query.Action = strings.TrimSpace(query.Action)
+	query.Resource = strings.TrimSpace(query.Resource)
+	if s.queries == nil || query.Limit < 1 || query.Limit > 100 || query.Offset < 0 || len(query.Action) > 128 || len(query.Resource) > 128 {
+		return nil, fmt.Errorf("invalid platform audit query")
+	}
+	records, err := s.queries.ListPlatform(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("list platform audit events: %w", err)
 	}
 	for i := range records {
 		records[i].BeforeState = redactState(records[i].BeforeState)
@@ -130,6 +167,32 @@ func sensitiveKey(key string) bool {
 		}
 	}
 	return false
+}
+
+// RecordTenantScopedPlatformWrite records platform-administrator activity on
+// one existing tenant in the supplied transaction.
+func (s *Service) RecordTenantScopedPlatformWrite(ctx context.Context, tx pgx.Tx, event TenantScopedPlatformEvent) error {
+	event.ActorID = strings.TrimSpace(event.ActorID)
+	event.Action = strings.TrimSpace(event.Action)
+	event.Resource = strings.TrimSpace(event.Resource)
+	event.ResourceID = strings.TrimSpace(event.ResourceID)
+	event.Reason = strings.TrimSpace(event.Reason)
+	event.CorrelationID = strings.TrimSpace(event.CorrelationID)
+	if tx == nil || event.ActorID == "" || event.TenantID == "" || event.Action == "" || event.Resource == "" || event.ResourceID == "" || event.Reason == "" || event.CorrelationID == "" || event.OccurredAt.IsZero() {
+		return fmt.Errorf("invalid tenant-scoped platform audit event")
+	}
+	if (len(event.BeforeState) > 0 && !json.Valid(event.BeforeState)) || (len(event.AfterState) > 0 && !json.Valid(event.AfterState)) {
+		return fmt.Errorf("invalid tenant-scoped platform audit state")
+	}
+	id, err := s.newID(event.OccurredAt)
+	if err != nil {
+		return fmt.Errorf("generate audit event ID: %w", err)
+	}
+	event.ID = id
+	if err := s.store.RecordTenantScopedPlatform(ctx, tx, event); err != nil {
+		return fmt.Errorf("record tenant-scoped platform audit event: %w", err)
+	}
+	return nil
 }
 
 // RecordTenantWrite records successful tenant-user activity in the supplied transaction.

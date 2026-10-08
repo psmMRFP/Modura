@@ -1,4 +1,4 @@
--- owner: identity
+-- owner: platformadmin
 CREATE TABLE modura.platform_administrators (
     id uuid PRIMARY KEY,
     username text NOT NULL,

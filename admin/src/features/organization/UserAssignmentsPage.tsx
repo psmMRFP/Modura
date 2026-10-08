@@ -4,6 +4,7 @@ import {
   Form,
   Input,
   message,
+  Modal,
   Select,
   Space,
   Typography,
@@ -11,11 +12,15 @@ import {
 import { useState } from "react";
 import {
   useAssignUserOrganization,
+  useDisableTenantUser,
   useGetUserRoleGrants,
+  useGetTenantUser,
   useListDepartments,
   useListPositions,
   useListRoles,
+  useListTenantUsers,
   useReplaceUserRoleGrants,
+  useUnlockTenantUser,
 } from "../../api/generated/modura";
 import { useAuth } from "../auth/auth-context";
 import { usePermissions } from "../workspace/use-permissions";
@@ -27,6 +32,11 @@ export function UserAssignmentsPage() {
   const departmentsQuery = useListDepartments({ fetch: auth.fetchOptions });
   const positionsQuery = useListPositions({ fetch: auth.fetchOptions });
   const rolesQuery = useListRoles({ fetch: auth.fetchOptions });
+  const usersQuery = useListTenantUsers({ fetch: auth.fetchOptions });
+  const userQuery = useGetTenantUser(userId, {
+    fetch: auth.fetchOptions,
+    query: { enabled: Boolean(userId) },
+  });
   const grantsQuery = useGetUserRoleGrants(userId, {
     fetch: auth.fetchOptions,
     query: { enabled: Boolean(userId) },
@@ -41,6 +51,8 @@ export function UserAssignmentsPage() {
       : [];
   const grants =
     grantsQuery.data?.status === 200 ? grantsQuery.data.data : undefined;
+  const users = usersQuery.data?.status === 200 ? usersQuery.data.data : [];
+  const user = userQuery.data?.status === 200 ? userQuery.data.data : undefined;
   const writeFetch = {
     ...auth.fetchOptions,
     headers: { ...auth.fetchOptions.headers, "X-CSRF-Token": auth.csrfToken },
@@ -67,19 +79,110 @@ export function UserAssignmentsPage() {
       },
     },
   });
+  const refreshUser = async () => {
+    await Promise.all([usersQuery.refetch(), userQuery.refetch()]);
+  };
+  const disable = useDisableTenantUser({
+    fetch: writeFetch,
+    mutation: {
+      onSuccess: async (response) => {
+        if (response.status === 200) {
+          message.success("账户已停用");
+          await refreshUser();
+        } else if (response.status === 404)
+          message.warning("用户不存在或不属于当前租户");
+        else message.error("停用失败");
+      },
+    },
+  });
+  const unlock = useUnlockTenantUser({
+    fetch: writeFetch,
+    mutation: {
+      onSuccess: async (response) => {
+        if (response.status === 200) {
+          message.success("账户已解锁");
+          await refreshUser();
+        } else if (response.status === 404)
+          message.warning("用户不存在或不属于当前租户");
+        else message.error("解锁失败");
+      },
+    },
+  });
+  const confirmUnlock = () => {
+    Modal.confirm({
+      title: "解锁账户",
+      content: "确认将该锁定账户恢复为可用状态？",
+      okText: "解锁",
+      cancelText: "取消",
+      onOk: () => unlock.mutateAsync({ userId }),
+    });
+  };
   return (
     <Space direction="vertical" size="large" className="workspace">
-      <Card title="选择用户">
+      <Card title="用户目录">
         <Typography.Paragraph type="secondary">
-          当前契约尚无用户目录接口，请输入从邀请或审计记录获得的用户
-          UUID。此处不会信任或切换租户。
+          选择当前租户中的用户，查看账户详情及授权。
         </Typography.Paragraph>
-        <Input.Search
-          placeholder="用户 UUID"
-          enterButton="读取授权"
-          onSearch={setUserId}
+        <Select
+          showSearch
+          optionFilterProp="label"
+          placeholder="选择用户"
+          style={{ width: 340 }}
+          loading={usersQuery.isLoading}
+          options={users.map((item) => ({
+            value: item.id,
+            label: `${item.username} · ${item.status}`,
+          }))}
+          value={userId || undefined}
+          onChange={setUserId}
         />
+        {user && (
+          <Typography.Paragraph>
+            用户：{user.username} · 状态：{user.status} · 邮箱：
+            {user.email ?? "未设置"}
+          </Typography.Paragraph>
+        )}
       </Card>
+      {userId && granted.has("identity.users/update") && (
+        <Card title="账户状态">
+          {user?.status === "disabled" ? (
+            <Typography.Paragraph type="warning">
+              该账户已停用，无法登录；停用状态不能在页面内恢复。
+            </Typography.Paragraph>
+          ) : (
+            <Form
+              layout="inline"
+              onFinish={(data: { reason: string }) =>
+                disable.mutate({ userId, data: { reason: data.reason } })
+              }
+            >
+              <Form.Item
+                name="reason"
+                label="停用原因"
+                rules={[
+                  { required: true, message: "请填写停用原因" },
+                  { max: 256 },
+                ]}
+              >
+                <Input
+                  placeholder="写入审计记录的原因"
+                  style={{ width: 280 }}
+                />
+              </Form.Item>
+              <Space>
+                <Button danger htmlType="submit" loading={disable.isPending}>
+                  停用账户
+                </Button>
+                {user?.status === "locked" && (
+                  <Button loading={unlock.isPending} onClick={confirmUnlock}>
+                    解锁账户
+                  </Button>
+                )}
+              </Space>
+            </Form>
+          )}
+        </Card>
+      )}
       {userId && granted.has("organization.user-organization/update") && (
         <Card title="组织归属">
           <Form

@@ -142,7 +142,7 @@ func (s *Service) actorPolicies(ctx context.Context, actor identity.Actor, permi
 
 func knownPermission(permission Permission) bool {
 	actions := map[Action]bool{ActionRead: true, ActionCreate: true, ActionUpdate: true, ActionDelete: true}
-	resources := map[Resource]bool{ResourceDepartments: true, ResourcePositions: true, ResourceUserOrganization: true, ResourceRoles: true, ResourcePolicies: true, ResourceUserRoles: true, ResourceDictionaries: true, ResourceConfigurations: true, ResourceAuditEvents: true}
+	resources := map[Resource]bool{ResourceUsers: true, ResourceDepartments: true, ResourcePositions: true, ResourceUserOrganization: true, ResourceRoles: true, ResourcePolicies: true, ResourceUserRoles: true, ResourceDictionaries: true, ResourceConfigurations: true, ResourceAuditEvents: true}
 	return actions[permission.Action] && resources[permission.Resource]
 }
 

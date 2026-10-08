@@ -13,6 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/modura-dev/modura/backend/internal/modules/audit"
 	"github.com/modura-dev/modura/backend/internal/modules/authorization"
 	"github.com/modura-dev/modura/backend/internal/modules/identity"
 	"github.com/modura-dev/modura/backend/internal/modules/organization"
@@ -38,6 +39,11 @@ type Organization interface {
 // Authorization owns the tenant-administrator role and grant.
 type Authorization interface {
 	ProvisionTenantAdministrator(context.Context, pgx.Tx, authorization.Role, identity.UserID) error
+}
+
+// Auditor records provisioning activity in the same transaction.
+type Auditor interface {
+	RecordTenantScopedPlatformWrite(context.Context, pgx.Tx, audit.TenantScopedPlatformEvent) error
 }
 
 // Request contains canonical tenant provisioning input.
@@ -68,6 +74,7 @@ type Service struct {
 	identity           Identity
 	organization       Organization
 	authorization      Authorization
+	auditor            Auditor
 	now                func() time.Time
 	newID              func(time.Time) (string, error)
 	newSecret          func() (string, error)
@@ -75,11 +82,11 @@ type Service struct {
 }
 
 // NewService constructs a tenant provisioning coordinator.
-func NewService(pool *pgxpool.Pool, identityService Identity, organizationService Organization, authorizationService Authorization, now func() time.Time, newID func(time.Time) (string, error), newSecret func() (string, error), invitationLifetime time.Duration) (*Service, error) {
-	if pool == nil || identityService == nil || organizationService == nil || authorizationService == nil || now == nil || newID == nil || newSecret == nil || invitationLifetime <= 0 {
+func NewService(pool *pgxpool.Pool, identityService Identity, organizationService Organization, authorizationService Authorization, auditor Auditor, now func() time.Time, newID func(time.Time) (string, error), newSecret func() (string, error), invitationLifetime time.Duration) (*Service, error) {
+	if pool == nil || identityService == nil || organizationService == nil || authorizationService == nil || auditor == nil || now == nil || newID == nil || newSecret == nil || invitationLifetime <= 0 {
 		return nil, fmt.Errorf("invalid provisioning service configuration")
 	}
-	return &Service{pool: pool, identity: identityService, organization: organizationService, authorization: authorizationService, now: now, newID: newID, newSecret: newSecret, invitationLifetime: invitationLifetime}, nil
+	return &Service{pool: pool, identity: identityService, organization: organizationService, authorization: authorizationService, auditor: auditor, now: now, newID: newID, newSecret: newSecret, invitationLifetime: invitationLifetime}, nil
 }
 
 // Provision creates a complete active tenant or returns the prior idempotent result.
@@ -146,7 +153,7 @@ func (s *Service) Provision(ctx context.Context, request Request) (Result, error
 	if _, err := tx.Exec(ctx, `INSERT INTO modura.tenant_provisioning_requests (idempotency_key, request_digest, tenant_id, created_at, completed_at) VALUES ($1, $2, $3, $4, $4)`, canonical.IdempotencyKey, digest[:], tenantID, now); err != nil {
 		return Result{}, fmt.Errorf("record tenant provisioning request: %w", err)
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO modura.audit_events (id, actor_type, actor_id, tenant_id, action, resource, resource_id, reason, result, correlation_id, occurred_at) VALUES ($1, 'platform_administrator', $2, $3, 'tenant.provisioned', 'tenant', $3, $4, 'succeeded', $5, $6)`, ids[5], canonical.Actor.AdministratorID, tenantID, canonical.Reason, canonical.CorrelationID, now); err != nil {
+	if err := s.auditor.RecordTenantScopedPlatformWrite(ctx, tx, audit.TenantScopedPlatformEvent{ActorID: string(canonical.Actor.AdministratorID), TenantID: tenantID, Action: "tenant.provisioned", Resource: "tenant", ResourceID: string(tenantID), Reason: canonical.Reason, CorrelationID: canonical.CorrelationID, OccurredAt: now}); err != nil {
 		return Result{}, fmt.Errorf("record tenant provisioning audit: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {

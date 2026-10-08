@@ -28,7 +28,7 @@ describe("permission navigation", () => {
       new Set([
         "organization.departments/read",
         "organization.positions/read",
-        "authorization.user-roles/read",
+        "identity.users/read",
         "authorization.roles/read",
       ]),
     );

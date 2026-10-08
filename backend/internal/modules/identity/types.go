@@ -2,8 +2,10 @@
 package identity
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
+	"time"
 	"unicode"
 )
 
@@ -22,6 +24,32 @@ var (
 	ErrRefreshReuse = errors.New("refresh token reuse detected")
 	// ErrInvalidPassword means a proposed password violates the password policy.
 	ErrInvalidPassword = errors.New("invalid password")
+	// ErrUserNotFound hides whether an account belongs to a different tenant.
+	ErrUserNotFound = errors.New("tenant user not found")
+	// ErrTenantNotFound means a tenant lookup by explicit identifier missed.
+	ErrTenantNotFound = errors.New("tenant not found")
+	// ErrInvalidTenantTransition means the tenant is not in the required state.
+	ErrInvalidTenantTransition = errors.New("invalid tenant lifecycle transition")
+	// ErrAccountLocked means credential throttling locked this login pair.
+	ErrAccountLocked = errors.New("account temporarily locked")
+)
+
+// SecurityEventType classifies privacy-conscious authentication evidence.
+// Security events never carry credentials, login strings, network addresses,
+// or user agents.
+type SecurityEventType string
+
+const (
+	// SecurityEventLoginFailed marks the first failure of a throttling window.
+	SecurityEventLoginFailed SecurityEventType = "login_failed"
+	// SecurityEventLoginLocked marks a throttling lockout being triggered.
+	SecurityEventLoginLocked SecurityEventType = "login_locked"
+	// SecurityEventRefreshReplayDetected marks a replayed refresh token.
+	SecurityEventRefreshReplayDetected SecurityEventType = "refresh_replay_detected"
+	// SecurityEventPasswordChanged marks a credential replacement.
+	SecurityEventPasswordChanged SecurityEventType = "password_changed"
+	// SecurityEventSessionsRevoked marks session revocations.
+	SecurityEventSessionsRevoked SecurityEventType = "sessions_revoked"
 )
 
 // TenantID is a verified tenant identifier.
@@ -48,6 +76,21 @@ type Actor struct {
 	TenantID  TenantID
 	UserID    UserID
 	SessionID SessionID
+}
+
+// AccountAuditEvent is the audit evidence for a tenant account lifecycle write.
+// It deliberately mirrors audit-owned events without importing the audit module.
+type AccountAuditEvent struct {
+	Actor         Actor
+	TargetUserID  UserID
+	Action        string
+	Resource      string
+	ResourceID    string
+	Reason        string
+	CorrelationID string
+	OccurredAt    time.Time
+	BeforeState   json.RawMessage
+	AfterState    json.RawMessage
 }
 
 // NormalizeLogin canonicalizes a tenant slug, username, or email for lookup.

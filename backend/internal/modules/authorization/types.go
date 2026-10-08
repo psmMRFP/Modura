@@ -26,6 +26,8 @@ type Resource string
 type Action string
 
 const (
+	// ResourceUsers protects tenant user administration.
+	ResourceUsers Resource = "identity.users"
 	// ResourceDepartments protects department management.
 	ResourceDepartments Resource = "organization.departments"
 	// ResourcePositions protects position management.
