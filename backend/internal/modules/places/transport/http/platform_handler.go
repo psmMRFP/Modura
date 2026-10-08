@@ -10,15 +10,15 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/modura-dev/modura/backend/internal/api/generated"
-	apihttp "github.com/modura-dev/modura/backend/internal/api/transport"
-	"github.com/modura-dev/modura/backend/internal/modules/places"
-	"github.com/modura-dev/modura/backend/internal/modules/platformadmin"
+	"github.com/psmMRFP/WhereToLive/backend/internal/api/generated"
+	apihttp "github.com/psmMRFP/WhereToLive/backend/internal/api/transport"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/places"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/platformadmin"
 )
 
 // PlatformService is the platform-only catalogue capability.
 type PlatformService interface {
-	List(context.Context, platformadmin.Actor, places.Query) (places.ManagedPage, error)
+	List(context.Context, platformadmin.Actor, places.CatalogueQuery) (places.ManagedPage, error)
 	Get(context.Context, platformadmin.Actor, string) (places.Entry, error)
 	Create(context.Context, places.WriteContext, places.Create) (places.Entry, error)
 	Update(context.Context, places.WriteContext, string, int64, places.Details) (places.Entry, error)
@@ -63,7 +63,13 @@ func (h *PlatformPlacesHandler) ListPlatformPlaces(c *gin.Context, p generated.L
 	if !ok {
 		return
 	}
-	q := places.Query{Limit: 20}
+	q := places.CatalogueQuery{Query: places.Query{Limit: 20}, CoverageLevel: p.CoverageLevel}
+	if p.CountryCode != nil {
+		q.CountryCode = *p.CountryCode
+	}
+	if p.Publication != nil {
+		q.Publication = string(*p.Publication)
+	}
 	if p.Q != nil {
 		q.Search = *p.Q
 	}

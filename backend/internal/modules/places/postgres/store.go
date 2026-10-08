@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/modura-dev/modura/backend/internal/modules/places"
-	placesdb "github.com/modura-dev/modura/backend/internal/modules/places/postgres/db"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/places"
+	placesdb "github.com/psmMRFP/WhereToLive/backend/internal/modules/places/postgres/db"
 )
 
 // Store accepts a caller-supplied transaction-capable database handle.

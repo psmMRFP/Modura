@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type ModuraAuditEvent struct {
+type WheretoliveAuditEvent struct {
 	ID            string      `json:"id"`
 	ActorType     string      `json:"actor_type"`
 	ActorID       string      `json:"actor_id"`
@@ -26,7 +26,7 @@ type ModuraAuditEvent struct {
 	AfterState    []byte      `json:"after_state"`
 }
 
-type ModuraAuthLoginGuard struct {
+type WheretoliveAuthLoginGuard struct {
 	TenantSlug      string             `json:"tenant_slug"`
 	NormalizedLogin string             `json:"normalized_login"`
 	FailureCount    int32              `json:"failure_count"`
@@ -35,7 +35,7 @@ type ModuraAuthLoginGuard struct {
 	UpdatedAt       time.Time          `json:"updated_at"`
 }
 
-type ModuraAuthOneTimeToken struct {
+type WheretoliveAuthOneTimeToken struct {
 	ID                   string             `json:"id"`
 	TenantID             string             `json:"tenant_id"`
 	UserID               string             `json:"user_id"`
@@ -48,14 +48,14 @@ type ModuraAuthOneTimeToken struct {
 	BoundSecurityVersion pgtype.Int8        `json:"bound_security_version"`
 }
 
-type ModuraAuthRefreshTokenUse struct {
+type WheretoliveAuthRefreshTokenUse struct {
 	TokenHash  []byte    `json:"token_hash"`
 	SessionID  string    `json:"session_id"`
 	FamilyID   string    `json:"family_id"`
 	ConsumedAt time.Time `json:"consumed_at"`
 }
 
-type ModuraAuthSecurityEvent struct {
+type WheretoliveAuthSecurityEvent struct {
 	ID            string      `json:"id"`
 	TenantID      pgtype.UUID `json:"tenant_id"`
 	UserID        pgtype.UUID `json:"user_id"`
@@ -64,7 +64,7 @@ type ModuraAuthSecurityEvent struct {
 	OccurredAt    time.Time   `json:"occurred_at"`
 }
 
-type ModuraAuthSession struct {
+type WheretoliveAuthSession struct {
 	ID               string             `json:"id"`
 	TenantID         string             `json:"tenant_id"`
 	UserID           string             `json:"user_id"`
@@ -78,13 +78,13 @@ type ModuraAuthSession struct {
 	RevocationReason pgtype.Text        `json:"revocation_reason"`
 }
 
-type ModuraCommunityIdentity struct {
+type WheretoliveCommunityIdentity struct {
 	Singleton bool      `json:"singleton"`
 	TenantID  string    `json:"tenant_id"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
-type ModuraConfigurationDefinition struct {
+type WheretoliveConfigurationDefinition struct {
 	ID                string    `json:"id"`
 	Key               string    `json:"key"`
 	Name              string    `json:"name"`
@@ -94,7 +94,7 @@ type ModuraConfigurationDefinition struct {
 	UpdatedAt         time.Time `json:"updated_at"`
 }
 
-type ModuraDepartment struct {
+type WheretoliveDepartment struct {
 	ID             string      `json:"id"`
 	TenantID       string      `json:"tenant_id"`
 	ParentID       pgtype.UUID `json:"parent_id"`
@@ -105,7 +105,27 @@ type ModuraDepartment struct {
 	UpdatedAt      time.Time   `json:"updated_at"`
 }
 
-type ModuraGlobalConfigurationValue struct {
+type WheretoliveFeedbackCategory struct {
+	Key      string `json:"key"`
+	Label    string `json:"label"`
+	Active   bool   `json:"active"`
+	Position int32  `json:"position"`
+}
+
+type WheretoliveFeedbackIntake struct {
+	ID          string      `json:"id"`
+	CategoryKey string      `json:"category_key"`
+	PlaceID     pgtype.UUID `json:"place_id"`
+	Title       string      `json:"title"`
+	Message     string      `json:"message"`
+	Status      string      `json:"status"`
+	Outcome     pgtype.Text `json:"outcome"`
+	Version     int64       `json:"version"`
+	CreatedAt   time.Time   `json:"created_at"`
+	UpdatedAt   time.Time   `json:"updated_at"`
+}
+
+type WheretoliveGlobalConfigurationValue struct {
 	Key       string    `json:"key"`
 	Value     []byte    `json:"value"`
 	Version   int64     `json:"version"`
@@ -113,7 +133,7 @@ type ModuraGlobalConfigurationValue struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-type ModuraGlobalDictionaryItem struct {
+type WheretoliveGlobalDictionaryItem struct {
 	ID               string    `json:"id"`
 	DictionaryTypeID string    `json:"dictionary_type_id"`
 	Code             string    `json:"code"`
@@ -124,7 +144,7 @@ type ModuraGlobalDictionaryItem struct {
 	UpdatedAt        time.Time `json:"updated_at"`
 }
 
-type ModuraGlobalDictionaryType struct {
+type WheretoliveGlobalDictionaryType struct {
 	ID        string    `json:"id"`
 	Code      string    `json:"code"`
 	Name      string    `json:"name"`
@@ -133,7 +153,7 @@ type ModuraGlobalDictionaryType struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-type ModuraIdentityMailQueue struct {
+type WheretoliveIdentityMailQueue struct {
 	ID               string             `json:"id"`
 	TenantID         string             `json:"tenant_id"`
 	UserID           string             `json:"user_id"`
@@ -146,7 +166,7 @@ type ModuraIdentityMailQueue struct {
 	Attempts         int32              `json:"attempts"`
 }
 
-type ModuraPlace struct {
+type WheretolivePlace struct {
 	ID             string             `json:"id"`
 	Slug           string             `json:"slug"`
 	Name           string             `json:"name"`
@@ -166,7 +186,7 @@ type ModuraPlace struct {
 	Version        int64              `json:"version"`
 }
 
-type ModuraPlaceAlias struct {
+type WheretolivePlaceAlias struct {
 	PlaceID        string `json:"place_id"`
 	Locale         string `json:"locale"`
 	Name           string `json:"name"`
@@ -174,7 +194,7 @@ type ModuraPlaceAlias struct {
 	Preferred      bool   `json:"preferred"`
 }
 
-type ModuraPlatformAdministrator struct {
+type WheretolivePlatformAdministrator struct {
 	ID                 string    `json:"id"`
 	Username           string    `json:"username"`
 	NormalizedUsername string    `json:"normalized_username"`
@@ -185,7 +205,7 @@ type ModuraPlatformAdministrator struct {
 	UpdatedAt          time.Time `json:"updated_at"`
 }
 
-type ModuraPlatformAuthSession struct {
+type WheretolivePlatformAuthSession struct {
 	ID               string             `json:"id"`
 	AdministratorID  string             `json:"administrator_id"`
 	FamilyID         string             `json:"family_id"`
@@ -198,14 +218,14 @@ type ModuraPlatformAuthSession struct {
 	RevocationReason pgtype.Text        `json:"revocation_reason"`
 }
 
-type ModuraPlatformRefreshTokenUse struct {
+type WheretolivePlatformRefreshTokenUse struct {
 	TokenHash  []byte    `json:"token_hash"`
 	SessionID  string    `json:"session_id"`
 	FamilyID   string    `json:"family_id"`
 	ConsumedAt time.Time `json:"consumed_at"`
 }
 
-type ModuraPosition struct {
+type WheretolivePosition struct {
 	ID             string    `json:"id"`
 	TenantID       string    `json:"tenant_id"`
 	Name           string    `json:"name"`
@@ -215,7 +235,7 @@ type ModuraPosition struct {
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 
-type ModuraPublicIdentityEvent struct {
+type WheretolivePublicIdentityEvent struct {
 	ID            string      `json:"id"`
 	TenantID      string      `json:"tenant_id"`
 	UserID        pgtype.UUID `json:"user_id"`
@@ -229,14 +249,14 @@ type ModuraPublicIdentityEvent struct {
 	OccurredAt    time.Time   `json:"occurred_at"`
 }
 
-type ModuraPublicIdentityLimit struct {
+type WheretolivePublicIdentityLimit struct {
 	TenantID        string    `json:"tenant_id"`
 	KeyHash         []byte    `json:"key_hash"`
 	WindowStartedAt time.Time `json:"window_started_at"`
 	Attempts        int32     `json:"attempts"`
 }
 
-type ModuraPublicPlace struct {
+type WheretolivePublicPlace struct {
 	ID             string             `json:"id"`
 	Slug           string             `json:"slug"`
 	Name           string             `json:"name"`
@@ -255,7 +275,7 @@ type ModuraPublicPlace struct {
 	UpdatedAt      time.Time          `json:"updated_at"`
 }
 
-type ModuraRole struct {
+type WheretoliveRole struct {
 	ID        string    `json:"id"`
 	TenantID  string    `json:"tenant_id"`
 	Code      string    `json:"code"`
@@ -266,7 +286,7 @@ type ModuraRole struct {
 	Version   int64     `json:"version"`
 }
 
-type ModuraRolePolicy struct {
+type WheretoliveRolePolicy struct {
 	TenantID  string    `json:"tenant_id"`
 	RoleID    string    `json:"role_id"`
 	Resource  string    `json:"resource"`
@@ -276,7 +296,7 @@ type ModuraRolePolicy struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-type ModuraRolePolicyDepartment struct {
+type WheretoliveRolePolicyDepartment struct {
 	TenantID     string `json:"tenant_id"`
 	RoleID       string `json:"role_id"`
 	Resource     string `json:"resource"`
@@ -284,7 +304,7 @@ type ModuraRolePolicyDepartment struct {
 	DepartmentID string `json:"department_id"`
 }
 
-type ModuraTenant struct {
+type WheretoliveTenant struct {
 	ID          string    `json:"id"`
 	Slug        string    `json:"slug"`
 	DisplayName string    `json:"display_name"`
@@ -293,7 +313,7 @@ type ModuraTenant struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-type ModuraTenantConfigurationValue struct {
+type WheretoliveTenantConfigurationValue struct {
 	TenantID  string    `json:"tenant_id"`
 	Key       string    `json:"key"`
 	Value     []byte    `json:"value"`
@@ -302,7 +322,7 @@ type ModuraTenantConfigurationValue struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-type ModuraTenantDictionaryItem struct {
+type WheretoliveTenantDictionaryItem struct {
 	ID               string    `json:"id"`
 	TenantID         string    `json:"tenant_id"`
 	DictionaryTypeID string    `json:"dictionary_type_id"`
@@ -314,7 +334,7 @@ type ModuraTenantDictionaryItem struct {
 	UpdatedAt        time.Time `json:"updated_at"`
 }
 
-type ModuraTenantDictionaryType struct {
+type WheretoliveTenantDictionaryType struct {
 	ID        string    `json:"id"`
 	TenantID  string    `json:"tenant_id"`
 	Code      string    `json:"code"`
@@ -324,7 +344,7 @@ type ModuraTenantDictionaryType struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-type ModuraTenantProvisioningRequest struct {
+type WheretoliveTenantProvisioningRequest struct {
 	IdempotencyKey string    `json:"idempotency_key"`
 	RequestDigest  []byte    `json:"request_digest"`
 	TenantID       string    `json:"tenant_id"`
@@ -332,7 +352,7 @@ type ModuraTenantProvisioningRequest struct {
 	CompletedAt    time.Time `json:"completed_at"`
 }
 
-type ModuraUser struct {
+type WheretoliveUser struct {
 	ID                 string             `json:"id"`
 	TenantID           string             `json:"tenant_id"`
 	Username           string             `json:"username"`
@@ -348,7 +368,7 @@ type ModuraUser struct {
 	Consumer           bool               `json:"consumer"`
 }
 
-type ModuraUserOrganization struct {
+type WheretoliveUserOrganization struct {
 	TenantID            string      `json:"tenant_id"`
 	UserID              string      `json:"user_id"`
 	PrimaryDepartmentID string      `json:"primary_department_id"`
@@ -357,14 +377,14 @@ type ModuraUserOrganization struct {
 	UpdatedAt           time.Time   `json:"updated_at"`
 }
 
-type ModuraUserRole struct {
+type WheretoliveUserRole struct {
 	TenantID  string    `json:"tenant_id"`
 	UserID    string    `json:"user_id"`
 	RoleID    string    `json:"role_id"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
-type ModuraUserRoleVersion struct {
+type WheretoliveUserRoleVersion struct {
 	TenantID  string    `json:"tenant_id"`
 	UserID    string    `json:"user_id"`
 	Version   int64     `json:"version"`

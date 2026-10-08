@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Reset drops the modura schema, applies every migration in order, and
+// Reset drops the wheretolive schema, applies every migration in order, and
 // returns a cleanup function that releases the database-wide advisory lock
 // without dropping the schema, for callers that want to keep the result
 // (browser E2E seeding). Prepare wraps it with test cleanup semantics.
@@ -24,7 +24,7 @@ func Reset(ctx context.Context, pool *pgxpool.Pool) (func(), error) {
 		_, _ = lockConnection.Exec(context.Background(), "SELECT pg_advisory_unlock(1297040469)")
 		lockConnection.Release()
 	}
-	if _, err := pool.Exec(ctx, "DROP SCHEMA IF EXISTS modura CASCADE"); err != nil {
+	if _, err := pool.Exec(ctx, "DROP SCHEMA IF EXISTS wheretolive CASCADE"); err != nil {
 		cleanup()
 		return nil, fmt.Errorf("drop schema: %w", err)
 	}

@@ -1,9 +1,9 @@
 -- owner: audit
-CREATE TABLE modura.audit_events (
+CREATE TABLE wheretolive.audit_events (
     id uuid PRIMARY KEY,
     actor_type text NOT NULL,
     actor_id uuid NOT NULL,
-    tenant_id uuid REFERENCES modura.tenants (id),
+    tenant_id uuid REFERENCES wheretolive.tenants (id),
     action text NOT NULL,
     resource text NOT NULL,
     resource_id uuid NOT NULL,
@@ -18,4 +18,4 @@ CREATE TABLE modura.audit_events (
 );
 
 CREATE INDEX audit_events_tenant_occurred_idx
-    ON modura.audit_events (tenant_id, occurred_at DESC);
+    ON wheretolive.audit_events (tenant_id, occurred_at DESC);

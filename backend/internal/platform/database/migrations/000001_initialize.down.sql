@@ -1,1 +1,1 @@
-DROP SCHEMA IF EXISTS modura;
+DROP SCHEMA IF EXISTS wheretolive;

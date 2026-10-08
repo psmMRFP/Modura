@@ -32,11 +32,11 @@ WhereToLive verbindet **überprüfbare Fakten, Erfahrungen von Bewohnern und per
 | **Resident Score** | Was sagen verifizierte Bewohner?                      | 1–10, mit bayesscher Schrumpfung  |
 | **Your Fit**       | Passt der Ort zu Budget, Sprachbedarf und Lebensstil? | Nach deinen eigenen Gewichtungen  |
 
-Diese drei Systeme bleiben unabhängig und sind noch nicht implementiert. **Modura Atlas** ist der Projektcodename; **WhereToLive** ist der Produktname.
+Diese drei Systeme bleiben unabhängig und sind noch nicht implementiert. **WhereToLive Atlas** ist der Projektcodename; **WhereToLive** ist der Produktname.
 
 ## Aktueller Stand
 
-Das Projekt befindet sich in einer frühen Entwicklungsphase und baut auf Modura auf. Das öffentliche Ortsverzeichnis und die operative Grundlage sind lauffähig; ein produktiver Ortsdatensatz fehlt noch.
+Das Projekt befindet sich in einer frühen Entwicklungsphase. Das öffentliche Ortsverzeichnis und die operative Grundlage sind lauffähig; ein produktiver Ortsdatensatz fehlt noch.
 
 | Implementiert            | Funktionen                                                                                                                                                       |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -45,10 +45,13 @@ Das Projekt befindet sich in einer frühen Entwicklungsphase und baut auf Modura
 | Geografisches Modell     | Länder, Regionen, Städte, Stadtviertel, Inseln, stabile Slugs und mehrsprachige Namen                                                                            |
 | Ortsverwaltung           | Entwürfe, Bearbeitung, Veröffentlichung, Rücknahme, Versionskonfliktschutz und transaktionales Audit                                                             |
 | API-Vertrag              | Gemeinsames OpenAPI für Go und beide Frontends mit generierten Typen und Abfrageclients                                                                          |
+| Kandidatenverwaltung | Kombinierte Filter für Land, Abdeckung und Veröffentlichung; Suche nach mehrsprachigen Namen |
+| Orts-Testdaten | 40 manuell erstellte geografische Entwürfe nur für Entwicklung/E2E |
+| Feedback-Kern | Privater manueller Eingang, Kategorien/Status, Ergebnisse, Versionsprüfung und Audit |
 | Datenbankinitialisierung | Automatisches Anlegen einer fehlenden dedizierten Datenbank; Rolle und Datenbank `postgres` sind verboten                                                        |
 | Verbraucherkonten        | Registrierung, E-Mail-Verifizierung, Anmeldung, Sitzungswiederherstellung und Kontowiederherstellung; bis zur vollständigen Deployment-Konfiguration deaktiviert |
 
-**Als Nächstes:** Quellen, Belege und Faktenversionen → Research Agent → Visa, Steuern und Lebenshaltungskosten → einheitliches Feedback → Wohnsitzverifizierung und Bewertungen → persönliche Eignung.
+**Als Nächstes:** Abdeckungs- und Prioritätsregeln sowie öffentliches Feedback mit Missbrauchsschutz → Quellen, Belege und Faktenversionen → Research Agent → Visa, Steuern und Lebenshaltungskosten → einheitliches Feedback → Wohnsitzverifizierung und Bewertungen → persönliche Eignung.
 
 Bewertungen sollen per KI übersetzt werden, wenn ihre Originalsprache von der Lesesprache abweicht. Nutzer können automatische Übersetzung aktivieren und jederzeit das Original ansehen.
 
@@ -99,10 +102,10 @@ npm ci --prefix web
 
 | Variable                      | Zweck                                                                                     |
 | ----------------------------- | ----------------------------------------------------------------------------------------- |
-| `MODURA_DATABASE_URL`         | Verbindungs-URL für eine dedizierte PostgreSQL-Rolle und benannte Datenbank; erforderlich |
-| `MODURA_AUTH_SIGNING_KEY`     | Signaturschlüssel mit mindestens 32 Bytes; erforderlich                                   |
-| `MODURA_AUTH_COOKIE_SECURE`   | Für lokale HTTP-Entwicklung `false`; produktiv `true` mit TLS                             |
-| `MODURA_DATABASE_AUTO_CREATE` | Standard `true`; nach Bereitstellung auf `false` umstellbar                               |
+| `WHERETOLIVE_DATABASE_URL`         | Verbindungs-URL für eine dedizierte PostgreSQL-Rolle und benannte Datenbank; erforderlich |
+| `WHERETOLIVE_AUTH_SIGNING_KEY`     | Signaturschlüssel mit mindestens 32 Bytes; erforderlich                                   |
+| `WHERETOLIVE_AUTH_COOKIE_SECURE`   | Für lokale HTTP-Entwicklung `false`; produktiv `true` mit TLS                             |
+| `WHERETOLIVE_DATABASE_AUTO_CREATE` | Standard `true`; nach Bereitstellung auf `false` umstellbar                               |
 
 Die Datenbank wird nur angelegt, wenn PostgreSQL ausdrücklich meldet, dass das Ziel nicht existiert. Die Verbindung erfolgt über `template1`, die Erstellung aus `template0`; die dedizierte Rolle benötigt `CREATEDB`. **Das Anlegen der Datenbank führt keine Schemamigrationen aus.**
 
@@ -110,13 +113,13 @@ Leere Datenbank ohne Konfiguration des Signaturschlüssels initialisieren:
 
 ```fish
 cd backend
-go run ./cmd/modura-db-init
+go run ./cmd/wheretolive-db-init
 ```
 
 Danach die [Migrationen](backend/internal/platform/database/migrations) mit einem zu `golang-migrate` kompatiblen Werkzeug in Reihenfolge anwenden. API aus `backend/` starten:
 
 ```fish
-go run ./cmd/modura
+go run ./cmd/wheretolive
 ```
 
 ### 3. Frontends starten
@@ -149,7 +152,7 @@ make verify
 
 Geprüft werden Generierungskonsistenz, OpenAPI, Go-Formatierung und statische Analyse, Unit-Tests, Formatierung / Lint / Typen / Komponententests / Builds beider Frontends sowie Tabellenzuständigkeiten und Quellcodegrenzen.
 
-PostgreSQL-Integrationstests benötigen `MODURA_TEST_DATABASE_URL` für eine dedizierte Datenbank, deren Name auf `_test` endet. Sie setzen deren `modura`-Schema zurück. Niemals eine Geschäftsdatenbank verwenden.
+PostgreSQL-Integrationstests benötigen `WHERETOLIVE_TEST_DATABASE_URL` für eine dedizierte Datenbank, deren Name auf `_test` endet. Sie setzen deren `wheretolive`-Schema zurück. Niemals eine Geschäftsdatenbank verwenden.
 
 ```fish
 make backend-test-integration
@@ -161,7 +164,7 @@ Browserprüfungen der öffentlichen Website verwenden installiertes Chromium und
 make web-e2e
 ```
 
-Sie prüfen die Seiteninteraktion und ersetzen keine Datenbanktests. Admin-E2E läuft mit `make admin-e2e` und benötigt eine Datenbank namens `modura_test`. `make verify-release` prüft zusätzlich Abhängigkeiten auf Sicherheitslücken und Lizenzen.
+Sie prüfen die Seiteninteraktion und ersetzen keine Datenbanktests. Admin-E2E läuft mit `make admin-e2e` und benötigt eine Datenbank namens `wheretolive_test`. `make verify-release` prüft zusätzlich Abhängigkeiten auf Sicherheitslücken und Lizenzen.
 
 ## Mitwirken
 

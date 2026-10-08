@@ -10,30 +10,30 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/modura-dev/modura/backend/internal/modules/audit"
-	auditpostgres "github.com/modura-dev/modura/backend/internal/modules/audit/postgres"
-	"github.com/modura-dev/modura/backend/internal/modules/authorization"
-	authorizationpostgres "github.com/modura-dev/modura/backend/internal/modules/authorization/postgres"
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
-	identitypostgres "github.com/modura-dev/modura/backend/internal/modules/identity/postgres"
-	"github.com/modura-dev/modura/backend/internal/modules/organization"
-	organizationpostgres "github.com/modura-dev/modura/backend/internal/modules/organization/postgres"
-	"github.com/modura-dev/modura/backend/internal/modules/platformadmin"
-	"github.com/modura-dev/modura/backend/internal/modules/settings"
-	settingspostgres "github.com/modura-dev/modura/backend/internal/modules/settings/postgres"
-	"github.com/modura-dev/modura/backend/internal/platform/database"
-	"github.com/modura-dev/modura/backend/internal/platform/database/migrationtest"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/audit"
+	auditpostgres "github.com/psmMRFP/WhereToLive/backend/internal/modules/audit/postgres"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/authorization"
+	authorizationpostgres "github.com/psmMRFP/WhereToLive/backend/internal/modules/authorization/postgres"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
+	identitypostgres "github.com/psmMRFP/WhereToLive/backend/internal/modules/identity/postgres"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/organization"
+	organizationpostgres "github.com/psmMRFP/WhereToLive/backend/internal/modules/organization/postgres"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/platformadmin"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/settings"
+	settingspostgres "github.com/psmMRFP/WhereToLive/backend/internal/modules/settings/postgres"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/database"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/database/migrationtest"
 )
 
 func TestProvisionIsAtomicAndIdempotent(t *testing.T) {
 	pool := integrationPool(t)
 	now := time.Unix(1_700_000_000, 0).UTC()
 	key := []byte(strings.Repeat("k", 32))
-	signer, err := identity.NewAccessTokenSigner("modura", "admin", "key", key, time.Minute)
+	signer, err := identity.NewAccessTokenSigner("wheretolive", "admin", "key", key, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
-	identityService, err := identity.NewService(identitypostgres.New(pool), signer, identity.NewAccessTokenVerifier("modura", "admin", map[string][]byte{"key": key}, 0), identity.DefaultPasswordParameters(), time.Hour, func() time.Time { return now }, sequentialIDs(), func() (string, error) { return strings.Repeat("i", 43), nil })
+	identityService, err := identity.NewService(identitypostgres.New(pool), signer, identity.NewAccessTokenVerifier("wheretolive", "admin", map[string][]byte{"key": key}, 0), identity.DefaultPasswordParameters(), time.Hour, func() time.Time { return now }, sequentialIDs(), func() (string, error) { return strings.Repeat("i", 43), nil })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +106,7 @@ func TestProvisionIsAtomicAndIdempotent(t *testing.T) {
 		t.Fatalf("stale grant error=%v", err)
 	}
 	var stateAudits int
-	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM modura.audit_events WHERE tenant_id = $1 AND action LIKE 'authorization.%' AND after_state IS NOT NULL`, first.TenantID).Scan(&stateAudits); err != nil || stateAudits != 3 {
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM wheretolive.audit_events WHERE tenant_id = $1 AND action LIKE 'authorization.%' AND after_state IS NOT NULL`, first.TenantID).Scan(&stateAudits); err != nil || stateAudits != 3 {
 		t.Fatalf("authorization state audits=%d err=%v", stateAudits, err)
 	}
 	nonAdministrator := identity.Actor{TenantID: first.TenantID, UserID: "018bcfe5-6800-7000-8000-000000000999", SessionID: "verified-session"}
@@ -134,7 +134,7 @@ func TestProvisionIsAtomicAndIdempotent(t *testing.T) {
 		t.Fatalf("stale global configuration error=%v", err)
 	}
 	var platformSettingsAudits int
-	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM modura.audit_events WHERE tenant_id IS NULL AND actor_type = 'platform_administrator' AND action LIKE 'settings.global_%'`).Scan(&platformSettingsAudits); err != nil || platformSettingsAudits != 2 {
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM wheretolive.audit_events WHERE tenant_id IS NULL AND actor_type = 'platform_administrator' AND action LIKE 'settings.global_%'`).Scan(&platformSettingsAudits); err != nil || platformSettingsAudits != 2 {
 		t.Fatalf("platform settings audits=%d err=%v", platformSettingsAudits, err)
 	}
 	dictionaries, err := settingsService.ListDictionaries(context.Background(), administrator)
@@ -161,7 +161,7 @@ func TestProvisionIsAtomicAndIdempotent(t *testing.T) {
 		t.Fatal("configuration type mismatch succeeded")
 	}
 	var settingsAudits int
-	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM modura.audit_events WHERE tenant_id = $1 AND action LIKE 'settings.%' AND after_state IS NOT NULL`, first.TenantID).Scan(&settingsAudits); err != nil || settingsAudits != 2 {
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM wheretolive.audit_events WHERE tenant_id = $1 AND action LIKE 'settings.%' AND after_state IS NOT NULL`, first.TenantID).Scan(&settingsAudits); err != nil || settingsAudits != 2 {
 		t.Fatalf("settings audits=%d err=%v", settingsAudits, err)
 	}
 	if err := auditService.EnableQueries(auditpostgres.New(pool)); err != nil {
@@ -183,13 +183,13 @@ func TestProvisionIsAtomicAndIdempotent(t *testing.T) {
 		t.Fatal("duplicate tenant slug provisioning succeeded")
 	}
 	var tenants, audits int
-	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM modura.tenants`).Scan(&tenants); err != nil {
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM wheretolive.tenants`).Scan(&tenants); err != nil {
 		t.Fatal(err)
 	}
 	if tenants != 1 {
 		t.Fatalf("tenant count after rollback = %d", tenants)
 	}
-	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM modura.audit_events WHERE tenant_id = $1 AND action = 'tenant.provisioned'`, first.TenantID).Scan(&audits); err != nil {
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM wheretolive.audit_events WHERE tenant_id = $1 AND action = 'tenant.provisioned'`, first.TenantID).Scan(&audits); err != nil {
 		t.Fatal(err)
 	}
 	if audits != 1 {
@@ -202,12 +202,12 @@ func assertProvisionedGraph(t *testing.T, pool *pgxpool.Pool, result Result) {
 	var status string
 	var departments, roles, grants, assignments, invitations int
 	query := `SELECT t.status,
-    (SELECT count(*) FROM modura.departments d WHERE d.tenant_id = t.id),
-    (SELECT count(*) FROM modura.roles r WHERE r.tenant_id = t.id AND r.code = 'tenant-admin' AND r.reserved),
-    (SELECT count(*) FROM modura.user_roles ur WHERE ur.tenant_id = t.id),
-    (SELECT count(*) FROM modura.user_organization uo WHERE uo.tenant_id = t.id),
-    (SELECT count(*) FROM modura.auth_one_time_tokens tok WHERE tok.tenant_id = t.id AND tok.purpose = 'invitation')
-FROM modura.tenants t WHERE t.id = $1`
+    (SELECT count(*) FROM wheretolive.departments d WHERE d.tenant_id = t.id),
+    (SELECT count(*) FROM wheretolive.roles r WHERE r.tenant_id = t.id AND r.code = 'tenant-admin' AND r.reserved),
+    (SELECT count(*) FROM wheretolive.user_roles ur WHERE ur.tenant_id = t.id),
+    (SELECT count(*) FROM wheretolive.user_organization uo WHERE uo.tenant_id = t.id),
+    (SELECT count(*) FROM wheretolive.auth_one_time_tokens tok WHERE tok.tenant_id = t.id AND tok.purpose = 'invitation')
+FROM wheretolive.tenants t WHERE t.id = $1`
 	if err := pool.QueryRow(context.Background(), query, result.TenantID).Scan(&status, &departments, &roles, &grants, &assignments, &invitations); err != nil {
 		t.Fatal(err)
 	}
@@ -251,25 +251,25 @@ func auditIDs() func(time.Time) (string, error) {
 func seedGlobalSettings(t *testing.T, pool *pgxpool.Pool, now time.Time) {
 	t.Helper()
 	ctx := context.Background()
-	if _, err := pool.Exec(ctx, `INSERT INTO modura.global_dictionary_types (id, code, name, version, created_at, updated_at) VALUES ('018bcfe5-6800-7000-b000-000000000001', 'account_status', 'Account Status', 1, $1, $1)`, now); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO wheretolive.global_dictionary_types (id, code, name, version, created_at, updated_at) VALUES ('018bcfe5-6800-7000-b000-000000000001', 'account_status', 'Account Status', 1, $1, $1)`, now); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO modura.global_dictionary_items (id, dictionary_type_id, code, label, sort_order, enabled, created_at, updated_at) VALUES ('018bcfe5-6800-7000-b000-000000000002', '018bcfe5-6800-7000-b000-000000000001', 'enabled', 'Enabled', 10, true, $1, $1)`, now); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO wheretolive.global_dictionary_items (id, dictionary_type_id, code, label, sort_order, enabled, created_at, updated_at) VALUES ('018bcfe5-6800-7000-b000-000000000002', '018bcfe5-6800-7000-b000-000000000001', 'enabled', 'Enabled', 10, true, $1, $1)`, now); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO modura.configuration_definitions (id, key, name, value_type, tenant_overridable, created_at, updated_at) VALUES ('018bcfe5-6800-7000-b000-000000000003', 'ui.compact', 'Compact UI', 'boolean', true, $1, $1)`, now); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO wheretolive.configuration_definitions (id, key, name, value_type, tenant_overridable, created_at, updated_at) VALUES ('018bcfe5-6800-7000-b000-000000000003', 'ui.compact', 'Compact UI', 'boolean', true, $1, $1)`, now); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO modura.global_configuration_values (key, value, version, created_at, updated_at) VALUES ('ui.compact', 'false', 1, $1, $1)`, now); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO wheretolive.global_configuration_values (key, value, version, created_at, updated_at) VALUES ('ui.compact', 'false', 1, $1, $1)`, now); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func integrationPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	url := os.Getenv("MODURA_TEST_DATABASE_URL")
+	url := os.Getenv("WHERETOLIVE_TEST_DATABASE_URL")
 	if url == "" {
-		t.Skip("MODURA_TEST_DATABASE_URL is not set")
+		t.Skip("WHERETOLIVE_TEST_DATABASE_URL is not set")
 	}
 	config, err := pgxpool.ParseConfig(url)
 	if err != nil {

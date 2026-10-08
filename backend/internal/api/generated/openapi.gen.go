@@ -115,6 +115,30 @@ func (e DataScopeKind) Valid() bool {
 	}
 }
 
+// Defines values for FeedbackStatus.
+const (
+	Dismissed FeedbackStatus = "dismissed"
+	InReview  FeedbackStatus = "in_review"
+	Open      FeedbackStatus = "open"
+	Resolved  FeedbackStatus = "resolved"
+)
+
+// Valid indicates whether the value is a known member of the FeedbackStatus enum.
+func (e FeedbackStatus) Valid() bool {
+	switch e {
+	case Dismissed:
+		return true
+	case InReview:
+		return true
+	case Open:
+		return true
+	case Resolved:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HealthStatusStatus.
 const (
 	Ok HealthStatusStatus = "ok"
@@ -403,6 +427,24 @@ func (e PublicLocale) Valid() bool {
 	}
 }
 
+// Defines values for ListPlatformPlacesParamsPublication.
+const (
+	Draft     ListPlatformPlacesParamsPublication = "draft"
+	Published ListPlatformPlacesParamsPublication = "published"
+)
+
+// Valid indicates whether the value is a known member of the ListPlatformPlacesParamsPublication enum.
+func (e ListPlatformPlacesParamsPublication) Valid() bool {
+	switch e {
+	case Draft:
+		return true
+	case Published:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SearchPublicPlacesParamsLocale.
 const (
 	SearchPublicPlacesParamsLocaleDe   SearchPublicPlacesParamsLocale = "de"
@@ -563,6 +605,15 @@ type CreateDepartmentRequest struct {
 	SortOrder int                `json:"sortOrder"`
 }
 
+// CreateFeedbackRequest defines model for CreateFeedbackRequest.
+type CreateFeedbackRequest struct {
+	Category string              `json:"category"`
+	Message  string              `json:"message"`
+	PlaceId  *openapi_types.UUID `json:"placeId"`
+	Reason   string              `json:"reason"`
+	Title    string              `json:"title"`
+}
+
 // CreatePlatformPlaceRequest defines model for CreatePlatformPlaceRequest.
 type CreatePlatformPlaceRequest struct {
 	CountryCode string              `json:"countryCode"`
@@ -622,6 +673,35 @@ type EffectivePermission struct {
 	Action   string `json:"action"`
 	Resource string `json:"resource"`
 }
+
+// FeedbackCategory defines model for FeedbackCategory.
+type FeedbackCategory struct {
+	Key   string `json:"key"`
+	Label string `json:"label"`
+}
+
+// FeedbackEntry defines model for FeedbackEntry.
+type FeedbackEntry struct {
+	Category  string              `json:"category"`
+	CreatedAt time.Time           `json:"createdAt"`
+	Id        openapi_types.UUID  `json:"id"`
+	Message   string              `json:"message"`
+	Outcome   *string             `json:"outcome"`
+	PlaceId   *openapi_types.UUID `json:"placeId"`
+	Status    FeedbackStatus      `json:"status"`
+	Title     string              `json:"title"`
+	UpdatedAt time.Time           `json:"updatedAt"`
+	Version   int64               `json:"version"`
+}
+
+// FeedbackPage defines model for FeedbackPage.
+type FeedbackPage struct {
+	Items      []FeedbackEntry `json:"items"`
+	NextOffset *int            `json:"nextOffset"`
+}
+
+// FeedbackStatus defines model for FeedbackStatus.
+type FeedbackStatus string
 
 // HealthStatus defines model for HealthStatus.
 type HealthStatus struct {
@@ -844,6 +924,14 @@ type ReplaceRolePoliciesRequest struct {
 type ReplaceUserRoleGrantsRequest struct {
 	ExpectedVersion int64                `json:"expectedVersion"`
 	RoleIds         []openapi_types.UUID `json:"roleIds"`
+}
+
+// ReviewFeedbackRequest defines model for ReviewFeedbackRequest.
+type ReviewFeedbackRequest struct {
+	ExpectedVersion int64          `json:"expectedVersion"`
+	Outcome         *string        `json:"outcome"`
+	Reason          string         `json:"reason"`
+	Status          FeedbackStatus `json:"status"`
 }
 
 // Role defines model for Role.
@@ -1113,12 +1201,42 @@ type PlatformRefreshParams struct {
 	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
 }
 
+// ListPlatformFeedbackParams defines parameters for ListPlatformFeedback.
+type ListPlatformFeedbackParams struct {
+	Status   *FeedbackStatus `form:"status,omitempty" json:"status,omitempty"`
+	Category *string         `form:"category,omitempty" json:"category,omitempty"`
+	Limit    *int            `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset   *int            `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// CreatePlatformFeedbackParams defines parameters for CreatePlatformFeedback.
+type CreatePlatformFeedbackParams struct {
+	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
+}
+
+// ReviewPlatformFeedbackParams defines parameters for ReviewPlatformFeedback.
+type ReviewPlatformFeedbackParams struct {
+	XCSRFToken CsrfToken `json:"X-CSRF-Token"`
+}
+
 // ListPlatformPlacesParams defines parameters for ListPlatformPlaces.
 type ListPlatformPlacesParams struct {
 	Q      *string `form:"q,omitempty" json:"q,omitempty"`
 	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
 	Offset *int    `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// CountryCode Exact ISO country code in the private catalogue.
+	CountryCode *string `form:"countryCode,omitempty" json:"countryCode,omitempty"`
+
+	// CoverageLevel 0 Candidate, 1 Basic, 2 Relocation, 3 Full. Independent of publication.
+	CoverageLevel *int `form:"coverageLevel,omitempty" json:"coverageLevel,omitempty"`
+
+	// Publication Stored publication marker; published children may remain hidden by ancestors.
+	Publication *ListPlatformPlacesParamsPublication `form:"publication,omitempty" json:"publication,omitempty"`
 }
+
+// ListPlatformPlacesParamsPublication defines parameters for ListPlatformPlaces.
+type ListPlatformPlacesParamsPublication string
 
 // CreatePlatformPlaceParams defines parameters for CreatePlatformPlace.
 type CreatePlatformPlaceParams struct {
@@ -1267,6 +1385,12 @@ type AssignUserOrganizationJSONRequestBody = AssignUserOrganizationRequest
 
 // PlatformLoginJSONRequestBody defines body for PlatformLogin for application/json ContentType.
 type PlatformLoginJSONRequestBody = PlatformLoginRequest
+
+// CreatePlatformFeedbackJSONRequestBody defines body for CreatePlatformFeedback for application/json ContentType.
+type CreatePlatformFeedbackJSONRequestBody = CreateFeedbackRequest
+
+// ReviewPlatformFeedbackJSONRequestBody defines body for ReviewPlatformFeedback for application/json ContentType.
+type ReviewPlatformFeedbackJSONRequestBody = ReviewFeedbackRequest
 
 // CreatePlatformPlaceJSONRequestBody defines body for CreatePlatformPlace for application/json ContentType.
 type CreatePlatformPlaceJSONRequestBody = CreatePlatformPlaceRequest
@@ -1417,6 +1541,18 @@ type ServerInterface interface {
 	// PlatformRefresh Rotate a platform-administrator refresh secret
 	// (POST /platform/auth/refresh)
 	PlatformRefresh(c *gin.Context, params PlatformRefreshParams)
+	// ListPlatformFeedback List restricted manual intake; never a public demand projection
+	// (GET /platform/feedback)
+	ListPlatformFeedback(c *gin.Context, params ListPlatformFeedbackParams)
+	// CreatePlatformFeedback Record manual feedback intake, without personal account or dispute data
+	// (POST /platform/feedback)
+	CreatePlatformFeedback(c *gin.Context, params CreatePlatformFeedbackParams)
+	// ListPlatformFeedbackCategories List active staff intake categories
+	// (GET /platform/feedback/categories)
+	ListPlatformFeedbackCategories(c *gin.Context)
+	// ReviewPlatformFeedback Change processing status with optimistic concurrency and an actual outcome
+	// (PUT /platform/feedback/{id}/review)
+	ReviewPlatformFeedback(c *gin.Context, id openapi_types.UUID, params ReviewPlatformFeedbackParams)
 	// ListPlatformPlaces listPlatformPlaces
 	// (GET /platform/places)
 	ListPlatformPlaces(c *gin.Context, params ListPlatformPlacesParams)
@@ -2595,6 +2731,165 @@ func (siw *ServerInterfaceWrapper) PlatformRefresh(c *gin.Context) {
 	siw.Handler.PlatformRefresh(c, params)
 }
 
+// ListPlatformFeedback operation middleware
+func (siw *ServerInterfaceWrapper) ListPlatformFeedback(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPlatformFeedbackParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", c.Request.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter status: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "category" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "category", c.Request.URL.Query(), &params.Category, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter category: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", c.Request.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter limit: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", c.Request.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter offset: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListPlatformFeedback(c, params)
+}
+
+// CreatePlatformFeedback operation middleware
+func (siw *ServerInterfaceWrapper) CreatePlatformFeedback(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreatePlatformFeedbackParams
+
+	headers := c.Request.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		siw.ErrorHandler(c, fmt.Errorf("Header parameter X-CSRF-Token is required, but not found"), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CreatePlatformFeedback(c, params)
+}
+
+// ListPlatformFeedbackCategories operation middleware
+func (siw *ServerInterfaceWrapper) ListPlatformFeedbackCategories(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListPlatformFeedbackCategories(c)
+}
+
+// ReviewPlatformFeedback operation middleware
+func (siw *ServerInterfaceWrapper) ReviewPlatformFeedback(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ReviewPlatformFeedbackParams
+
+	headers := c.Request.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-CSRF-Token, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-CSRF-Token: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		siw.ErrorHandler(c, fmt.Errorf("Header parameter X-CSRF-Token is required, but not found"), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ReviewPlatformFeedback(c, id, params)
+}
+
 // ListPlatformPlaces operation middleware
 func (siw *ServerInterfaceWrapper) ListPlatformPlaces(c *gin.Context) {
 
@@ -2625,6 +2920,30 @@ func (siw *ServerInterfaceWrapper) ListPlatformPlaces(c *gin.Context) {
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", c.Request.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
 	if err != nil {
 		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter offset: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "countryCode" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "countryCode", c.Request.URL.Query(), &params.CountryCode, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter countryCode: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "coverageLevel" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "coverageLevel", c.Request.URL.Query(), &params.CoverageLevel, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter coverageLevel: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "publication" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "publication", c.Request.URL.Query(), &params.Publication, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter publication: %w", err), http.StatusBadRequest)
 		return
 	}
 
@@ -3889,6 +4208,10 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/public/auth/refresh", wrapper.RefreshConsumer)
 	router.POST(options.BaseURL+"/public/auth/logout", wrapper.LogoutConsumer)
 	router.GET(options.BaseURL+"/public/auth/me", wrapper.GetConsumerProfile)
+	router.GET(options.BaseURL+"/platform/feedback/categories", wrapper.ListPlatformFeedbackCategories)
+	router.GET(options.BaseURL+"/platform/feedback", wrapper.ListPlatformFeedback)
+	router.POST(options.BaseURL+"/platform/feedback", wrapper.CreatePlatformFeedback)
+	router.PUT(options.BaseURL+"/platform/feedback/:id/review", wrapper.ReviewPlatformFeedback)
 	router.GET(options.BaseURL+"/platform/places", wrapper.ListPlatformPlaces)
 	router.POST(options.BaseURL+"/platform/places", wrapper.CreatePlatformPlace)
 	router.GET(options.BaseURL+"/platform/places/:placeId", wrapper.GetPlatformPlace)

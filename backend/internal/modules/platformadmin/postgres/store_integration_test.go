@@ -10,20 +10,20 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
-	"github.com/modura-dev/modura/backend/internal/modules/platformadmin"
-	"github.com/modura-dev/modura/backend/internal/platform/database/migrationtest"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/platformadmin"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/database/migrationtest"
 )
 
 func TestPlatformAuthenticationIsDistinctAndReplaySafe(t *testing.T) {
 	pool := integrationPool(t)
 	now := time.Unix(1_700_000_000, 0).UTC()
 	key := []byte(strings.Repeat("p", 32))
-	signer, err := identity.NewAccessTokenSigner("modura", "modura-platform", "platform", key, 5*time.Minute)
+	signer, err := identity.NewAccessTokenSigner("wheretolive", "wheretolive-platform", "platform", key, 5*time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
-	verifier := identity.NewAccessTokenVerifier("modura", "modura-platform", map[string][]byte{"platform": key}, 0)
+	verifier := identity.NewAccessTokenVerifier("wheretolive", "wheretolive-platform", map[string][]byte{"platform": key}, 0)
 	sequence := 0
 	newID := func(time.Time) (string, error) {
 		sequence++
@@ -80,9 +80,9 @@ func TestPlatformAuthenticationIsDistinctAndReplaySafe(t *testing.T) {
 
 func integrationPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	url := os.Getenv("MODURA_TEST_DATABASE_URL")
+	url := os.Getenv("WHERETOLIVE_TEST_DATABASE_URL")
 	if url == "" {
-		t.Skip("MODURA_TEST_DATABASE_URL is not set")
+		t.Skip("WHERETOLIVE_TEST_DATABASE_URL is not set")
 	}
 	config, err := pgxpool.ParseConfig(url)
 	if err != nil {

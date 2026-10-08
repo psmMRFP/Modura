@@ -6,8 +6,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
-	"github.com/modura-dev/modura/backend/internal/modules/platformadmin"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/platformadmin"
 )
 
 var (

@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
 )
 
 // SMTP sends via implicit TLS only, with certificate validation and bounded IO.

@@ -5,7 +5,7 @@ import {
   login as loginRequest,
   logout as logoutRequest,
   refresh,
-} from "../../api/generated/modura";
+} from "../../api/generated/wheretolive";
 import {
   AuthContext,
   type AuthSession,
@@ -23,13 +23,13 @@ function cookie(name: string) {
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [status, setStatus] = useState<SessionStatus>(() =>
-    cookie("modura_csrf") ? "loading" : "anonymous",
+    cookie("wheretolive_tenant_csrf") ? "loading" : "anonymous",
   );
   const [accessToken, setAccessToken] = useState("");
   const [csrfToken, setCsrfToken] = useState("");
 
   useEffect(() => {
-    const csrf = cookie("modura_csrf");
+    const csrf = cookie("wheretolive_tenant_csrf");
     if (!csrf) {
       return;
     }

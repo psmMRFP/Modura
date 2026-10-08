@@ -11,14 +11,18 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/modura-dev/modura/backend/internal/modules/places"
-	placesdb "github.com/modura-dev/modura/backend/internal/modules/places/postgres/db"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/places"
+	placesdb "github.com/psmMRFP/WhereToLive/backend/internal/modules/places/postgres/db"
 )
 
 // ListManaged reads the private platform catalogue; aliases follow owner-local queries.
-func (s Store) ListManaged(ctx context.Context, query places.Query) ([]places.Entry, error) {
+func (s Store) ListManaged(ctx context.Context, query places.CatalogueQuery) ([]places.Entry, error) {
 	prefix := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(query.Search) + "%"
-	rows, err := s.queries.ListManagedPlaces(ctx, placesdb.ListManagedPlacesParams{Search: query.Search, Prefix: prefix, PageLimit: int32(query.Limit), PageOffset: int32(query.Offset)})
+	coverage := pgtype.Int2{}
+	if query.CoverageLevel != nil {
+		coverage = pgtype.Int2{Int16: int16(*query.CoverageLevel), Valid: true}
+	}
+	rows, err := s.queries.ListManagedPlaces(ctx, placesdb.ListManagedPlacesParams{CountryCode: query.CountryCode, CoverageLevel: coverage, Publication: query.Publication, Search: query.Search, Prefix: prefix, PageLimit: int32(query.Limit), PageOffset: int32(query.Offset)})
 	if err != nil {
 		return nil, fmt.Errorf("list place catalogue: %w", err)
 	}
@@ -129,7 +133,7 @@ func replaceAliases(ctx context.Context, q *placesdb.Queries, id string, aliases
 	}
 	return nil
 }
-func entryWithAliases(ctx context.Context, q *placesdb.Queries, row placesdb.ModuraPlace) (places.Entry, error) {
+func entryWithAliases(ctx context.Context, q *placesdb.Queries, row placesdb.WheretolivePlace) (places.Entry, error) {
 	entry := places.Entry{ID: row.ID, Slug: row.Slug, Type: row.Type, CountryCode: row.CountryCode, Version: row.Version, CoverageLevel: int(row.CoverageLevel), CreatedAt: row.CreatedAt.UTC(), UpdatedAt: row.UpdatedAt.UTC(), Details: places.Details{Name: row.Name, Languages: row.Languages, Aliases: []places.Alias{}}}
 	if entry.Languages == nil {
 		entry.Languages = []string{}

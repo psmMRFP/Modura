@@ -2,7 +2,7 @@
 -- Credential-throttling state is keyed by the submitted tenant slug and login
 -- only. It deliberately stores no account reference so unknown logins are
 -- indistinguishable from known ones in throttling behavior.
-CREATE TABLE modura.auth_login_guard (
+CREATE TABLE wheretolive.auth_login_guard (
     tenant_slug text NOT NULL,
     normalized_login text NOT NULL,
     failure_count integer NOT NULL DEFAULT 0,
@@ -15,10 +15,10 @@ CREATE TABLE modura.auth_login_guard (
 
 -- Privacy-conscious authentication security evidence: no credentials, login
 -- strings, network addresses, or user agents are ever recorded.
-CREATE TABLE modura.auth_security_events (
+CREATE TABLE wheretolive.auth_security_events (
     id uuid PRIMARY KEY,
-    tenant_id uuid REFERENCES modura.tenants (id),
-    user_id uuid REFERENCES modura.users (id),
+    tenant_id uuid REFERENCES wheretolive.tenants (id),
+    user_id uuid REFERENCES wheretolive.users (id),
     event_type text NOT NULL CHECK (event_type IN (
         'login_failed', 'login_locked', 'refresh_replay_detected',
         'password_changed', 'sessions_revoked'
@@ -29,4 +29,4 @@ CREATE TABLE modura.auth_security_events (
 );
 
 CREATE INDEX auth_security_events_tenant_occurred_idx
-    ON modura.auth_security_events (tenant_id, occurred_at DESC);
+    ON wheretolive.auth_security_events (tenant_id, occurred_at DESC);

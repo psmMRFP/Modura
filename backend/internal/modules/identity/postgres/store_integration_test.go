@@ -11,11 +11,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/modura-dev/modura/backend/internal/modules/audit"
-	auditpostgres "github.com/modura-dev/modura/backend/internal/modules/audit/postgres"
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
-	"github.com/modura-dev/modura/backend/internal/platform/database"
-	"github.com/modura-dev/modura/backend/internal/platform/database/migrationtest"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/audit"
+	auditpostgres "github.com/psmMRFP/WhereToLive/backend/internal/modules/audit/postgres"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/database"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/database/migrationtest"
 )
 
 func TestTenantIsolationAndRefreshReplay(t *testing.T) {
@@ -23,11 +23,11 @@ func TestTenantIsolationAndRefreshReplay(t *testing.T) {
 	ctx := context.Background()
 	now := time.Unix(1_700_000_000, 0).UTC()
 	seedTenants := `
-INSERT INTO modura.tenants (id, slug, display_name, status, created_at, updated_at) VALUES
+INSERT INTO wheretolive.tenants (id, slug, display_name, status, created_at, updated_at) VALUES
 ('018bcfe5-6800-7000-8000-000000000001', 'alpha', 'Alpha', 'active', $1, $1),
 	('018bcfe5-6800-7000-8000-000000000002', 'beta', 'Beta', 'active', $1, $1)`
 	seedUsers := `
-INSERT INTO modura.users (id, tenant_id, username, normalized_username, password_hash, status, created_at, updated_at) VALUES
+INSERT INTO wheretolive.users (id, tenant_id, username, normalized_username, password_hash, status, created_at, updated_at) VALUES
 ('018bcfe5-6800-7000-8000-000000000011', '018bcfe5-6800-7000-8000-000000000001', 'shared', 'shared', 'hash-alpha', 'active', $1, $1),
 	('018bcfe5-6800-7000-8000-000000000012', '018bcfe5-6800-7000-8000-000000000002', 'shared', 'shared', 'hash-beta', 'active', $1, $1),
 	('018bcfe5-6800-7000-8000-000000000013', '018bcfe5-6800-7000-8000-000000000001', 'invited', 'invited', NULL, 'invited', $1, $1)`
@@ -71,7 +71,7 @@ INSERT INTO modura.users (id, tenant_id, username, normalized_username, password
 	}
 	var invitedStatus string
 	var invitedHash string
-	if err := pool.QueryRow(ctx, `SELECT status, password_hash FROM modura.users WHERE tenant_id = $1 AND id = $2`, alpha.TenantID, "018bcfe5-6800-7000-8000-000000000013").Scan(&invitedStatus, &invitedHash); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT status, password_hash FROM wheretolive.users WHERE tenant_id = $1 AND id = $2`, alpha.TenantID, "018bcfe5-6800-7000-8000-000000000013").Scan(&invitedStatus, &invitedHash); err != nil {
 		t.Fatal(err)
 	}
 	if invitedStatus != "active" || invitedHash != "new-argon-hash" {
@@ -131,7 +131,7 @@ INSERT INTO modura.users (id, tenant_id, username, normalized_username, password
 	}
 	var betaStatus string
 	var betaVersion int64
-	if err := pool.QueryRow(ctx, `SELECT status, security_version FROM modura.users WHERE tenant_id = $1 AND id = $2`, beta.TenantID, beta.UserID).Scan(&betaStatus, &betaVersion); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT status, security_version FROM wheretolive.users WHERE tenant_id = $1 AND id = $2`, beta.TenantID, beta.UserID).Scan(&betaStatus, &betaVersion); err != nil {
 		t.Fatal(err)
 	}
 	if betaStatus != "disabled" || betaVersion != 2 {
@@ -153,10 +153,10 @@ func TestLoginThrottlingAndSecurityEvents(t *testing.T) {
 	pool := integrationPool(t)
 	ctx := context.Background()
 	now := time.Unix(1_700_000_000, 0).UTC()
-	if _, err := pool.Exec(ctx, `INSERT INTO modura.tenants (id, slug, display_name, status, created_at, updated_at) VALUES ('018bcfe5-6800-7000-8000-000000000301', 'gamma', 'Gamma', 'active', $1, $1)`, now); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO wheretolive.tenants (id, slug, display_name, status, created_at, updated_at) VALUES ('018bcfe5-6800-7000-8000-000000000301', 'gamma', 'Gamma', 'active', $1, $1)`, now); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO modura.users (id, tenant_id, username, normalized_username, password_hash, status, created_at, updated_at) VALUES ('018bcfe5-6800-7000-8000-000000000311', '018bcfe5-6800-7000-8000-000000000301', 'manager', 'manager', 'hash-manager', 'active', $1, $1)`, now); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO wheretolive.users (id, tenant_id, username, normalized_username, password_hash, status, created_at, updated_at) VALUES ('018bcfe5-6800-7000-8000-000000000311', '018bcfe5-6800-7000-8000-000000000301', 'manager', 'manager', 'hash-manager', 'active', $1, $1)`, now); err != nil {
 		t.Fatal(err)
 	}
 	store := New(pool)
@@ -184,7 +184,7 @@ func TestLoginThrottlingAndSecurityEvents(t *testing.T) {
 		t.Fatal(err)
 	}
 	var eventCount int
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM modura.auth_security_events WHERE event_type = 'sessions_revoked' AND tenant_id = $1 AND user_id = $2`, "018bcfe5-6800-7000-8000-000000000301", "018bcfe5-6800-7000-8000-000000000311").Scan(&eventCount); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM wheretolive.auth_security_events WHERE event_type = 'sessions_revoked' AND tenant_id = $1 AND user_id = $2`, "018bcfe5-6800-7000-8000-000000000301", "018bcfe5-6800-7000-8000-000000000311").Scan(&eventCount); err != nil {
 		t.Fatal(err)
 	}
 	if eventCount != 1 {
@@ -205,11 +205,11 @@ func TestDisableUserWorkflowRecordsTransactionalAudit(t *testing.T) {
 	pool := integrationPool(t)
 	ctx := context.Background()
 	now := time.Unix(1_700_000_000, 0).UTC()
-	if _, err := pool.Exec(ctx, `INSERT INTO modura.tenants (id, slug, display_name, status, created_at, updated_at) VALUES ('018bcfe5-6800-7000-8000-000000000301', 'gamma', 'Gamma', 'active', $1, $1)`, now); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO wheretolive.tenants (id, slug, display_name, status, created_at, updated_at) VALUES ('018bcfe5-6800-7000-8000-000000000301', 'gamma', 'Gamma', 'active', $1, $1)`, now); err != nil {
 		t.Fatal(err)
 	}
 	seedUsers := `
-INSERT INTO modura.users (id, tenant_id, username, normalized_username, password_hash, status, created_at, updated_at) VALUES
+INSERT INTO wheretolive.users (id, tenant_id, username, normalized_username, password_hash, status, created_at, updated_at) VALUES
 ('018bcfe5-6800-7000-8000-000000000311', '018bcfe5-6800-7000-8000-000000000301', 'manager', 'manager', 'hash-manager', 'active', $1, $1),
 ('018bcfe5-6800-7000-8000-000000000312', '018bcfe5-6800-7000-8000-000000000301', 'target', 'target', 'hash-target', 'active', $1, $1)`
 	if _, err := pool.Exec(ctx, seedUsers, now); err != nil {
@@ -225,11 +225,11 @@ INSERT INTO modura.users (id, tenant_id, username, normalized_username, password
 		t.Fatal(err)
 	}
 	key := []byte(strings.Repeat("k", 32))
-	signer, err := identity.NewAccessTokenSigner("modura", "admin", "key-1", key, time.Minute)
+	signer, err := identity.NewAccessTokenSigner("wheretolive", "admin", "key-1", key, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
-	verifier := identity.NewAccessTokenVerifier("modura", "admin", map[string][]byte{"key-1": key}, 0)
+	verifier := identity.NewAccessTokenVerifier("wheretolive", "admin", map[string][]byte{"key-1": key}, 0)
 	store := New(pool)
 	identityService, err := identity.NewService(store, signer, verifier, identity.DefaultPasswordParameters(), time.Hour, time.Now, newID, func() (string, error) { return strings.Repeat("s", 32), nil })
 	if err != nil {
@@ -244,14 +244,14 @@ INSERT INTO modura.users (id, tenant_id, username, normalized_username, password
 		t.Fatalf("disable err=%v user=%+v", err, disabled)
 	}
 	var action, resource, resourceID, result string
-	if err := pool.QueryRow(ctx, `SELECT action, resource, resource_id, result FROM modura.audit_events WHERE tenant_id = $1 AND correlation_id = 'request-disable-workflow'`, actor.TenantID).Scan(&action, &resource, &resourceID, &result); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT action, resource, resource_id, result FROM wheretolive.audit_events WHERE tenant_id = $1 AND correlation_id = 'request-disable-workflow'`, actor.TenantID).Scan(&action, &resource, &resourceID, &result); err != nil {
 		t.Fatalf("transactional audit row missing: %v", err)
 	}
 	if action != "identity.user.disabled" || resource != "user" || resourceID != "018bcfe5-6800-7000-8000-000000000312" || result != "succeeded" {
 		t.Fatalf("audit row action=%q resource=%q resource_id=%q result=%q", action, resource, resourceID, result)
 	}
 	lockedAt := now.Add(time.Minute)
-	if _, err := pool.Exec(ctx, `UPDATE modura.users SET status = 'locked', updated_at = $3 WHERE tenant_id = $1 AND id = $2`, actor.TenantID, "018bcfe5-6800-7000-8000-000000000312", lockedAt); err != nil {
+	if _, err := pool.Exec(ctx, `UPDATE wheretolive.users SET status = 'locked', updated_at = $3 WHERE tenant_id = $1 AND id = $2`, actor.TenantID, "018bcfe5-6800-7000-8000-000000000312", lockedAt); err != nil {
 		t.Fatal(err)
 	}
 	unlocked, err := identityService.UnlockUser(ctx, actor, "018bcfe5-6800-7000-8000-000000000312", "request-unlock-workflow")
@@ -259,7 +259,7 @@ INSERT INTO modura.users (id, tenant_id, username, normalized_username, password
 		t.Fatalf("unlock err=%v user=%+v", err, unlocked)
 	}
 	var unlockAudit int
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM modura.audit_events WHERE tenant_id = $1 AND action = 'identity.user.unlocked' AND resource_id = $2`, actor.TenantID, "018bcfe5-6800-7000-8000-000000000312").Scan(&unlockAudit); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM wheretolive.audit_events WHERE tenant_id = $1 AND action = 'identity.user.unlocked' AND resource_id = $2`, actor.TenantID, "018bcfe5-6800-7000-8000-000000000312").Scan(&unlockAudit); err != nil {
 		t.Fatal(err)
 	}
 	if unlockAudit != 1 {
@@ -281,9 +281,9 @@ func (a workflowAuditor) RecordAccountEvent(ctx context.Context, tx pgx.Tx, even
 
 func integrationPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	url := os.Getenv("MODURA_TEST_DATABASE_URL")
+	url := os.Getenv("WHERETOLIVE_TEST_DATABASE_URL")
 	if url == "" {
-		t.Skip("MODURA_TEST_DATABASE_URL is not set")
+		t.Skip("WHERETOLIVE_TEST_DATABASE_URL is not set")
 	}
 	config, err := pgxpool.ParseConfig(url)
 	if err != nil {

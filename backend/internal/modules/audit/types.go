@@ -6,7 +6,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
 )
 
 // ErrNotFound hides whether an event exists outside the queried scope.

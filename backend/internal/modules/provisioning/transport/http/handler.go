@@ -12,10 +12,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/modura-dev/modura/backend/internal/api/generated"
-	apihttp "github.com/modura-dev/modura/backend/internal/api/transport"
-	"github.com/modura-dev/modura/backend/internal/modules/platformadmin"
-	"github.com/modura-dev/modura/backend/internal/modules/provisioning"
+	"github.com/psmMRFP/WhereToLive/backend/internal/api/generated"
+	apihttp "github.com/psmMRFP/WhereToLive/backend/internal/api/transport"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/platformadmin"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/provisioning"
 )
 
 var tenantSlugPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`)

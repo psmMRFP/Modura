@@ -7,7 +7,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
 )
 
 var (

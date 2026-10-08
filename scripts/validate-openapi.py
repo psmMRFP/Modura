@@ -77,8 +77,8 @@ def main() -> None:
             platform_bearer = any("platformBearerAuth" in entry for entry in security)
             if bearer:
                 tenant_operations += 1
-                if path not in PERMISSION_FREE_PATHS and "x-modura-permission" not in operation:
-                    fail(f"{path} {method}: tenant bearer operation lacks x-modura-permission")
+                if path not in PERMISSION_FREE_PATHS and "x-wheretolive-permission" not in operation:
+                    fail(f"{path} {method}: tenant bearer operation lacks x-wheretolive-permission")
             elif platform_bearer:
                 platform_operations += 1
             elif consumer_bearer:

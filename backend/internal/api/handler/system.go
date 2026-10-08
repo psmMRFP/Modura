@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/modura-dev/modura/backend/internal/api/generated"
-	apihttp "github.com/modura-dev/modura/backend/internal/api/transport"
+	"github.com/psmMRFP/WhereToLive/backend/internal/api/generated"
+	apihttp "github.com/psmMRFP/WhereToLive/backend/internal/api/transport"
 )
 
 // SystemHandler serves process and dependency health operations.

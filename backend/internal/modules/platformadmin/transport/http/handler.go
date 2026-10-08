@@ -6,9 +6,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/modura-dev/modura/backend/internal/api/generated"
-	apihttp "github.com/modura-dev/modura/backend/internal/api/transport"
-	"github.com/modura-dev/modura/backend/internal/modules/platformadmin"
+	"github.com/psmMRFP/WhereToLive/backend/internal/api/generated"
+	apihttp "github.com/psmMRFP/WhereToLive/backend/internal/api/transport"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/platformadmin"
 )
 
 // Service is the platform administrator application API consumed by this adapter.
@@ -61,7 +61,7 @@ func (h *PlatformAdminHandler) PlatformRefresh(c *gin.Context, params generated.
 	}
 	tokens, err := h.service.Refresh(c.Request.Context(), refresh)
 	if err != nil {
-		h.security.ClearCookies(c, apihttp.PlatformRefreshCookie, apihttp.PlatformCSRFCookie, "/api/platform/auth")
+		h.security.ClearCookies(c, apihttp.PlatformRefreshCookie, apihttp.PlatformCSRFCookie, "/api/platform")
 		h.security.Problem(c, http.StatusUnauthorized, "authentication failed")
 		return
 	}
@@ -81,7 +81,7 @@ func (h *PlatformAdminHandler) PlatformLogout(c *gin.Context, params generated.P
 		h.security.Problem(c, http.StatusUnauthorized, "authentication failed")
 		return
 	}
-	h.security.ClearCookies(c, apihttp.PlatformRefreshCookie, apihttp.PlatformCSRFCookie, "/api/platform/auth")
+	h.security.ClearCookies(c, apihttp.PlatformRefreshCookie, apihttp.PlatformCSRFCookie, "/api/platform")
 	c.Status(http.StatusNoContent)
 }
 
@@ -103,5 +103,5 @@ func (h *PlatformAdminHandler) Actor(c *gin.Context) (platformadmin.Actor, bool)
 	return actor, true
 }
 func (h *PlatformAdminHandler) writeTokens(c *gin.Context, tokens platformadmin.Tokens) {
-	h.security.WriteTokens(c, tokens.AccessToken, tokens.RefreshToken, tokens.ExpiresIn, tokens.RefreshExpiresIn, apihttp.PlatformRefreshCookie, apihttp.PlatformCSRFCookie, "/api/platform/auth")
+	h.security.WriteTokens(c, tokens.AccessToken, tokens.RefreshToken, tokens.ExpiresIn, tokens.RefreshExpiresIn, apihttp.PlatformRefreshCookie, apihttp.PlatformCSRFCookie, "/api/platform")
 }

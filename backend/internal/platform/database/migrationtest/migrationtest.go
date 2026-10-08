@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Prepare drops the modura schema, applies every migration in order, and
+// Prepare drops the wheretolive schema, applies every migration in order, and
 // registers cleanup that drops the schema again. A database-wide advisory
 // lock serializes concurrent test packages against the same database.
 func Prepare(t *testing.T, pool *pgxpool.Pool) {
@@ -20,7 +20,7 @@ func Prepare(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		_, _ = pool.Exec(context.Background(), "DROP SCHEMA IF EXISTS modura CASCADE")
+		_, _ = pool.Exec(context.Background(), "DROP SCHEMA IF EXISTS wheretolive CASCADE")
 		cleanup()
 	})
 }

@@ -10,7 +10,7 @@ import (
 func TestAccessTokenValidation(t *testing.T) {
 	now := time.Unix(1_700_000_000, 0)
 	key := []byte(strings.Repeat("k", 32))
-	signer, err := NewAccessTokenSigner("modura", "modura-admin", "current", key, 5*time.Minute)
+	signer, err := NewAccessTokenSigner("wheretolive", "wheretolive-admin", "current", key, 5*time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -18,7 +18,7 @@ func TestAccessTokenValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	verifier := NewAccessTokenVerifier("modura", "modura-admin", map[string][]byte{"current": key}, 5*time.Second)
+	verifier := NewAccessTokenVerifier("wheretolive", "wheretolive-admin", map[string][]byte{"current": key}, 5*time.Second)
 	claims, err := verifier.Verify(token, now.Add(time.Minute))
 	if err != nil || claims.TenantID != "tenant" || claims.SecurityVersion != 2 {
 		t.Fatalf("claims=%+v err=%v", claims, err)

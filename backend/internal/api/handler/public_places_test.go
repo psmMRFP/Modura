@@ -13,8 +13,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/goccy/go-yaml"
-	"github.com/modura-dev/modura/backend/internal/api/generated"
-	"github.com/modura-dev/modura/backend/internal/modules/places"
+	"github.com/psmMRFP/WhereToLive/backend/internal/api/generated"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/places"
 )
 
 type publicStore struct{ err error }

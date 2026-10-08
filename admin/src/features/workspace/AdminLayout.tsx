@@ -1,7 +1,7 @@
 import { Button, Layout, Menu, Result, Spin, Typography } from "antd";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 
-import { useListEffectivePermissions } from "../../api/generated/modura";
+import { useListEffectivePermissions } from "../../api/generated/wheretolive";
 import { useAuth } from "../auth/auth-context";
 import { visibleNavigation } from "./navigation";
 
@@ -35,7 +35,7 @@ export function AdminLayout() {
   return (
     <Layout className="admin-shell">
       <Layout.Sider breakpoint="lg" collapsedWidth="0">
-        <div className="admin-shell__brand">Modura</div>
+        <div className="admin-shell__brand">WhereToLive</div>
         <Menu
           theme="dark"
           selectedKeys={[location.pathname]}

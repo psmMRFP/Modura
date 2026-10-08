@@ -1,0 +1,282 @@
+[
+  {
+    "slug": "portugal",
+    "name": "Portugal",
+    "type": "country",
+    "countryCode": "PT",
+    "parentSlug": null
+  },
+  {
+    "slug": "lisbon",
+    "name": "Lisbon",
+    "type": "city",
+    "countryCode": "PT",
+    "parentSlug": "portugal"
+  },
+  {
+    "slug": "porto",
+    "name": "Porto",
+    "type": "city",
+    "countryCode": "PT",
+    "parentSlug": "portugal"
+  },
+  {
+    "slug": "coimbra",
+    "name": "Coimbra",
+    "type": "city",
+    "countryCode": "PT",
+    "parentSlug": "portugal"
+  },
+  {
+    "slug": "spain",
+    "name": "Spain",
+    "type": "country",
+    "countryCode": "ES",
+    "parentSlug": null
+  },
+  {
+    "slug": "madrid",
+    "name": "Madrid",
+    "type": "city",
+    "countryCode": "ES",
+    "parentSlug": "spain"
+  },
+  {
+    "slug": "barcelona",
+    "name": "Barcelona",
+    "type": "city",
+    "countryCode": "ES",
+    "parentSlug": "spain"
+  },
+  {
+    "slug": "valencia",
+    "name": "Valencia",
+    "type": "city",
+    "countryCode": "ES",
+    "parentSlug": "spain"
+  },
+  {
+    "slug": "germany",
+    "name": "Germany",
+    "type": "country",
+    "countryCode": "DE",
+    "parentSlug": null
+  },
+  {
+    "slug": "berlin",
+    "name": "Berlin",
+    "type": "city",
+    "countryCode": "DE",
+    "parentSlug": "germany"
+  },
+  {
+    "slug": "munich",
+    "name": "Munich",
+    "type": "city",
+    "countryCode": "DE",
+    "parentSlug": "germany"
+  },
+  {
+    "slug": "hamburg",
+    "name": "Hamburg",
+    "type": "city",
+    "countryCode": "DE",
+    "parentSlug": "germany"
+  },
+  {
+    "slug": "france",
+    "name": "France",
+    "type": "country",
+    "countryCode": "FR",
+    "parentSlug": null
+  },
+  {
+    "slug": "paris",
+    "name": "Paris",
+    "type": "city",
+    "countryCode": "FR",
+    "parentSlug": "france"
+  },
+  {
+    "slug": "lyon",
+    "name": "Lyon",
+    "type": "city",
+    "countryCode": "FR",
+    "parentSlug": "france"
+  },
+  {
+    "slug": "toulouse",
+    "name": "Toulouse",
+    "type": "city",
+    "countryCode": "FR",
+    "parentSlug": "france"
+  },
+  {
+    "slug": "estonia",
+    "name": "Estonia",
+    "type": "country",
+    "countryCode": "EE",
+    "parentSlug": null
+  },
+  {
+    "slug": "tallinn",
+    "name": "Tallinn",
+    "type": "city",
+    "countryCode": "EE",
+    "parentSlug": "estonia"
+  },
+  {
+    "slug": "tartu",
+    "name": "Tartu",
+    "type": "city",
+    "countryCode": "EE",
+    "parentSlug": "estonia"
+  },
+  {
+    "slug": "parnu",
+    "name": "Pärnu",
+    "type": "city",
+    "countryCode": "EE",
+    "parentSlug": "estonia"
+  },
+  {
+    "slug": "thailand",
+    "name": "Thailand",
+    "type": "country",
+    "countryCode": "TH",
+    "parentSlug": null
+  },
+  {
+    "slug": "bangkok",
+    "name": "Bangkok",
+    "type": "city",
+    "countryCode": "TH",
+    "parentSlug": "thailand"
+  },
+  {
+    "slug": "chiang-mai",
+    "name": "Chiang Mai",
+    "type": "city",
+    "countryCode": "TH",
+    "parentSlug": "thailand"
+  },
+  {
+    "slug": "phuket-city",
+    "name": "Phuket City",
+    "type": "city",
+    "countryCode": "TH",
+    "parentSlug": "thailand"
+  },
+  {
+    "slug": "malaysia",
+    "name": "Malaysia",
+    "type": "country",
+    "countryCode": "MY",
+    "parentSlug": null
+  },
+  {
+    "slug": "kuala-lumpur",
+    "name": "Kuala Lumpur",
+    "type": "city",
+    "countryCode": "MY",
+    "parentSlug": "malaysia"
+  },
+  {
+    "slug": "george-town",
+    "name": "George Town",
+    "type": "city",
+    "countryCode": "MY",
+    "parentSlug": "malaysia"
+  },
+  {
+    "slug": "johor-bahru",
+    "name": "Johor Bahru",
+    "type": "city",
+    "countryCode": "MY",
+    "parentSlug": "malaysia"
+  },
+  {
+    "slug": "japan",
+    "name": "Japan",
+    "type": "country",
+    "countryCode": "JP",
+    "parentSlug": null
+  },
+  {
+    "slug": "tokyo",
+    "name": "Tokyo",
+    "type": "city",
+    "countryCode": "JP",
+    "parentSlug": "japan"
+  },
+  {
+    "slug": "osaka",
+    "name": "Osaka",
+    "type": "city",
+    "countryCode": "JP",
+    "parentSlug": "japan"
+  },
+  {
+    "slug": "fukuoka",
+    "name": "Fukuoka",
+    "type": "city",
+    "countryCode": "JP",
+    "parentSlug": "japan"
+  },
+  {
+    "slug": "canada",
+    "name": "Canada",
+    "type": "country",
+    "countryCode": "CA",
+    "parentSlug": null
+  },
+  {
+    "slug": "toronto",
+    "name": "Toronto",
+    "type": "city",
+    "countryCode": "CA",
+    "parentSlug": "canada"
+  },
+  {
+    "slug": "vancouver",
+    "name": "Vancouver",
+    "type": "city",
+    "countryCode": "CA",
+    "parentSlug": "canada"
+  },
+  {
+    "slug": "montreal",
+    "name": "Montreal",
+    "type": "city",
+    "countryCode": "CA",
+    "parentSlug": "canada"
+  },
+  {
+    "slug": "australia",
+    "name": "Australia",
+    "type": "country",
+    "countryCode": "AU",
+    "parentSlug": null
+  },
+  {
+    "slug": "sydney",
+    "name": "Sydney",
+    "type": "city",
+    "countryCode": "AU",
+    "parentSlug": "australia"
+  },
+  {
+    "slug": "melbourne",
+    "name": "Melbourne",
+    "type": "city",
+    "countryCode": "AU",
+    "parentSlug": "australia"
+  },
+  {
+    "slug": "brisbane",
+    "name": "Brisbane",
+    "type": "city",
+    "countryCode": "AU",
+    "parentSlug": "australia"
+  }
+]

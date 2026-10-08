@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
-	"github.com/modura-dev/modura/backend/internal/platform/database"
-	"github.com/modura-dev/modura/backend/internal/platform/identifier"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/database"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/identifier"
 )
 
 type integrationChallenge struct{}
@@ -141,16 +141,16 @@ func TestPublicIdentityRegistrationVerificationRecoveryAndSessionIsolation(t *te
 		t.Fatal(err)
 	}
 	var roles, queue, events int
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM modura.user_roles WHERE tenant_id=$1", tenant).Scan(&roles); err != nil || roles != 0 {
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM wheretolive.user_roles WHERE tenant_id=$1", tenant).Scan(&roles); err != nil || roles != 0 {
 		t.Fatal("consumer received roles")
 	}
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM modura.identity_mail_queue WHERE tenant_id=$1", tenant).Scan(&queue); err != nil || queue != 0 {
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM wheretolive.identity_mail_queue WHERE tenant_id=$1", tenant).Scan(&queue); err != nil || queue != 0 {
 		t.Fatal("mail plaintext lifecycle incomplete")
 	}
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM modura.public_identity_events WHERE tenant_id=$1", tenant).Scan(&events); err != nil || events < 5 {
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM wheretolive.public_identity_events WHERE tenant_id=$1", tenant).Scan(&events); err != nil || events < 5 {
 		t.Fatal("missing audit")
 	}
-	if _, err := pool.Exec(ctx, "UPDATE modura.tenants SET status='suspended' WHERE id=$1", tenant); err != nil {
+	if _, err := pool.Exec(ctx, "UPDATE wheretolive.tenants SET status='suspended' WHERE id=$1", tenant); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.Login(ctx, request); !errors.Is(err, identity.ErrPublicUnavailable) {
@@ -183,7 +183,7 @@ func TestPublicIdentityRejectsForeignTenantCodesAndFailedAudit(t *testing.T) {
 		t.Fatal("foreign tenant consumed code")
 	}
 	// Deliberately make transactional audit fail; enrollment must roll back with its mail.
-	if _, err := pool.Exec(ctx, "ALTER TABLE modura.public_identity_events ADD CONSTRAINT reject_registration CHECK(action <> 'consumer_registered') NOT VALID"); err != nil {
+	if _, err := pool.Exec(ctx, "ALTER TABLE wheretolive.public_identity_events ADD CONSTRAINT reject_registration CHECK(action <> 'consumer_registered') NOT VALID"); err != nil {
 		t.Fatal(err)
 	}
 	request.Email = "rollback@example.org"
@@ -191,7 +191,7 @@ func TestPublicIdentityRejectsForeignTenantCodesAndFailedAudit(t *testing.T) {
 		t.Fatal("audit failure response exposed")
 	}
 	var count int
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM modura.users WHERE normalized_email=$1", request.Email).Scan(&count); err != nil || count != 0 {
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM wheretolive.users WHERE normalized_email=$1", request.Email).Scan(&count); err != nil || count != 0 {
 		t.Fatal("failed audit persisted consumer")
 	}
 }

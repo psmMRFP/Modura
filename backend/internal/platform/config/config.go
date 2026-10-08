@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/modura-dev/modura/backend/internal/platform/database"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/database"
 )
 
 const (
@@ -65,37 +65,37 @@ type HTTP struct {
 
 // FromEnv loads configuration from environment variables and applies defaults.
 func FromEnv() (Config, error) {
-	httpConfig := HTTP{Address: envOrDefault("MODURA_HTTP_ADDRESS", defaultAddress)}
+	httpConfig := HTTP{Address: envOrDefault("WHERETOLIVE_HTTP_ADDRESS", defaultAddress)}
 	var err error
-	if httpConfig.ReadTimeout, err = duration("MODURA_HTTP_READ_TIMEOUT", defaultReadTimeout); err != nil {
+	if httpConfig.ReadTimeout, err = duration("WHERETOLIVE_HTTP_READ_TIMEOUT", defaultReadTimeout); err != nil {
 		return Config{}, err
 	}
-	if httpConfig.WriteTimeout, err = duration("MODURA_HTTP_WRITE_TIMEOUT", defaultWriteTimeout); err != nil {
+	if httpConfig.WriteTimeout, err = duration("WHERETOLIVE_HTTP_WRITE_TIMEOUT", defaultWriteTimeout); err != nil {
 		return Config{}, err
 	}
-	if httpConfig.IdleTimeout, err = duration("MODURA_HTTP_IDLE_TIMEOUT", defaultIdleTimeout); err != nil {
+	if httpConfig.IdleTimeout, err = duration("WHERETOLIVE_HTTP_IDLE_TIMEOUT", defaultIdleTimeout); err != nil {
 		return Config{}, err
 	}
-	if httpConfig.ShutdownTimeout, err = duration("MODURA_HTTP_SHUTDOWN_TIMEOUT", defaultShutdownTimeout); err != nil {
+	if httpConfig.ShutdownTimeout, err = duration("WHERETOLIVE_HTTP_SHUTDOWN_TIMEOUT", defaultShutdownTimeout); err != nil {
 		return Config{}, err
 	}
-	if httpConfig.MaxHeaderBytes, err = integer("MODURA_HTTP_MAX_HEADER_BYTES", defaultMaxHeaderBytes); err != nil {
+	if httpConfig.MaxHeaderBytes, err = integer("WHERETOLIVE_HTTP_MAX_HEADER_BYTES", defaultMaxHeaderBytes); err != nil {
 		return Config{}, err
 	}
-	if httpConfig.ReadHeaderTimeout, err = duration("MODURA_HTTP_READ_HEADER_TIMEOUT", defaultReadHeaderTime); err != nil {
+	if httpConfig.ReadHeaderTimeout, err = duration("WHERETOLIVE_HTTP_READ_HEADER_TIMEOUT", defaultReadHeaderTime); err != nil {
 		return Config{}, err
 	}
-	if httpConfig.MaxBodyBytes, err = integer64("MODURA_HTTP_MAX_BODY_BYTES", defaultMaxBodyBytes); err != nil {
+	if httpConfig.MaxBodyBytes, err = integer64("WHERETOLIVE_HTTP_MAX_BODY_BYTES", defaultMaxBodyBytes); err != nil {
 		return Config{}, err
 	}
 	// Least-privilege CORS: without an explicit allowlist no cross-origin
 	// request receives CORS headers, so browsers fall back to same-origin.
-	for _, origin := range strings.Split(os.Getenv("MODURA_HTTP_ALLOWED_ORIGINS"), ",") {
+	for _, origin := range strings.Split(os.Getenv("WHERETOLIVE_HTTP_ALLOWED_ORIGINS"), ",") {
 		if trimmed := strings.TrimSpace(origin); trimmed != "" {
 			httpConfig.AllowedOrigins = append(httpConfig.AllowedOrigins, trimmed)
 		}
 	}
-	if httpConfig.CookieSecure, err = boolean("MODURA_AUTH_COOKIE_SECURE", true); err != nil {
+	if httpConfig.CookieSecure, err = boolean("WHERETOLIVE_AUTH_COOKIE_SECURE", true); err != nil {
 		return Config{}, err
 	}
 	databaseConfig, err := DatabaseFromEnv()
@@ -103,27 +103,27 @@ func FromEnv() (Config, error) {
 		return Config{}, err
 	}
 
-	signingKey := []byte(os.Getenv("MODURA_AUTH_SIGNING_KEY"))
+	signingKey := []byte(os.Getenv("WHERETOLIVE_AUTH_SIGNING_KEY"))
 	if len(signingKey) < 32 {
-		return Config{}, fmt.Errorf("MODURA_AUTH_SIGNING_KEY must contain at least 32 bytes")
+		return Config{}, fmt.Errorf("WHERETOLIVE_AUTH_SIGNING_KEY must contain at least 32 bytes")
 	}
 	auth := Auth{
-		Issuer:           envOrDefault("MODURA_AUTH_ISSUER", "modura"),
-		Audience:         envOrDefault("MODURA_AUTH_AUDIENCE", "modura-admin"),
-		PlatformAudience: envOrDefault("MODURA_PLATFORM_AUTH_AUDIENCE", "modura-platform"),
-		SigningKeyID:     envOrDefault("MODURA_AUTH_SIGNING_KEY_ID", "primary"),
+		Issuer:           envOrDefault("WHERETOLIVE_AUTH_ISSUER", "wheretolive"),
+		Audience:         envOrDefault("WHERETOLIVE_AUTH_AUDIENCE", "wheretolive-admin"),
+		PlatformAudience: envOrDefault("WHERETOLIVE_PLATFORM_AUTH_AUDIENCE", "wheretolive-platform"),
+		SigningKeyID:     envOrDefault("WHERETOLIVE_AUTH_SIGNING_KEY_ID", "primary"),
 		SigningKey:       signingKey,
 	}
 	if auth.Audience == "wheretolive-community" || auth.PlatformAudience == "wheretolive-community" || auth.Audience == auth.PlatformAudience {
 		return Config{}, fmt.Errorf("authentication audiences must be distinct")
 	}
-	if auth.AccessLifetime, err = duration("MODURA_AUTH_ACCESS_LIFETIME", 5*time.Minute); err != nil {
+	if auth.AccessLifetime, err = duration("WHERETOLIVE_AUTH_ACCESS_LIFETIME", 5*time.Minute); err != nil {
 		return Config{}, err
 	}
-	if auth.RefreshLifetime, err = duration("MODURA_AUTH_REFRESH_LIFETIME", 24*time.Hour); err != nil {
+	if auth.RefreshLifetime, err = duration("WHERETOLIVE_AUTH_REFRESH_LIFETIME", 24*time.Hour); err != nil {
 		return Config{}, err
 	}
-	if auth.InvitationLifetime, err = duration("MODURA_AUTH_INVITATION_LIFETIME", 24*time.Hour); err != nil {
+	if auth.InvitationLifetime, err = duration("WHERETOLIVE_AUTH_INVITATION_LIFETIME", 24*time.Hour); err != nil {
 		return Config{}, err
 	}
 	publicIdentity, err := publicIdentityFromEnv()
@@ -205,14 +205,14 @@ func integer64(name string, fallback int64) (int64, error) {
 
 // DatabaseFromEnv validates database-only configuration for provisioning tools.
 func DatabaseFromEnv() (Database, error) {
-	url := strings.TrimSpace(os.Getenv("MODURA_DATABASE_URL"))
+	url := strings.TrimSpace(os.Getenv("WHERETOLIVE_DATABASE_URL"))
 	if url == "" {
-		return Database{}, fmt.Errorf("MODURA_DATABASE_URL is required")
+		return Database{}, fmt.Errorf("WHERETOLIVE_DATABASE_URL is required")
 	}
 	if err := database.ValidateURL(url); err != nil {
-		return Database{}, fmt.Errorf("MODURA_DATABASE_URL: %w", err)
+		return Database{}, fmt.Errorf("WHERETOLIVE_DATABASE_URL: %w", err)
 	}
-	autoCreate, err := boolean("MODURA_DATABASE_AUTO_CREATE", true)
+	autoCreate, err := boolean("WHERETOLIVE_DATABASE_AUTO_CREATE", true)
 	if err != nil {
 		return Database{}, err
 	}

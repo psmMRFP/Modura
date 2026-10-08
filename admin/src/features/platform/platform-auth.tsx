@@ -3,7 +3,7 @@ import {
   platformLogin,
   platformLogout,
   platformRefresh,
-} from "../../api/generated/modura";
+} from "../../api/generated/wheretolive";
 import {
   PlatformAuthContext,
   type PlatformSession,
@@ -21,12 +21,12 @@ function cookie(name: string) {
 
 export function PlatformAuthProvider({ children }: PropsWithChildren) {
   const [status, setStatus] = useState<PlatformSessionStatus>(() =>
-    cookie("modura_platform_csrf") ? "loading" : "anonymous",
+    cookie("wheretolive_platform_csrf") ? "loading" : "anonymous",
   );
   const [accessToken, setAccessToken] = useState("");
   const [csrfToken, setCsrfToken] = useState("");
   useEffect(() => {
-    const csrf = cookie("modura_platform_csrf");
+    const csrf = cookie("wheretolive_platform_csrf");
     if (!csrf) return;
     void platformRefresh({
       credentials: "include",

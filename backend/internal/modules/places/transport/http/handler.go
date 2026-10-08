@@ -8,9 +8,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/modura-dev/modura/backend/internal/api/generated"
-	apihttp "github.com/modura-dev/modura/backend/internal/api/transport"
-	"github.com/modura-dev/modura/backend/internal/modules/places"
+	"github.com/psmMRFP/WhereToLive/backend/internal/api/generated"
+	apihttp "github.com/psmMRFP/WhereToLive/backend/internal/api/transport"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/places"
 )
 
 // Service is the public read capability consumed by HTTP.

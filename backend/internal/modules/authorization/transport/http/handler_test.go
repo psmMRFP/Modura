@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	apihttp "github.com/modura-dev/modura/backend/internal/api/transport"
-	"github.com/modura-dev/modura/backend/internal/modules/authorization"
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
+	apihttp "github.com/psmMRFP/WhereToLive/backend/internal/api/transport"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/authorization"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
 )
 
 type actorResolverStub struct{ actor identity.Actor }

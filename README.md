@@ -32,11 +32,11 @@ WhereToLive brings together **verifiable facts, resident experiences, and person
 | **Resident Score** | What do verified residents think?                         | 1–10, using Bayesian shrinkage    |
 | **Your Fit**       | Does it match your budget, language needs, and lifestyle? | Based on your own weights         |
 
-These systems remain independent and are not implemented yet. **Modura Atlas** is the transformation codename; **WhereToLive** is the product name.
+These systems remain independent and are not implemented yet. **WhereToLive Atlas** is the transformation codename; **WhereToLive** is the product name.
 
 ## Current status
 
-The project is in early development, building on the existing Modura framework. The public place directory and operational foundation work; there is no production place dataset yet.
+The project is in early development. The public place directory and operational foundation work; there is no production place dataset yet.
 
 | Implemented             | Capabilities                                                                                                                 |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -45,10 +45,13 @@ The project is in early development, building on the existing Modura framework. 
 | Geography               | Countries, regions, cities, districts, islands, stable slugs, and multilingual aliases                                       |
 | Place administration    | Draft creation, editing, publication, withdrawal, version conflict protection, and transactional audit                       |
 | API contract            | Shared OpenAPI for Go and both frontends, with generated types and query clients                                             |
+| Candidate pool | Combined country, coverage and publication filters; multilingual alias search |
+| Test place fixtures | 40 hand-written geographic drafts for development/E2E only; preview, resume and audit |
+| Feedback core | Private manual intake, category/status filters, reviewed outcomes, stale-edit checks and transactional audit |
 | Database initialization | Automatic creation of a missing dedicated database; the default `postgres` role and database are prohibited                  |
 | Consumer accounts       | Registration, email verification, login, session restoration and recovery; disabled until deployment controls are configured |
 
-**Next:** sources, evidence, and fact versions → Research Agent → visas, tax, and living costs → unified feedback → residency verification and reviews → personal fit.
+**Next:** coverage / priority rules and public feedback with abuse controls → sources, evidence, and fact versions → Research Agent → visas, tax, and living costs → unified feedback → residency verification and reviews → personal fit.
 
 Planned review translation is available when the reader's language differs from the original review. Users can enable automatic translation and always view the original.
 
@@ -99,10 +102,10 @@ Use [backend/.env.example](backend/.env.example) as a reference. Supply configur
 
 | Variable                      | Purpose                                                                       |
 | ----------------------------- | ----------------------------------------------------------------------------- |
-| `MODURA_DATABASE_URL`         | Connection URL for a dedicated PostgreSQL role and named database; required   |
-| `MODURA_AUTH_SIGNING_KEY`     | Signing key of at least 32 bytes; required                                    |
-| `MODURA_AUTH_COOKIE_SECURE`   | Set to `false` for local HTTP development; keep `true` with TLS in production |
-| `MODURA_DATABASE_AUTO_CREATE` | Defaults to `true`; may be set to `false` after provisioning                  |
+| `WHERETOLIVE_DATABASE_URL`         | Connection URL for a dedicated PostgreSQL role and named database; required   |
+| `WHERETOLIVE_AUTH_SIGNING_KEY`     | Signing key of at least 32 bytes; required                                    |
+| `WHERETOLIVE_AUTH_COOKIE_SECURE`   | Set to `false` for local HTTP development; keep `true` with TLS in production |
+| `WHERETOLIVE_DATABASE_AUTO_CREATE` | Defaults to `true`; may be set to `false` after provisioning                  |
 
 Database creation is attempted only when PostgreSQL explicitly reports that the target does not exist. It connects through `template1`, creates from `template0`, and requires `CREATEDB` on the dedicated role. **Creating the database does not apply schema migrations.**
 
@@ -110,13 +113,13 @@ Initialize an empty database without authentication signing configuration:
 
 ```fish
 cd backend
-go run ./cmd/modura-db-init
+go run ./cmd/wheretolive-db-init
 ```
 
 Then apply the [database migrations](backend/internal/platform/database/migrations) in order using a `golang-migrate` compatible tool. Start the API from `backend/`:
 
 ```fish
-go run ./cmd/modura
+go run ./cmd/wheretolive
 ```
 
 ### 3. Start the frontends
@@ -149,7 +152,7 @@ make verify
 
 Checks include generation consistency, OpenAPI validation, Go formatting and static analysis, unit tests, both frontends' formatting / lint / types / component tests / builds, and table ownership and source-boundary checks.
 
-Real PostgreSQL integration tests require `MODURA_TEST_DATABASE_URL` pointing to a dedicated database whose name ends in `_test`. They reset its `modura` schema. Never point these tests at a business database.
+Real PostgreSQL integration tests require `WHERETOLIVE_TEST_DATABASE_URL` pointing to a dedicated database whose name ends in `_test`. They reset its `wheretolive` schema. Never point these tests at a business database.
 
 ```fish
 make backend-test-integration
@@ -161,7 +164,7 @@ Public browser checks use installed Chromium and deterministic API fixtures:
 make web-e2e
 ```
 
-They verify page interactions and do not replace database integration tests. Admin E2E uses `make admin-e2e` and requires a database named `modura_test`. Full release verification uses `make verify-release`, including dependency vulnerability and license checks.
+They verify page interactions and do not replace database integration tests. Admin E2E uses `make admin-e2e` and requires a database named `wheretolive_test`. Full release verification uses `make verify-release`, including dependency vulnerability and license checks.
 
 ## Contributing
 

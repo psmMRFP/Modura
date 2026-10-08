@@ -9,15 +9,15 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/modura-dev/modura/backend/internal/modules/places"
-	"github.com/modura-dev/modura/backend/internal/platform/database/migrationtest"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/places"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/database/migrationtest"
 )
 
 func integrationPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	url := os.Getenv("MODURA_TEST_DATABASE_URL")
+	url := os.Getenv("WHERETOLIVE_TEST_DATABASE_URL")
 	if url == "" {
-		t.Skip("MODURA_TEST_DATABASE_URL is not set")
+		t.Skip("WHERETOLIVE_TEST_DATABASE_URL is not set")
 	}
 	config, err := pgxpool.ParseConfig(url)
 	if err != nil {
@@ -41,7 +41,7 @@ func TestPublicSearchAndHierarchy(t *testing.T) {
 	now := time.Now().UTC().Add(-time.Hour)
 	// Fixture geography only: it is never inserted into a production migration.
 	insert := func(id, slug, name, kind, code string, parent *string, published *time.Time) error {
-		_, err := pool.Exec(ctx, `INSERT INTO modura.places (id,slug,name,normalized_name,type,country_code,parent_id,coverage_level,published_at,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,1,$8,$9,$9)`, id, slug, name, places.NormalizeName(name), kind, code, parent, published, now)
+		_, err := pool.Exec(ctx, `INSERT INTO wheretolive.places (id,slug,name,normalized_name,type,country_code,parent_id,coverage_level,published_at,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,1,$8,$9,$9)`, id, slug, name, places.NormalizeName(name), kind, code, parent, published, now)
 		return err
 	}
 	germany := "018bcfe5-6800-7000-8000-000000001001"
@@ -61,7 +61,7 @@ func TestPublicSearchAndHierarchy(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, alias := range []struct{ locale, name string }{{"de", "München"}, {"zh-CN", "慕尼黑"}} {
-		if _, err := pool.Exec(ctx, `INSERT INTO modura.place_aliases (place_id,locale,name,normalized_name,preferred) VALUES ($1,$2,$3,$4,true)`, munich, alias.locale, alias.name, places.NormalizeName(alias.name)); err != nil {
+		if _, err := pool.Exec(ctx, `INSERT INTO wheretolive.place_aliases (place_id,locale,name,normalized_name,preferred) VALUES ($1,$2,$3,$4,true)`, munich, alias.locale, alias.name, places.NormalizeName(alias.name)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -94,28 +94,25 @@ func TestPublicSearchAndHierarchy(t *testing.T) {
 	if err := insert("018bcfe5-6800-7000-8000-000000001011", "wrong-parent", "Wrong", "region", "DE", &munich, &now); err == nil {
 		t.Fatal("region under city accepted")
 	}
-	if _, err := pool.Exec(ctx, `UPDATE modura.places SET type='district',parent_id=$1 WHERE id=$2`, munich, germany); err == nil {
+	if _, err := pool.Exec(ctx, `UPDATE wheretolive.places SET type='district',parent_id=$1 WHERE id=$2`, munich, germany); err == nil {
 		t.Fatal("cycle accepted")
 	}
-	if _, err := pool.Exec(ctx, `UPDATE modura.places SET type='island' WHERE id=$1`, munich); err != nil {
+	if _, err := pool.Exec(ctx, `UPDATE wheretolive.places SET type='island' WHERE id=$1`, munich); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `UPDATE modura.places SET type='district' WHERE id=$1`, munich); err == nil {
+	if _, err := pool.Exec(ctx, `UPDATE wheretolive.places SET type='district' WHERE id=$1`, munich); err == nil {
 		t.Fatal("invalid parent type update accepted")
 	}
 	future := time.Now().UTC().Add(time.Hour)
-	if _, err := pool.Exec(ctx, `UPDATE modura.places SET published_at=$1 WHERE id=$2`, future, munich); err != nil {
+	if _, err := pool.Exec(ctx, `UPDATE wheretolive.places SET published_at=$1 WHERE id=$2`, future, munich); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.Get(ctx, "munich", "en"); !errors.Is(err, places.ErrNotFound) {
 		t.Fatal("future publication exposed")
 	}
-	// Down migration must work and not remove the shared extension.
-	down, err := os.ReadFile("../../../platform/database/migrations/000012_places_foundation.down.sql")
-	if err != nil {
+	// Roll back later dependents before testing this owner's down migration.
+	if err := migrationtest.RollbackAfter(ctx, pool, 11); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, string(down)); err != nil {
-		t.Fatal(err)
-	}
+
 }

@@ -31,9 +31,9 @@ func TestTenantBearerOperationsDeclareKnownPermission(t *testing.T) {
 			if !usesTenantBearer(operation["security"]) {
 				continue
 			}
-			extension, ok := operation["x-modura-permission"].(map[string]any)
+			extension, ok := operation["x-wheretolive-permission"].(map[string]any)
 			if !ok {
-				t.Errorf("%s %s has tenant bearer auth without x-modura-permission", method, path)
+				t.Errorf("%s %s has tenant bearer auth without x-wheretolive-permission", method, path)
 				continue
 			}
 			permission := Permission{Resource: Resource(extension["resource"].(string)), Action: Action(extension["action"].(string))}

@@ -18,7 +18,7 @@ import {
   getListPlatformConfigurationsQueryKey,
   useListPlatformConfigurations,
   usePutPlatformConfiguration,
-} from "../../api/generated/modura";
+} from "../../api/generated/wheretolive";
 import { usePlatformAuth } from "./platform-auth-context";
 
 type ConfigurationForm = {

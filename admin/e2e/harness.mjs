@@ -1,4 +1,4 @@
-// Zero-dependency browser automation for the Modura admin critical path.
+// Zero-dependency browser automation for the WhereToLive admin critical path.
 // It drives the system Chromium over the Chrome DevTools Protocol using the
 // WebSocket client built into Node, so no browser binary or npm package has
 // to be downloaded.
@@ -38,7 +38,8 @@ export async function waitFor(
 // --- CDP browser -----------------------------------------------------------
 
 export async function startBrowser() {
-  const executable = process.env.MODURA_E2E_CHROMIUM ?? "/usr/sbin/chromium";
+  const executable =
+    process.env.WHERETOLIVE_E2E_CHROMIUM ?? "/usr/sbin/chromium";
   const profileDir = resolve(
     fileURLToPath(new URL("../../.cache/e2e-profile", import.meta.url)),
     randomBytes(8).toString("hex"),

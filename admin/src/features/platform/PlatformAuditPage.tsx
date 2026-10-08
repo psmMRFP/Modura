@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   useListPlatformAuditEvents,
   type ListPlatformAuditEventsParams,
-} from "../../api/generated/modura";
+} from "../../api/generated/wheretolive";
 import { usePlatformAuth } from "./platform-auth-context";
 
 export function PlatformAuditPage() {

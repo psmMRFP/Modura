@@ -32,11 +32,11 @@ WhereToLive réunit **des faits vérifiables, des expériences de résidents et 
 | **Resident Score** | Qu'en pensent les résidents vérifiés ?                                                 | 1–10, avec régularisation bayésienne |
 | **Your Fit**       | Le lieu correspond-il à votre budget, vos besoins linguistiques et votre mode de vie ? | Selon vos propres pondérations       |
 
-Ces trois systèmes restent indépendants et ne sont pas encore implémentés. **Modura Atlas** est le nom de code de la transformation ; **WhereToLive** est le nom du produit.
+Ces trois systèmes restent indépendants et ne sont pas encore implémentés. **WhereToLive Atlas** est le nom de code de la transformation ; **WhereToLive** est le nom du produit.
 
 ## État actuel
 
-Le projet est au début de son développement et s'appuie sur Modura. Le catalogue public des lieux et les bases de l'administration fonctionnent ; aucun jeu de données de production sur les lieux n'est encore disponible.
+Le projet est au début de son développement. Le catalogue public des lieux et les bases de l'administration fonctionnent ; aucun jeu de données de production sur les lieux n'est encore disponible.
 
 | Implémenté                | Fonctionnalités                                                                                                                                    |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -45,10 +45,13 @@ Le projet est au début de son développement et s'appuie sur Modura. Le catalog
 | Modèle géographique       | Pays, régions, villes, quartiers, îles, slugs stables et alias multilingues                                                                        |
 | Administration des lieux  | Brouillons, modification, publication, retrait, protection contre les conflits de version et audit transactionnel                                  |
 | Contrat API               | OpenAPI commun à Go et aux deux interfaces, avec types et clients de requêtes générés                                                              |
+| Gestion des candidats | Filtres combinés par pays, couverture et publication ; recherche des noms multilingues |
+| Données de test géographiques | 40 brouillons manuels réservés au développement/E2E |
+| Cœur du feedback | Saisie privée, filtres catégorie/statut, résultats, contrôle de version et audit transactionnel |
 | Initialisation de la base | Création automatique d'une base dédiée absente ; rôle et base par défaut `postgres` interdits                                                      |
 | Comptes publics           | Inscription, vérification e-mail, connexion, restauration de session et récupération ; désactivés jusqu’à la configuration complète du déploiement |
 
-**Prochaines étapes :** sources, preuves et versions des faits → Research Agent → visas, fiscalité et coût de la vie → retours unifiés → vérification de résidence et avis → adéquation personnelle.
+**Prochaines étapes :** règles de couverture et de priorité, feedback public avec contrôles anti-abus → sources, preuves et versions des faits → Research Agent → visas, fiscalité et coût de la vie → retours unifiés → vérification de résidence et avis → adéquation personnelle.
 
 La traduction des avis par IA est prévue lorsque la langue de lecture diffère de celle de l'avis original. Les utilisateurs pourront activer la traduction automatique et toujours consulter l'original.
 
@@ -99,10 +102,10 @@ Consulter [backend/.env.example](backend/.env.example). Fournir la configuration
 
 | Variable                      | Rôle                                                                     |
 | ----------------------------- | ------------------------------------------------------------------------ |
-| `MODURA_DATABASE_URL`         | URL de connexion avec rôle PostgreSQL dédié et base nommée ; obligatoire |
-| `MODURA_AUTH_SIGNING_KEY`     | Clé de signature d'au moins 32 octets ; obligatoire                      |
-| `MODURA_AUTH_COOKIE_SECURE`   | `false` pour le développement HTTP local ; `true` avec TLS en production |
-| `MODURA_DATABASE_AUTO_CREATE` | `true` par défaut ; peut être désactivé après provisionnement            |
+| `WHERETOLIVE_DATABASE_URL`         | URL de connexion avec rôle PostgreSQL dédié et base nommée ; obligatoire |
+| `WHERETOLIVE_AUTH_SIGNING_KEY`     | Clé de signature d'au moins 32 octets ; obligatoire                      |
+| `WHERETOLIVE_AUTH_COOKIE_SECURE`   | `false` pour le développement HTTP local ; `true` avec TLS en production |
+| `WHERETOLIVE_DATABASE_AUTO_CREATE` | `true` par défaut ; peut être désactivé après provisionnement            |
 
 La création n'est tentée que si PostgreSQL indique explicitement que la base cible n'existe pas. La connexion passe par `template1` et la création utilise `template0` ; le rôle dédié doit disposer de `CREATEDB`. **Créer la base n'applique pas les migrations du schéma.**
 
@@ -110,13 +113,13 @@ Initialiser une base vide sans configurer la clé de signature :
 
 ```fish
 cd backend
-go run ./cmd/modura-db-init
+go run ./cmd/wheretolive-db-init
 ```
 
 Appliquer ensuite les [migrations](backend/internal/platform/database/migrations) dans l'ordre avec un outil compatible `golang-migrate`. Démarrer l'API depuis `backend/` :
 
 ```fish
-go run ./cmd/modura
+go run ./cmd/wheretolive
 ```
 
 ### 3. Démarrer les interfaces
@@ -149,7 +152,7 @@ make verify
 
 Cette commande vérifie la cohérence de génération, OpenAPI, le formatage et l'analyse statique Go, les tests unitaires, le formatage / lint / types / tests de composants / builds des deux interfaces, ainsi que les responsabilités des tables et les frontières du code.
 
-Les tests d'intégration PostgreSQL nécessitent `MODURA_TEST_DATABASE_URL` vers une base dédiée dont le nom se termine par `_test`. Ils réinitialisent son schéma `modura`. Ne jamais utiliser une base métier.
+Les tests d'intégration PostgreSQL nécessitent `WHERETOLIVE_TEST_DATABASE_URL` vers une base dédiée dont le nom se termine par `_test`. Ils réinitialisent son schéma `wheretolive`. Ne jamais utiliser une base métier.
 
 ```fish
 make backend-test-integration
@@ -161,7 +164,7 @@ Les tests navigateur du site public utilisent Chromium déjà installé et des d
 make web-e2e
 ```
 
-Ils vérifient les interactions et ne remplacent pas les tests de base de données. Les tests E2E d'administration utilisent `make admin-e2e` et exigent une base nommée `modura_test`. `make verify-release` ajoute les contrôles de vulnérabilités et de licences des dépendances.
+Ils vérifient les interactions et ne remplacent pas les tests de base de données. Les tests E2E d'administration utilisent `make admin-e2e` et exigent une base nommée `wheretolive_test`. `make verify-release` ajoute les contrôles de vulnérabilités et de licences des dépendances.
 
 ## Contribuer
 

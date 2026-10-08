@@ -9,11 +9,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/modura-dev/modura/backend/internal/api/generated"
-	apihttp "github.com/modura-dev/modura/backend/internal/api/transport"
-	"github.com/modura-dev/modura/backend/internal/modules/audit"
-	"github.com/modura-dev/modura/backend/internal/modules/authorization"
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
+	"github.com/psmMRFP/WhereToLive/backend/internal/api/generated"
+	apihttp "github.com/psmMRFP/WhereToLive/backend/internal/api/transport"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/audit"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/authorization"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
 )
 
 // ActorResolver authenticates tenant-local actors.

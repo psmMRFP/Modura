@@ -8,9 +8,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
-	identitydb "github.com/modura-dev/modura/backend/internal/modules/identity/postgres/db"
-	"github.com/modura-dev/modura/backend/internal/platform/identifier"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
+	identitydb "github.com/psmMRFP/WhereToLive/backend/internal/modules/identity/postgres/db"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/identifier"
 )
 
 // BootstrapCommunity refuses to adopt an unrelated tenant with the reserved slug.

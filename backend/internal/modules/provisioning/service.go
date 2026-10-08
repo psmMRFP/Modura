@@ -13,11 +13,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/modura-dev/modura/backend/internal/modules/audit"
-	"github.com/modura-dev/modura/backend/internal/modules/authorization"
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
-	"github.com/modura-dev/modura/backend/internal/modules/organization"
-	"github.com/modura-dev/modura/backend/internal/modules/platformadmin"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/audit"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/authorization"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/organization"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/platformadmin"
 )
 
 var (
@@ -105,7 +105,7 @@ func (s *Service) Provision(ctx context.Context, request Request) (Result, error
 	}
 	var existingDigest []byte
 	var existingTenant identity.TenantID
-	err = tx.QueryRow(ctx, `SELECT request_digest, tenant_id FROM modura.tenant_provisioning_requests WHERE idempotency_key = $1`, canonical.IdempotencyKey).Scan(&existingDigest, &existingTenant)
+	err = tx.QueryRow(ctx, `SELECT request_digest, tenant_id FROM wheretolive.tenant_provisioning_requests WHERE idempotency_key = $1`, canonical.IdempotencyKey).Scan(&existingDigest, &existingTenant)
 	if err == nil {
 		if !hmac.Equal(existingDigest, digest[:]) {
 			return Result{}, ErrIdempotencyConflict
@@ -150,7 +150,7 @@ func (s *Service) Provision(ctx context.Context, request Request) (Result, error
 	if err := s.identity.ActivateTenant(ctx, tx, tenantID, now); err != nil {
 		return Result{}, err
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO modura.tenant_provisioning_requests (idempotency_key, request_digest, tenant_id, created_at, completed_at) VALUES ($1, $2, $3, $4, $4)`, canonical.IdempotencyKey, digest[:], tenantID, now); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO wheretolive.tenant_provisioning_requests (idempotency_key, request_digest, tenant_id, created_at, completed_at) VALUES ($1, $2, $3, $4, $4)`, canonical.IdempotencyKey, digest[:], tenantID, now); err != nil {
 		return Result{}, fmt.Errorf("record tenant provisioning request: %w", err)
 	}
 	if err := s.auditor.RecordTenantScopedPlatformWrite(ctx, tx, audit.TenantScopedPlatformEvent{ActorID: string(canonical.Actor.AdministratorID), TenantID: tenantID, Action: "tenant.provisioned", Resource: "tenant", ResourceID: string(tenantID), Reason: canonical.Reason, CorrelationID: canonical.CorrelationID, OccurredAt: now}); err != nil {

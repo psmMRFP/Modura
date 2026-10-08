@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
-	"github.com/modura-dev/modura/backend/internal/modules/identity/delivery"
-	identitypostgres "github.com/modura-dev/modura/backend/internal/modules/identity/postgres"
-	"github.com/modura-dev/modura/backend/internal/platform/config"
-	"github.com/modura-dev/modura/backend/internal/platform/database"
-	"github.com/modura-dev/modura/backend/internal/platform/identifier"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity/delivery"
+	identitypostgres "github.com/psmMRFP/WhereToLive/backend/internal/modules/identity/postgres"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/config"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/database"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/identifier"
 )
 
 func configurePublicIdentity(ctx context.Context, pool *pgxpool.Pool, cfg config.Config) (*identity.PublicService, error) {

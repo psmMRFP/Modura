@@ -1,5 +1,5 @@
 -- owner: identity
-CREATE TABLE modura.tenants (
+CREATE TABLE wheretolive.tenants (
     id uuid PRIMARY KEY,
     slug text NOT NULL,
     display_name text NOT NULL,
@@ -10,9 +10,9 @@ CREATE TABLE modura.tenants (
     CONSTRAINT tenants_slug_unique UNIQUE (slug)
 );
 
-CREATE TABLE modura.users (
+CREATE TABLE wheretolive.users (
     id uuid PRIMARY KEY,
-    tenant_id uuid NOT NULL REFERENCES modura.tenants (id),
+    tenant_id uuid NOT NULL REFERENCES wheretolive.tenants (id),
     username text NOT NULL,
     normalized_username text NOT NULL,
     email text,
@@ -31,7 +31,7 @@ CREATE TABLE modura.users (
     CONSTRAINT users_active_credential CHECK (status <> 'active' OR password_hash IS NOT NULL)
 );
 
-CREATE TABLE modura.auth_sessions (
+CREATE TABLE wheretolive.auth_sessions (
     id uuid PRIMARY KEY,
     tenant_id uuid NOT NULL,
     user_id uuid NOT NULL,
@@ -44,25 +44,25 @@ CREATE TABLE modura.auth_sessions (
     revoked_at timestamptz,
     revocation_reason text,
     CONSTRAINT auth_sessions_user_fk FOREIGN KEY (tenant_id, user_id)
-        REFERENCES modura.users (tenant_id, id),
+        REFERENCES wheretolive.users (tenant_id, id),
     CONSTRAINT auth_sessions_expiry CHECK (expires_at > created_at),
     CONSTRAINT auth_sessions_revocation_pair CHECK ((revoked_at IS NULL) = (revocation_reason IS NULL))
 );
 
-CREATE INDEX auth_sessions_user_active_idx ON modura.auth_sessions (tenant_id, user_id)
+CREATE INDEX auth_sessions_user_active_idx ON wheretolive.auth_sessions (tenant_id, user_id)
     WHERE revoked_at IS NULL;
-CREATE INDEX auth_sessions_family_idx ON modura.auth_sessions (family_id);
+CREATE INDEX auth_sessions_family_idx ON wheretolive.auth_sessions (family_id);
 
-CREATE TABLE modura.auth_refresh_token_uses (
+CREATE TABLE wheretolive.auth_refresh_token_uses (
     token_hash bytea PRIMARY KEY,
-    session_id uuid NOT NULL REFERENCES modura.auth_sessions (id),
+    session_id uuid NOT NULL REFERENCES wheretolive.auth_sessions (id),
     family_id uuid NOT NULL,
     consumed_at timestamptz NOT NULL
 );
 
-CREATE INDEX auth_refresh_token_uses_family_idx ON modura.auth_refresh_token_uses (family_id);
+CREATE INDEX auth_refresh_token_uses_family_idx ON wheretolive.auth_refresh_token_uses (family_id);
 
-CREATE TABLE modura.auth_one_time_tokens (
+CREATE TABLE wheretolive.auth_one_time_tokens (
     id uuid PRIMARY KEY,
     tenant_id uuid NOT NULL,
     user_id uuid NOT NULL,
@@ -72,9 +72,9 @@ CREATE TABLE modura.auth_one_time_tokens (
     expires_at timestamptz NOT NULL,
     consumed_at timestamptz,
     CONSTRAINT auth_one_time_tokens_user_fk FOREIGN KEY (tenant_id, user_id)
-        REFERENCES modura.users (tenant_id, id),
+        REFERENCES wheretolive.users (tenant_id, id),
     CONSTRAINT auth_one_time_tokens_expiry CHECK (expires_at > created_at)
 );
 
-CREATE INDEX auth_one_time_tokens_lookup_idx ON modura.auth_one_time_tokens (tenant_id, user_id, purpose)
+CREATE INDEX auth_one_time_tokens_lookup_idx ON wheretolive.auth_one_time_tokens (tenant_id, user_id, purpose)
     WHERE consumed_at IS NULL;

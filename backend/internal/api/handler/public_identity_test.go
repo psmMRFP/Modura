@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/modura-dev/modura/backend/internal/api/generated"
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
+	"github.com/psmMRFP/WhereToLive/backend/internal/api/generated"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
 )
 
 type publicIdentityStub struct {
@@ -87,7 +87,7 @@ func TestConsumerCookiesAreIsolatedAndHttpOnly(t *testing.T) {
 		t.Fatal("missing cookies")
 	}
 	for _, cookie := range cookies {
-		if cookie.Name == "modura_refresh" || cookie.Name == "modura_platform_refresh" {
+		if cookie.Name == "wheretolive_tenant_refresh" || cookie.Name == "wheretolive_platform_refresh" {
 			t.Fatal("administrator cookie overwritten")
 		}
 		if cookie.Name == "wheretolive_refresh" && (!cookie.HttpOnly || cookie.Path != "/api/public/auth") {

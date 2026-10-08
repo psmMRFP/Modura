@@ -32,11 +32,11 @@ WhereToLive reúne **hechos verificables, experiencias de residentes y preferenc
 | **Resident Score** | ¿Qué opinan los residentes verificados?                                | 1–10, con ajuste bayesiano       |
 | **Your Fit**       | ¿Encaja con tu presupuesto, necesidades lingüísticas y estilo de vida? | Según tus propias ponderaciones  |
 
-Los tres sistemas son independientes y todavía no están implementados. **Modura Atlas** es el nombre en clave de la transformación; **WhereToLive** es el nombre del producto.
+Los tres sistemas son independientes y todavía no están implementados. **WhereToLive Atlas** es el nombre en clave de la transformación; **WhereToLive** es el nombre del producto.
 
 ## Estado actual
 
-El proyecto está en una fase inicial de desarrollo y se basa en Modura. El catálogo público de lugares y la base operativa funcionan; todavía no hay un conjunto de datos de lugares para producción.
+El proyecto está en una fase inicial de desarrollo. El catálogo público de lugares y la base operativa funcionan; todavía no hay un conjunto de datos de lugares para producción.
 
 | Implementado              | Funcionalidades                                                                                                                             |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -45,10 +45,13 @@ El proyecto está en una fase inicial de desarrollo y se basa en Modura. El cat�
 | Modelo geográfico         | Países, regiones, ciudades, barrios, islas, slugs estables y alias multilingües                                                             |
 | Administración de lugares | Borradores, edición, publicación, retirada, protección frente a conflictos de versión y auditoría transaccional                             |
 | Contrato API              | OpenAPI compartido entre Go y ambos frontends, con tipos y clientes de consultas generados                                                  |
+| Gestión de candidatos | Filtros combinados por país, cobertura y publicación; búsqueda de nombres multilingües |
+| Datos geográficos de prueba | 40 borradores manuales solo para desarrollo/E2E |
+| Núcleo de feedback | Registro privado, filtros de categoría/estado, resultados, control de versión y auditoría transaccional |
 | Inicialización de la base | Creación automática de una base dedicada ausente; se prohíben el rol y la base predeterminados `postgres`                                   |
 | Cuentas públicas          | Registro, verificación de correo, acceso, restauración de sesión y recuperación; desactivadas hasta configurar los controles del despliegue |
 
-**Próximos pasos:** fuentes, evidencias y versiones de hechos → Research Agent → visados, impuestos y coste de vida → comentarios y sugerencias unificados → verificación de residencia y reseñas → adecuación personal.
+**Próximos pasos:** reglas de cobertura y prioridad, feedback público con controles contra abusos → fuentes, evidencias y versiones de hechos → Research Agent → visados, impuestos y coste de vida → comentarios y sugerencias unificados → verificación de residencia y reseñas → adecuación personal.
 
 Está prevista la traducción de reseñas mediante IA cuando el idioma de lectura difiera del original. Los usuarios podrán activar la traducción automática y consultar siempre el texto original.
 
@@ -99,10 +102,10 @@ Consultar [backend/.env.example](backend/.env.example). Proporcionar la configur
 
 | Variable                      | Función                                                                                      |
 | ----------------------------- | -------------------------------------------------------------------------------------------- |
-| `MODURA_DATABASE_URL`         | URL de conexión para un rol PostgreSQL dedicado y una base con nombre explícito; obligatoria |
-| `MODURA_AUTH_SIGNING_KEY`     | Clave de firma de al menos 32 bytes; obligatoria                                             |
-| `MODURA_AUTH_COOKIE_SECURE`   | `false` para desarrollo HTTP local; `true` con TLS en producción                             |
-| `MODURA_DATABASE_AUTO_CREATE` | `true` por defecto; puede desactivarse tras crear la base                                    |
+| `WHERETOLIVE_DATABASE_URL`         | URL de conexión para un rol PostgreSQL dedicado y una base con nombre explícito; obligatoria |
+| `WHERETOLIVE_AUTH_SIGNING_KEY`     | Clave de firma de al menos 32 bytes; obligatoria                                             |
+| `WHERETOLIVE_AUTH_COOKIE_SECURE`   | `false` para desarrollo HTTP local; `true` con TLS en producción                             |
+| `WHERETOLIVE_DATABASE_AUTO_CREATE` | `true` por defecto; puede desactivarse tras crear la base                                    |
 
 Solo se intenta crear la base cuando PostgreSQL indica explícitamente que el destino no existe. Se conecta mediante `template1` y se crea desde `template0`; el rol dedicado necesita `CREATEDB`. **Crear la base no aplica las migraciones del esquema.**
 
@@ -110,13 +113,13 @@ Inicializar una base vacía sin configurar la clave de firma:
 
 ```fish
 cd backend
-go run ./cmd/modura-db-init
+go run ./cmd/wheretolive-db-init
 ```
 
 Después, aplicar las [migraciones](backend/internal/platform/database/migrations) en orden con una herramienta compatible con `golang-migrate`. Iniciar la API desde `backend/`:
 
 ```fish
-go run ./cmd/modura
+go run ./cmd/wheretolive
 ```
 
 ### 3. Iniciar los frontends
@@ -149,7 +152,7 @@ make verify
 
 Comprueba la coherencia de generación, OpenAPI, formato y análisis estático Go, pruebas unitarias, formato / lint / tipos / pruebas de componentes / compilaciones de ambos frontends, propiedad de tablas y límites del código.
 
-Las pruebas de integración PostgreSQL requieren `MODURA_TEST_DATABASE_URL` para una base dedicada cuyo nombre termine en `_test`. Restablecen su esquema `modura`. Nunca deben apuntar a una base de negocio.
+Las pruebas de integración PostgreSQL requieren `WHERETOLIVE_TEST_DATABASE_URL` para una base dedicada cuyo nombre termine en `_test`. Restablecen su esquema `wheretolive`. Nunca deben apuntar a una base de negocio.
 
 ```fish
 make backend-test-integration
@@ -161,7 +164,7 @@ Las pruebas de navegador del sitio público usan Chromium ya instalado y datos A
 make web-e2e
 ```
 
-Verifican las interacciones y no sustituyen las pruebas de base de datos. Las pruebas E2E de administración utilizan `make admin-e2e` y exigen una base llamada `modura_test`. `make verify-release` añade las comprobaciones de vulnerabilidades y licencias de dependencias.
+Verifican las interacciones y no sustituyen las pruebas de base de datos. Las pruebas E2E de administración utilizan `make admin-e2e` y exigen una base llamada `wheretolive_test`. `make verify-release` añade las comprobaciones de vulnerabilidades y licencias de dependencias.
 
 ## Contribuir
 

@@ -7,7 +7,7 @@ export function Workspace() {
       <section className="workspace__hero">
         <Space direction="vertical" size="large">
           <Tag color="geekblue">Agent-native enterprise framework</Tag>
-          <Typography.Title>Modura Admin</Typography.Title>
+          <Typography.Title>WhereToLive Admin</Typography.Title>
           <Typography.Paragraph className="workspace__lead">
             面向 AI 协作的企业应用管理与快速开发工作台。
           </Typography.Paragraph>

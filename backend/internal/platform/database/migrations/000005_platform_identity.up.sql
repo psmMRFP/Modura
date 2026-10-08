@@ -1,5 +1,5 @@
 -- owner: platformadmin
-CREATE TABLE modura.platform_administrators (
+CREATE TABLE wheretolive.platform_administrators (
     id uuid PRIMARY KEY,
     username text NOT NULL,
     normalized_username text NOT NULL UNIQUE,
@@ -12,9 +12,9 @@ CREATE TABLE modura.platform_administrators (
     CONSTRAINT platform_administrators_username_normalized CHECK (normalized_username = lower(btrim(normalized_username)))
 );
 
-CREATE TABLE modura.platform_auth_sessions (
+CREATE TABLE wheretolive.platform_auth_sessions (
     id uuid PRIMARY KEY,
-    administrator_id uuid NOT NULL REFERENCES modura.platform_administrators (id),
+    administrator_id uuid NOT NULL REFERENCES wheretolive.platform_administrators (id),
     family_id uuid NOT NULL,
     refresh_token_hash bytea NOT NULL UNIQUE,
     security_version bigint NOT NULL CHECK (security_version > 0),
@@ -28,15 +28,15 @@ CREATE TABLE modura.platform_auth_sessions (
 );
 
 CREATE INDEX platform_auth_sessions_administrator_active_idx
-    ON modura.platform_auth_sessions (administrator_id) WHERE revoked_at IS NULL;
-CREATE INDEX platform_auth_sessions_family_idx ON modura.platform_auth_sessions (family_id);
+    ON wheretolive.platform_auth_sessions (administrator_id) WHERE revoked_at IS NULL;
+CREATE INDEX platform_auth_sessions_family_idx ON wheretolive.platform_auth_sessions (family_id);
 
-CREATE TABLE modura.platform_refresh_token_uses (
+CREATE TABLE wheretolive.platform_refresh_token_uses (
     token_hash bytea PRIMARY KEY,
-    session_id uuid NOT NULL REFERENCES modura.platform_auth_sessions (id),
+    session_id uuid NOT NULL REFERENCES wheretolive.platform_auth_sessions (id),
     family_id uuid NOT NULL,
     consumed_at timestamptz NOT NULL
 );
 
 CREATE INDEX platform_refresh_token_uses_family_idx
-    ON modura.platform_refresh_token_uses (family_id);
+    ON wheretolive.platform_refresh_token_uses (family_id);

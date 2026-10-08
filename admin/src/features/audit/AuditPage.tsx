@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   useListAuditEvents,
   type ListAuditEventsParams,
-} from "../../api/generated/modura";
+} from "../../api/generated/wheretolive";
 import { useAuth } from "../auth/auth-context";
 
 export function AuditPage() {

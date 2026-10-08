@@ -1,3 +1,3 @@
-DROP TABLE IF EXISTS modura.user_organization;
-DROP TABLE IF EXISTS modura.positions;
-DROP TABLE IF EXISTS modura.departments;
+DROP TABLE IF EXISTS wheretolive.user_organization;
+DROP TABLE IF EXISTS wheretolive.positions;
+DROP TABLE IF EXISTS wheretolive.departments;

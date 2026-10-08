@@ -1,6 +1,6 @@
 package organization
 
-import "github.com/modura-dev/modura/backend/internal/modules/identity"
+import "github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
 
 // DataScope is the SQL-free visibility input accepted by organization stores.
 type DataScope struct {

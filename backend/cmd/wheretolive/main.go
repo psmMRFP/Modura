@@ -1,4 +1,4 @@
-// Package main composes and runs the Modura backend.
+// Package main composes and runs the WhereToLive backend.
 package main
 
 import (
@@ -12,26 +12,28 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/modura-dev/modura/backend/internal/modules/audit"
-	auditpostgres "github.com/modura-dev/modura/backend/internal/modules/audit/postgres"
-	"github.com/modura-dev/modura/backend/internal/modules/authorization"
-	authorizationpostgres "github.com/modura-dev/modura/backend/internal/modules/authorization/postgres"
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
-	identitypostgres "github.com/modura-dev/modura/backend/internal/modules/identity/postgres"
-	"github.com/modura-dev/modura/backend/internal/modules/organization"
-	organizationpostgres "github.com/modura-dev/modura/backend/internal/modules/organization/postgres"
-	"github.com/modura-dev/modura/backend/internal/modules/places"
-	placespostgres "github.com/modura-dev/modura/backend/internal/modules/places/postgres"
-	"github.com/modura-dev/modura/backend/internal/modules/platformadmin"
-	platformadminpostgres "github.com/modura-dev/modura/backend/internal/modules/platformadmin/postgres"
-	"github.com/modura-dev/modura/backend/internal/modules/platformtenant"
-	"github.com/modura-dev/modura/backend/internal/modules/provisioning"
-	"github.com/modura-dev/modura/backend/internal/modules/settings"
-	settingspostgres "github.com/modura-dev/modura/backend/internal/modules/settings/postgres"
-	"github.com/modura-dev/modura/backend/internal/platform/config"
-	"github.com/modura-dev/modura/backend/internal/platform/database"
-	"github.com/modura-dev/modura/backend/internal/platform/httpserver"
-	"github.com/modura-dev/modura/backend/internal/platform/identifier"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/audit"
+	auditpostgres "github.com/psmMRFP/WhereToLive/backend/internal/modules/audit/postgres"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/authorization"
+	authorizationpostgres "github.com/psmMRFP/WhereToLive/backend/internal/modules/authorization/postgres"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/feedback"
+	feedbackpostgres "github.com/psmMRFP/WhereToLive/backend/internal/modules/feedback/postgres"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
+	identitypostgres "github.com/psmMRFP/WhereToLive/backend/internal/modules/identity/postgres"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/organization"
+	organizationpostgres "github.com/psmMRFP/WhereToLive/backend/internal/modules/organization/postgres"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/places"
+	placespostgres "github.com/psmMRFP/WhereToLive/backend/internal/modules/places/postgres"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/platformadmin"
+	platformadminpostgres "github.com/psmMRFP/WhereToLive/backend/internal/modules/platformadmin/postgres"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/platformtenant"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/provisioning"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/settings"
+	settingspostgres "github.com/psmMRFP/WhereToLive/backend/internal/modules/settings/postgres"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/config"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/database"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/httpserver"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/identifier"
 )
 
 func main() {
@@ -165,7 +167,12 @@ func main() {
 	mailDone := make(chan struct{})
 	go func() { defer close(mailDone); runIdentityMail(ctx, publicIdentity, logger) }()
 	defer func() { stop(); <-mailDone }()
-	server := httpserver.New(cfg.HTTP, logger, httpserver.Dependencies{PublicIdentity: publicIdentity, PublicChallengeSiteKey: cfg.PublicIdentity.ChallengeSiteKey, PublicIdentityFailure: func() { logger.Error("consumer identity enqueue failed") }, PlatformPlaces: placeManagement, Places: placesService, Identity: identityService, Authorizer: authorizationService, Authorization: authorizationService, Organization: organizationService, PlatformAdmin: platformAdminService, PlatformTenant: platformTenantService, Provisioning: provisioningService, Settings: settingsService, PlatformSettings: settingsService, Audit: auditService, PlatformAudit: auditService, Ready: pool.Ping})
+	feedbackService, err := feedback.NewService(feedbackpostgres.New(pool), database.NewTransactor(pool), auditService, placeManagement, time.Now, func(now time.Time) (string, error) { id, err := identifier.NewUUIDv7(now, nil); return string(id), err })
+	if err != nil {
+		logger.Error("configure feedback service", "error", err)
+		os.Exit(1)
+	}
+	server := httpserver.New(cfg.HTTP, logger, httpserver.Dependencies{PlatformFeedback: feedbackService, PublicIdentity: publicIdentity, PublicChallengeSiteKey: cfg.PublicIdentity.ChallengeSiteKey, PublicIdentityFailure: func() { logger.Error("consumer identity enqueue failed") }, PlatformPlaces: placeManagement, Places: placesService, Identity: identityService, Authorizer: authorizationService, Authorization: authorizationService, Organization: organizationService, PlatformAdmin: platformAdminService, PlatformTenant: platformTenantService, Provisioning: provisioningService, Settings: settingsService, PlatformSettings: settingsService, Audit: auditService, PlatformAudit: auditService, Ready: pool.Ping})
 
 	errCh := make(chan error, 1)
 	go func() {

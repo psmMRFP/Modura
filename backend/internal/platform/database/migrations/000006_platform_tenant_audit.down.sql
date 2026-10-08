@@ -1,1 +1,1 @@
-DROP TABLE IF EXISTS modura.audit_events;
+DROP TABLE IF EXISTS wheretolive.audit_events;

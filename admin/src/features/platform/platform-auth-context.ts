@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { PlatformLoginRequest } from "../../api/generated/modura";
+import type { PlatformLoginRequest } from "../../api/generated/wheretolive";
 
 export type PlatformSessionStatus = "loading" | "authenticated" | "anonymous";
 export interface PlatformSession {

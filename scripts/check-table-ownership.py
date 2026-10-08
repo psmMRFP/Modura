@@ -3,8 +3,8 @@
 
 Rules enforced:
 1. Every migration section declares exactly one owning module.
-2. Every modura.* table is owned by exactly one module.
-3. SQL touching a modura.* table appears only in the owning module's sources,
+2. Every wheretolive.* table is owned by exactly one module.
+3. SQL touching a wheretolive.* table appears only in the owning module's sources,
    the owning module's generated query package, or the module's private
    query.sql file. Hand-written SQL may not live anywhere else.
 """
@@ -17,9 +17,9 @@ MIGRATIONS = ROOT / "backend" / "internal" / "platform" / "database" / "migratio
 MODULES = ROOT / "backend" / "internal" / "modules"
 PLATFORM = ROOT / "backend" / "internal" / "platform"
 
-SQL_USE = re.compile(r"\b(?:FROM|INTO|UPDATE|JOIN)\s+(?:ONLY\s+)?modura\.([a-z_]+)", re.IGNORECASE)
-TABLE_DEF = re.compile(r"\bCREATE (?:TABLE|VIEW)\s+(?:IF NOT EXISTS\s+)?modura\.([a-z_]+)", re.IGNORECASE)
-TABLE_ALTER = re.compile(r"\b(?:ALTER TABLE|DROP TABLE)\s+(?:IF EXISTS\s+)?modura\.([a-z_]+)", re.IGNORECASE)
+SQL_USE = re.compile(r"\b(?:FROM|INTO|UPDATE|JOIN)\s+(?:ONLY\s+)?wheretolive\.([a-z_]+)", re.IGNORECASE)
+TABLE_DEF = re.compile(r"\bCREATE (?:TABLE|VIEW)\s+(?:IF NOT EXISTS\s+)?wheretolive\.([a-z_]+)", re.IGNORECASE)
+TABLE_ALTER = re.compile(r"\b(?:ALTER TABLE|DROP TABLE)\s+(?:IF EXISTS\s+)?wheretolive\.([a-z_]+)", re.IGNORECASE)
 OWNER = re.compile(r"^--\s*owner:\s*([a-z]+)\s*$", re.MULTILINE)
 OWNER_SPLIT = re.compile(r"^--\s*owner:\s*[a-z]+\s*$", re.MULTILINE)
 
@@ -74,10 +74,10 @@ def main() -> None:
     owners = collect_ownership()
 
     # The shared platform query file may only contain queries that touch no
-    # modura tables (connection checks and similar).
+    # wheretolive tables (connection checks and similar).
     shared_sql = PLATFORM / "database" / "query.sql"
     for table in SQL_USE.findall(shared_sql.read_text(encoding="utf-8")):
-        fail(f"{shared_sql.relative_to(ROOT)}: shared query file must not reference modura.{table}")
+        fail(f"{shared_sql.relative_to(ROOT)}: shared query file must not reference wheretolive.{table}")
 
     violations = []
     for module_dir in sorted(MODULES.iterdir()):
@@ -89,10 +89,10 @@ def main() -> None:
             for table in SQL_USE.findall(content):
                 owner = owners.get(table)
                 if owner is None:
-                    violations.append(f"{path.relative_to(ROOT)}: references unknown table modura.{table}")
+                    violations.append(f"{path.relative_to(ROOT)}: references unknown table wheretolive.{table}")
                 elif owner != module:
                     violations.append(
-                        f"{path.relative_to(ROOT)}: module {module} touches modura.{table} owned by {owner}"
+                        f"{path.relative_to(ROOT)}: module {module} touches wheretolive.{table} owned by {owner}"
                     )
     if violations:
         for violation in violations:

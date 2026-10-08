@@ -19,7 +19,7 @@ import {
   useSuspendPlatformTenant,
   useUpdatePlatformTenant,
   type PlatformTenant,
-} from "../../api/generated/modura";
+} from "../../api/generated/wheretolive";
 import { usePlatformAuth } from "./platform-auth-context";
 
 export function TenantsPage() {

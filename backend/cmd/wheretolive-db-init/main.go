@@ -1,4 +1,4 @@
-// Command modura-db-init ensures the configured dedicated database exists before migrations.
+// Command wheretolive-db-init ensures the configured dedicated database exists before migrations.
 package main
 
 import (
@@ -7,8 +7,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/modura-dev/modura/backend/internal/platform/config"
-	"github.com/modura-dev/modura/backend/internal/platform/database"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/config"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/database"
 )
 
 func main() {

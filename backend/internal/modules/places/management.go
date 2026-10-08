@@ -14,8 +14,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/modura-dev/modura/backend/internal/modules/audit"
-	"github.com/modura-dev/modura/backend/internal/modules/platformadmin"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/audit"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/platformadmin"
 	"golang.org/x/text/currency"
 	"golang.org/x/text/language"
 )
@@ -78,6 +78,15 @@ type WriteContext struct {
 	CorrelationID string
 }
 
+// CatalogueQuery filters the private candidate pool independently of public search.
+// Publication describes the stored publication marker, not ancestor visibility.
+type CatalogueQuery struct {
+	Query
+	CountryCode   string
+	CoverageLevel *int
+	Publication   string
+}
+
 // ManagedPage is a bounded platform catalogue page including drafts.
 type ManagedPage struct {
 	Items      []Entry
@@ -86,7 +95,7 @@ type ManagedPage struct {
 
 // ManagementStore persists changes in the application's transaction.
 type ManagementStore interface {
-	ListManaged(context.Context, Query) ([]Entry, error)
+	ListManaged(context.Context, CatalogueQuery) ([]Entry, error)
 	GetManaged(context.Context, string) (Entry, error)
 	CreateManaged(context.Context, pgx.Tx, Entry) (Entry, error)
 	UpdateManaged(context.Context, pgx.Tx, string, int64, Details, time.Time) (Entry, Entry, error)
@@ -209,11 +218,23 @@ func normalizeDetails(details Details) (Details, error) {
 }
 
 // List returns drafts and published entries only to verified platform administrators.
-func (s *Management) List(ctx context.Context, actor platformadmin.Actor, query Query) (ManagedPage, error) {
+func (s *Management) List(ctx context.Context, actor platformadmin.Actor, query CatalogueQuery) (ManagedPage, error) {
 	if !validActor(actor) {
 		return ManagedPage{}, ErrDenied
 	}
 	if query.Limit < 1 || query.Limit > 50 || query.Offset < 0 || query.Offset > 10000 || utf8.RuneCountInString(query.Search) > 120 || !utf8.ValidString(query.Search) {
+		return ManagedPage{}, ErrInvalidQuery
+	}
+	if query.CountryCode != "" {
+		region, err := language.ParseRegion(query.CountryCode)
+		if err != nil || len(query.CountryCode) != 2 || !region.IsCountry() || region.String() != query.CountryCode {
+			return ManagedPage{}, ErrInvalidQuery
+		}
+	}
+	if query.CoverageLevel != nil && (*query.CoverageLevel < 0 || *query.CoverageLevel > 3) {
+		return ManagedPage{}, ErrInvalidQuery
+	}
+	if query.Publication != "" && query.Publication != "draft" && query.Publication != "published" {
 		return ManagedPage{}, ErrInvalidQuery
 	}
 	query.Search = NormalizeName(query.Search)

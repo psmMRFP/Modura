@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/modura-dev/modura/backend/internal/api/generated"
-	"github.com/modura-dev/modura/backend/internal/platform/config"
+	"github.com/psmMRFP/WhereToLive/backend/internal/api/generated"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/config"
 )
 
 func TestHealthEndpoints(t *testing.T) {
@@ -136,7 +136,7 @@ func TestMetricsEndpointExposesPrometheusText(t *testing.T) {
 	if metricsResponse.Header().Get("Content-Type") != contentType {
 		t.Fatalf("content type = %q", metricsResponse.Header().Get("Content-Type"))
 	}
-	for _, marker := range []string{"modura_http_requests_total", "modura_http_request_duration_seconds_bucket", `route="/api/livez"`, "modura_http_uptime_seconds"} {
+	for _, marker := range []string{"wheretolive_http_requests_total", "wheretolive_http_request_duration_seconds_bucket", `route="/api/livez"`, "wheretolive_http_uptime_seconds"} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("metrics output missing %q", marker)
 		}

@@ -11,12 +11,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/modura-dev/modura/backend/internal/modules/audit"
-	auditpostgres "github.com/modura-dev/modura/backend/internal/modules/audit/postgres"
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
-	"github.com/modura-dev/modura/backend/internal/modules/organization"
-	"github.com/modura-dev/modura/backend/internal/platform/database"
-	"github.com/modura-dev/modura/backend/internal/platform/database/migrationtest"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/audit"
+	auditpostgres "github.com/psmMRFP/WhereToLive/backend/internal/modules/audit/postgres"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/organization"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/database"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/database/migrationtest"
 )
 
 func TestOrganizationTenantAndTreeInvariants(t *testing.T) {
@@ -165,7 +165,7 @@ func TestOrganizationWritesAndAuditAreAtomic(t *testing.T) {
 		t.Fatal(err)
 	}
 	var action, actorID, correlationID string
-	if err := pool.QueryRow(ctx, `SELECT action, actor_id, correlation_id FROM modura.audit_events WHERE tenant_id = $1 AND resource_id = $2`, tenantID, createdID).Scan(&action, &actorID, &correlationID); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT action, actor_id, correlation_id FROM wheretolive.audit_events WHERE tenant_id = $1 AND resource_id = $2`, tenantID, createdID).Scan(&action, &actorID, &correlationID); err != nil {
 		t.Fatal(err)
 	}
 	if action != "organization.department.created" || actorID != string(write.Actor.UserID) || correlationID != write.CorrelationID {
@@ -179,7 +179,7 @@ func TestOrganizationWritesAndAuditAreAtomic(t *testing.T) {
 		t.Fatal("organization write succeeded without audit")
 	}
 	var positions int
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM modura.positions WHERE tenant_id = $1`, tenantID).Scan(&positions); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM wheretolive.positions WHERE tenant_id = $1`, tenantID).Scan(&positions); err != nil {
 		t.Fatal(err)
 	}
 	if positions != 0 {
@@ -220,13 +220,13 @@ func department(id string, tenantID identity.TenantID, parentID *organization.De
 func seedIdentity(t *testing.T, pool *pgxpool.Pool, now time.Time) {
 	t.Helper()
 	if _, err := pool.Exec(context.Background(), `
-INSERT INTO modura.tenants (id, slug, display_name, status, created_at, updated_at) VALUES
+INSERT INTO wheretolive.tenants (id, slug, display_name, status, created_at, updated_at) VALUES
 ('018bcfe5-6800-7000-8000-000000000101', 'org-alpha', 'Alpha', 'active', $1, $1),
 ('018bcfe5-6800-7000-8000-000000000102', 'org-beta', 'Beta', 'active', $1, $1)`, now); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := pool.Exec(context.Background(), `
-INSERT INTO modura.users (id, tenant_id, username, normalized_username, password_hash, status, created_at, updated_at) VALUES
+INSERT INTO wheretolive.users (id, tenant_id, username, normalized_username, password_hash, status, created_at, updated_at) VALUES
 ('018bcfe5-6800-7000-8000-000000000131', '018bcfe5-6800-7000-8000-000000000101', 'alpha-user', 'alpha-user', 'hash', 'active', $1, $1),
 ('018bcfe5-6800-7000-8000-000000000132', '018bcfe5-6800-7000-8000-000000000102', 'beta-user', 'beta-user', 'hash', 'active', $1, $1)`, now); err != nil {
 		t.Fatal(err)
@@ -235,9 +235,9 @@ INSERT INTO modura.users (id, tenant_id, username, normalized_username, password
 
 func integrationPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	url := os.Getenv("MODURA_TEST_DATABASE_URL")
+	url := os.Getenv("WHERETOLIVE_TEST_DATABASE_URL")
 	if url == "" {
-		t.Skip("MODURA_TEST_DATABASE_URL is not set")
+		t.Skip("WHERETOLIVE_TEST_DATABASE_URL is not set")
 	}
 	config, err := pgxpool.ParseConfig(url)
 	if err != nil {

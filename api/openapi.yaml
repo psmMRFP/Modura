@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
-  title: Modura HTTP API
+  title: WhereToLive HTTP API
   version: 0.1.0
-  description: Authoritative HTTP contract for the Modura modular monolith.
+  description: Authoritative HTTP contract for the WhereToLive modular monolith.
 servers:
   - url: /api
 paths:
@@ -177,6 +177,103 @@ paths:
         "401": {$ref: "#/components/responses/AuthenticationFailed"}
         "500": {$ref: "#/components/responses/PublicInternalError"}
         "503": {$ref: "#/components/responses/PublicUnavailable"}
+  /platform/feedback/categories:
+    get:
+      operationId: listPlatformFeedbackCategories
+      summary: List active staff intake categories
+      tags: [platform-feedback]
+      security: [{platformBearerAuth: []}]
+      responses:
+        "200":
+          description: Active categories
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: "#/components/schemas/FeedbackCategory"}}
+        "401": {$ref: "#/components/responses/AuthenticationFailed"}
+        "500": {$ref: "#/components/responses/PublicInternalError"}
+        "503": {$ref: "#/components/responses/PublicUnavailable"}
+  /platform/feedback:
+    get:
+      operationId: listPlatformFeedback
+      summary: List restricted manual intake; never a public demand projection
+      tags: [platform-feedback]
+      security: [{platformBearerAuth: []}]
+      parameters:
+        - name: status
+          in: query
+          schema: {$ref: "#/components/schemas/FeedbackStatus"}
+        - name: category
+          in: query
+          schema: {type: string, maxLength: 50}
+        - name: limit
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 50, default: 20}
+        - name: offset
+          in: query
+          schema: {type: integer, minimum: 0, maximum: 10000, default: 0}
+      responses:
+        "200":
+          description: Restricted feedback
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/FeedbackPage"}
+        "400": {$ref: "#/components/responses/PublicInvalidQuery"}
+        "401": {$ref: "#/components/responses/AuthenticationFailed"}
+        "500": {$ref: "#/components/responses/PublicInternalError"}
+        "503": {$ref: "#/components/responses/PublicUnavailable"}
+    post:
+      operationId: createPlatformFeedback
+      summary: Record manual feedback intake, without personal account or dispute data
+      tags: [platform-feedback]
+      security: [{platformBearerAuth: []}]
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/CreateFeedbackRequest"}
+      responses:
+        "201":
+          description: Intake recorded
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/FeedbackEntry"}
+        "400": {$ref: "#/components/responses/PublicInvalidQuery"}
+        "401": {$ref: "#/components/responses/AuthenticationFailed"}
+        "403": {description: CSRF verification failed}
+        "500": {$ref: "#/components/responses/PublicInternalError"}
+        "503": {$ref: "#/components/responses/PublicUnavailable"}
+  /platform/feedback/{id}/review:
+    put:
+      operationId: reviewPlatformFeedback
+      summary: Change processing status with optimistic concurrency and an actual outcome
+      tags: [platform-feedback]
+      security: [{platformBearerAuth: []}]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/ReviewFeedbackRequest"}
+      responses:
+        "200":
+          description: Review recorded
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/FeedbackEntry"}
+        "400": {$ref: "#/components/responses/PublicInvalidQuery"}
+        "401": {$ref: "#/components/responses/AuthenticationFailed"}
+        "403": {description: CSRF verification failed}
+        "404": {description: Feedback not found}
+        "409": {description: Stale version or invalid state transition}
+        "500": {$ref: "#/components/responses/PublicInternalError"}
+        "503": {$ref: "#/components/responses/PublicUnavailable"}
   /platform/places:
     get:
       operationId: listPlatformPlaces
@@ -193,6 +290,18 @@ paths:
         - name: offset
           in: query
           schema: {type: integer, minimum: 0, maximum: 10000, default: 0}
+        - name: countryCode
+          in: query
+          description: Exact ISO country code in the private catalogue.
+          schema: {type: string, pattern: "^[A-Z]{2}$"}
+        - name: coverageLevel
+          in: query
+          description: 0 Candidate, 1 Basic, 2 Relocation, 3 Full. Independent of publication.
+          schema: {type: integer, minimum: 0, maximum: 3}
+        - name: publication
+          in: query
+          description: Stored publication marker; published children may remain hidden by ancestors.
+          schema: {type: string, enum: [draft, published]}
       responses:
         "200":
           description: Platform place result
@@ -844,7 +953,7 @@ paths:
       tags: [identity]
       security:
         - bearerAuth: []
-      x-modura-permission: { resource: identity.users, action: read }
+      x-wheretolive-permission: { resource: identity.users, action: read }
       responses:
         "200":
           description: Tenant user catalogue
@@ -864,7 +973,7 @@ paths:
       tags: [identity]
       security:
         - bearerAuth: []
-      x-modura-permission: { resource: identity.users, action: read }
+      x-wheretolive-permission: { resource: identity.users, action: read }
       responses:
         "200":
           description: Tenant user detail
@@ -883,7 +992,7 @@ paths:
       tags: [identity]
       security:
         - bearerAuth: []
-      x-modura-permission: { resource: identity.users, action: update }
+      x-wheretolive-permission: { resource: identity.users, action: update }
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
       requestBody:
@@ -911,7 +1020,7 @@ paths:
       tags: [identity]
       security:
         - bearerAuth: []
-      x-modura-permission: { resource: identity.users, action: update }
+      x-wheretolive-permission: { resource: identity.users, action: update }
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
       responses:
@@ -975,7 +1084,7 @@ paths:
       tags: [organization]
       security:
         - bearerAuth: []
-      x-modura-permission: { resource: organization.departments, action: read }
+      x-wheretolive-permission: { resource: organization.departments, action: read }
       responses:
         "200":
           description: Tenant department list
@@ -995,7 +1104,7 @@ paths:
       tags: [organization]
       security:
         - bearerAuth: []
-      x-modura-permission: { resource: organization.departments, action: create }
+      x-wheretolive-permission: { resource: organization.departments, action: create }
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
       requestBody:
@@ -1030,7 +1139,7 @@ paths:
       tags: [organization]
       security:
         - bearerAuth: []
-      x-modura-permission: { resource: organization.departments, action: update }
+      x-wheretolive-permission: { resource: organization.departments, action: update }
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
       requestBody:
@@ -1060,7 +1169,7 @@ paths:
       tags: [organization]
       security:
         - bearerAuth: []
-      x-modura-permission: { resource: organization.departments, action: update }
+      x-wheretolive-permission: { resource: organization.departments, action: update }
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
       requestBody:
@@ -1090,7 +1199,7 @@ paths:
       tags: [organization]
       security:
         - bearerAuth: []
-      x-modura-permission: { resource: organization.departments, action: delete }
+      x-wheretolive-permission: { resource: organization.departments, action: delete }
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
       responses:
@@ -1115,7 +1224,7 @@ paths:
       tags: [organization]
       security:
         - bearerAuth: []
-      x-modura-permission: { resource: organization.positions, action: read }
+      x-wheretolive-permission: { resource: organization.positions, action: read }
       responses:
         "200":
           description: Tenant position list
@@ -1135,7 +1244,7 @@ paths:
       tags: [organization]
       security:
         - bearerAuth: []
-      x-modura-permission: { resource: organization.positions, action: create }
+      x-wheretolive-permission: { resource: organization.positions, action: create }
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
       requestBody:
@@ -1170,7 +1279,7 @@ paths:
       tags: [organization]
       security:
         - bearerAuth: []
-      x-modura-permission: { resource: organization.positions, action: update }
+      x-wheretolive-permission: { resource: organization.positions, action: update }
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
       requestBody:
@@ -1201,7 +1310,7 @@ paths:
       tags: [organization]
       security:
         - bearerAuth: []
-      x-modura-permission: { resource: organization.user-organization, action: update }
+      x-wheretolive-permission: { resource: organization.user-organization, action: update }
       parameters:
         - $ref: "#/components/parameters/UserId"
         - $ref: "#/components/parameters/CsrfToken"
@@ -1230,7 +1339,7 @@ paths:
       summary: List roles in the authenticated tenant
       tags: [authorization]
       security: [{ bearerAuth: [] }]
-      x-modura-permission: { resource: authorization.roles, action: read }
+      x-wheretolive-permission: { resource: authorization.roles, action: read }
       responses:
         "200":
           description: Tenant role list
@@ -1244,7 +1353,7 @@ paths:
       summary: Create an empty non-reserved tenant role
       tags: [authorization]
       security: [{ bearerAuth: [] }]
-      x-modura-permission: { resource: authorization.roles, action: create }
+      x-wheretolive-permission: { resource: authorization.roles, action: create }
       parameters: [{ $ref: "#/components/parameters/CsrfToken" }]
       requestBody:
         required: true
@@ -1279,7 +1388,7 @@ paths:
       summary: Read a role's versioned policy desired state
       tags: [authorization]
       security: [{ bearerAuth: [] }]
-      x-modura-permission: { resource: authorization.policies, action: read }
+      x-wheretolive-permission: { resource: authorization.policies, action: read }
       parameters:
         - { $ref: "#/components/parameters/RoleId" }
       responses:
@@ -1296,7 +1405,7 @@ paths:
       summary: Replace a non-reserved role's policy desired state
       tags: [authorization]
       security: [{ bearerAuth: [] }]
-      x-modura-permission: { resource: authorization.policies, action: update }
+      x-wheretolive-permission: { resource: authorization.policies, action: update }
       parameters:
         - { $ref: "#/components/parameters/RoleId" }
         - { $ref: "#/components/parameters/CsrfToken" }
@@ -1322,7 +1431,7 @@ paths:
       summary: Read a user's versioned role desired state
       tags: [authorization]
       security: [{ bearerAuth: [] }]
-      x-modura-permission: { resource: authorization.user-roles, action: read }
+      x-wheretolive-permission: { resource: authorization.user-roles, action: read }
       parameters: [{ $ref: "#/components/parameters/UserId" }]
       responses:
         "200":
@@ -1338,7 +1447,7 @@ paths:
       summary: Replace a user's non-reserved role grants with optimistic locking
       tags: [authorization]
       security: [{ bearerAuth: [] }]
-      x-modura-permission: { resource: authorization.user-roles, action: update }
+      x-wheretolive-permission: { resource: authorization.user-roles, action: update }
       parameters:
         - { $ref: "#/components/parameters/UserId" }
         - { $ref: "#/components/parameters/CsrfToken" }
@@ -1364,7 +1473,7 @@ paths:
       summary: List effective tenant-over-global dictionaries
       tags: [settings]
       security: [{ bearerAuth: [] }]
-      x-modura-permission: { resource: settings.dictionaries, action: read }
+      x-wheretolive-permission: { resource: settings.dictionaries, action: read }
       responses:
         "200":
           description: Effective dictionary list
@@ -1379,7 +1488,7 @@ paths:
       summary: Create or replace a complete tenant dictionary
       tags: [settings]
       security: [{ bearerAuth: [] }]
-      x-modura-permission: { resource: settings.dictionaries, action: update }
+      x-wheretolive-permission: { resource: settings.dictionaries, action: update }
       parameters:
         - { $ref: "#/components/parameters/DictionaryCode" }
         - { $ref: "#/components/parameters/CsrfToken" }
@@ -1404,7 +1513,7 @@ paths:
       summary: Delete a tenant dictionary and reveal any global fallback
       tags: [settings]
       security: [{ bearerAuth: [] }]
-      x-modura-permission: { resource: settings.dictionaries, action: delete }
+      x-wheretolive-permission: { resource: settings.dictionaries, action: delete }
       parameters:
         - { $ref: "#/components/parameters/DictionaryCode" }
         - { $ref: "#/components/parameters/ExpectedVersion" }
@@ -1421,7 +1530,7 @@ paths:
       summary: List effective non-secret configuration
       tags: [settings]
       security: [{ bearerAuth: [] }]
-      x-modura-permission: { resource: settings.configurations, action: read }
+      x-wheretolive-permission: { resource: settings.configurations, action: read }
       responses:
         "200":
           description: Effective configuration list
@@ -1436,7 +1545,7 @@ paths:
       summary: Create or replace an eligible tenant configuration override
       tags: [settings]
       security: [{ bearerAuth: [] }]
-      x-modura-permission: { resource: settings.configurations, action: update }
+      x-wheretolive-permission: { resource: settings.configurations, action: update }
       parameters:
         - { $ref: "#/components/parameters/ConfigurationKey" }
         - { $ref: "#/components/parameters/CsrfToken" }
@@ -1462,7 +1571,7 @@ paths:
       summary: List redacted audit events in the authenticated tenant
       tags: [audit]
       security: [{ bearerAuth: [] }]
-      x-modura-permission: { resource: audit.events, action: read }
+      x-wheretolive-permission: { resource: audit.events, action: read }
       parameters:
         - name: action
           in: query
@@ -1493,7 +1602,7 @@ paths:
       summary: Read one redacted audit event in the authenticated tenant
       tags: [audit]
       security: [{ bearerAuth: [] }]
-      x-modura-permission: { resource: audit.events, action: read }
+      x-wheretolive-permission: { resource: audit.events, action: read }
       responses:
         "200":
           description: Redacted audit event with state snapshots
@@ -1713,6 +1822,54 @@ components:
         code: {type: string, minLength: 32, maxLength: 128}
         password: {type: string, minLength: 12, maxLength: 1024}
         challenge: {type: string, minLength: 1, maxLength: 2048}
+    FeedbackStatus:
+      type: string
+      enum: [open, in_review, resolved, dismissed]
+    FeedbackCategory:
+      type: object
+      required: [key, label]
+      properties:
+        key: {type: string}
+        label: {type: string}
+    FeedbackEntry:
+      type: object
+      required: [id, category, placeId, title, message, status, outcome, version, createdAt, updatedAt]
+      properties:
+        id: {type: string, format: uuid}
+        category: {type: string}
+        placeId: {type: string, format: uuid, nullable: true}
+        title: {type: string}
+        message: {type: string}
+        status: {$ref: "#/components/schemas/FeedbackStatus"}
+        outcome: {type: string, nullable: true}
+        version: {type: integer, format: int64, minimum: 1}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    FeedbackPage:
+      type: object
+      required: [items, nextOffset]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/FeedbackEntry"}}
+        nextOffset: {type: integer, nullable: true}
+    CreateFeedbackRequest:
+      type: object
+      additionalProperties: false
+      required: [category, placeId, title, message, reason]
+      properties:
+        category: {type: string, minLength: 1, maxLength: 50}
+        placeId: {type: string, format: uuid, nullable: true}
+        title: {type: string, minLength: 1, maxLength: 200}
+        message: {type: string, minLength: 1, maxLength: 5000}
+        reason: {type: string, minLength: 1, maxLength: 500}
+    ReviewFeedbackRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, status, outcome, reason]
+      properties:
+        expectedVersion: {type: integer, format: int64, minimum: 1}
+        status: {$ref: "#/components/schemas/FeedbackStatus"}
+        outcome: {type: string, nullable: true, minLength: 1, maxLength: 2000}
+        reason: {type: string, minLength: 1, maxLength: 500}
     PlaceAlias:
       type: object
       additionalProperties: false

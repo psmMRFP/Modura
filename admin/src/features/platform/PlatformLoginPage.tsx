@@ -1,7 +1,7 @@
 import { Alert, Button, Card, Form, Input, Typography } from "antd";
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import type { PlatformLoginRequest } from "../../api/generated/modura";
+import type { PlatformLoginRequest } from "../../api/generated/wheretolive";
 import { usePlatformAuth } from "./platform-auth-context";
 
 export function PlatformLoginPage() {

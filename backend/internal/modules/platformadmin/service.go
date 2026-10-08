@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
 )
 
 var (
@@ -87,7 +87,7 @@ func NewService(store Store, signer identity.AccessTokenSigner, verifier identit
 	if store == nil || refreshLifetime <= 0 || now == nil || newID == nil || newSecret == nil {
 		return nil, fmt.Errorf("invalid platform administrator service configuration")
 	}
-	dummyHash, err := identity.HashPassword("modura platform timing defense", password)
+	dummyHash, err := identity.HashPassword("wheretolive platform timing defense", password)
 	if err != nil {
 		return nil, fmt.Errorf("create platform timing defense: %w", err)
 	}

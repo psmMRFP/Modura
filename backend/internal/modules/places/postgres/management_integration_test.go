@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/modura-dev/modura/backend/internal/modules/audit"
-	auditpostgres "github.com/modura-dev/modura/backend/internal/modules/audit/postgres"
-	"github.com/modura-dev/modura/backend/internal/modules/places"
-	"github.com/modura-dev/modura/backend/internal/modules/platformadmin"
-	"github.com/modura-dev/modura/backend/internal/platform/database"
-	"github.com/modura-dev/modura/backend/internal/platform/identifier"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/audit"
+	auditpostgres "github.com/psmMRFP/WhereToLive/backend/internal/modules/audit/postgres"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/places"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/platformadmin"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/database"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/identifier"
 )
 
 type unavailableAudit struct{}
@@ -69,7 +69,7 @@ func TestManagedPlacePublicationAndAuditAreAtomic(t *testing.T) {
 		t.Fatal("child visible after parent withdrawal")
 	}
 	var events int
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM modura.audit_events WHERE resource='place' AND correlation_id=$1`, write.CorrelationID).Scan(&events); err != nil || events != 5 {
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM wheretolive.audit_events WHERE resource='place' AND correlation_id=$1`, write.CorrelationID).Scan(&events); err != nil || events != 5 {
 		t.Fatalf("audit events=%d err=%v", events, err)
 	}
 	rejecting, err := places.NewManagement(store, database.NewTransactor(pool), unavailableAudit{}, time.Now, newID)
@@ -87,7 +87,66 @@ func TestManagedPlacePublicationAndAuditAreAtomic(t *testing.T) {
 		t.Fatal("audit failure created a place")
 	}
 	var count int
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM modura.places WHERE slug='france'`).Scan(&count); err != nil || count != 0 {
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM wheretolive.places WHERE slug='france'`).Scan(&count); err != nil || count != 0 {
 		t.Fatal("failed audit persisted draft")
+	}
+}
+
+func TestCandidatePoolFiltersComposeAndPreservePublicationSemantics(t *testing.T) {
+	pool := integrationPool(t)
+	ctx := context.Background()
+	now := time.Now().UTC().Add(-time.Hour)
+	country := "018bcfe5-6800-7000-8000-000000002001"
+	city := "018bcfe5-6800-7000-8000-000000002002"
+	france := "018bcfe5-6800-7000-8000-000000002003"
+	insert := func(id, slug, name, kind, code string, parent *string, coverage int, published *time.Time) {
+		t.Helper()
+		_, err := pool.Exec(ctx, `INSERT INTO wheretolive.places(id,slug,name,normalized_name,type,country_code,parent_id,coverage_level,published_at,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10)`, id, slug, name, places.NormalizeName(name), kind, code, parent, coverage, published, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	insert(country, "germany", "Germany", "country", "DE", nil, 0, nil)
+	insert(city, "munich", "Munich", "city", "DE", &country, 1, &now)
+	insert(france, "france", "France", "country", "FR", nil, 0, nil)
+	if _, err := pool.Exec(ctx, `INSERT INTO wheretolive.place_aliases(place_id,locale,name,normalized_name,preferred) VALUES($1,'de','München','münchen',true)`, city); err != nil {
+		t.Fatal(err)
+	}
+	store := New(pool)
+	zero, one := 0, 1
+	cases := []struct {
+		query places.CatalogueQuery
+		ids   []string
+	}{
+		{places.CatalogueQuery{}, []string{france, country, city}},
+		{places.CatalogueQuery{CountryCode: "DE", CoverageLevel: &zero, Publication: "draft"}, []string{country}},
+		{places.CatalogueQuery{CountryCode: "FR", CoverageLevel: &zero}, []string{france}},
+		{places.CatalogueQuery{CountryCode: "FR", Query: places.Query{Search: "mun"}}, nil},
+		{places.CatalogueQuery{CountryCode: "DE", CoverageLevel: &one, Publication: "published", Query: places.Query{Search: "mün"}}, []string{city}},
+		{places.CatalogueQuery{Query: places.Query{Search: "%"}}, nil},
+		{places.CatalogueQuery{Query: places.Query{Search: "_"}}, nil},
+		{places.CatalogueQuery{Query: places.Query{Limit: 1, Offset: 1}}, []string{country}},
+	}
+	for _, tc := range cases {
+		q := tc.query
+		if q.Limit == 0 {
+			q.Limit = 20
+		}
+		rows, err := store.ListManaged(ctx, q)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(rows) != len(tc.ids) {
+			t.Fatalf("filter %+v: got %d want %d", q, len(rows), len(tc.ids))
+		}
+		for i, id := range tc.ids {
+			if rows[i].ID != id {
+				t.Fatalf("filter %+v: got %s want %s", q, rows[i].ID, id)
+			}
+		}
+	}
+	public, _ := places.NewService(store)
+	if _, err := public.Get(ctx, "munich", "en"); !errors.Is(err, places.ErrNotFound) {
+		t.Fatal("publication filter bypassed private ancestor")
 	}
 }

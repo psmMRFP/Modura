@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getGetLivenessUrl, getGetReadinessUrl } from "./generated/modura";
+import { getGetLivenessUrl, getGetReadinessUrl } from "./generated/wheretolive";
 
 describe("generated API routes", () => {
   it("uses the shared API prefix", () => {

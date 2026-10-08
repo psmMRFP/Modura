@@ -10,13 +10,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/modura-dev/modura/backend/internal/api/generated"
-	"github.com/modura-dev/modura/backend/internal/modules/authorization"
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
-	"github.com/modura-dev/modura/backend/internal/modules/organization"
-	"github.com/modura-dev/modura/backend/internal/modules/platformadmin"
-	"github.com/modura-dev/modura/backend/internal/modules/platformtenant"
-	"github.com/modura-dev/modura/backend/internal/modules/provisioning"
+	"github.com/psmMRFP/WhereToLive/backend/internal/api/generated"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/authorization"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/organization"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/platformadmin"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/platformtenant"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/provisioning"
 )
 
 type identityStub struct {
@@ -199,8 +199,8 @@ func TestRefreshRequiresMatchingCSRF(t *testing.T) {
 	router := testRouter(&identityStub{})
 	for _, header := range []string{"", strings.Repeat("x", 32)} {
 		request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/auth/refresh", nil)
-		request.AddCookie(&http.Cookie{Name: "modura_refresh", Value: "refresh"})
-		request.AddCookie(&http.Cookie{Name: "modura_csrf", Value: strings.Repeat("c", 32)})
+		request.AddCookie(&http.Cookie{Name: "wheretolive_tenant_refresh", Value: "refresh"})
+		request.AddCookie(&http.Cookie{Name: "wheretolive_tenant_csrf", Value: strings.Repeat("c", 32)})
 		if header != "" {
 			request.Header.Set("X-CSRF-Token", header)
 		}
@@ -226,14 +226,14 @@ func TestPlatformLoginUsesDistinctCookies(t *testing.T) {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
 	}
 	cookies := response.Result().Cookies()
-	if len(cookies) != 2 || cookies[0].Name != "modura_platform_refresh" || cookies[1].Name != "modura_platform_csrf" {
+	if len(cookies) != 2 || cookies[0].Name != "wheretolive_platform_refresh" || cookies[1].Name != "wheretolive_platform_csrf" {
 		t.Fatalf("unexpected platform cookies: %+v", cookies)
 	}
 	for _, cookie := range cookies {
-		// The refresh cookie stays scoped to the platform auth surface; the
+		// The refresh cookie stays scoped to the platform API surface; the
 		// CSRF cookie is site-wide so the SPA can read it on any route.
-		want := "/api/platform/auth"
-		if cookie.Name == "modura_platform_csrf" {
+		want := "/api/platform"
+		if cookie.Name == "wheretolive_platform_csrf" {
 			want = "/"
 		}
 		if cookie.Path != want {
@@ -245,8 +245,8 @@ func TestPlatformLoginUsesDistinctCookies(t *testing.T) {
 func TestPlatformRefreshRejectsTenantCookies(t *testing.T) {
 	router := testRouter(&identityStub{})
 	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/platform/auth/refresh", nil)
-	request.AddCookie(&http.Cookie{Name: "modura_refresh", Value: "refresh"})
-	request.AddCookie(&http.Cookie{Name: "modura_csrf", Value: strings.Repeat("c", 32)})
+	request.AddCookie(&http.Cookie{Name: "wheretolive_tenant_refresh", Value: "refresh"})
+	request.AddCookie(&http.Cookie{Name: "wheretolive_tenant_csrf", Value: strings.Repeat("c", 32)})
 	request.Header.Set("X-CSRF-Token", strings.Repeat("c", 32))
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
@@ -260,8 +260,8 @@ func TestPlatformLogoutClearsCookies(t *testing.T) {
 	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/platform/auth/logout", nil)
 	request.Header.Set("Authorization", "Bearer platform-access")
 	request.Header.Set("X-CSRF-Token", strings.Repeat("c", 32))
-	request.AddCookie(&http.Cookie{Name: "modura_platform_refresh", Value: "platform-refresh"})
-	request.AddCookie(&http.Cookie{Name: "modura_platform_csrf", Value: strings.Repeat("c", 32)})
+	request.AddCookie(&http.Cookie{Name: "wheretolive_platform_refresh", Value: "platform-refresh"})
+	request.AddCookie(&http.Cookie{Name: "wheretolive_platform_csrf", Value: strings.Repeat("c", 32)})
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
 	if response.Code != http.StatusNoContent {
@@ -283,8 +283,8 @@ func TestProvisionTenantRequiresPlatformSessionAndDoesNotExposeInvitation(t *tes
 	request.Header.Set("X-CSRF-Token", strings.Repeat("c", 32))
 	request.Header.Set("Idempotency-Key", "018bcfe5-6800-7000-8000-000000000903")
 	request.Header.Set("X-Request-ID", "request-provision-http")
-	request.AddCookie(&http.Cookie{Name: "modura_platform_refresh", Value: "platform-refresh"})
-	request.AddCookie(&http.Cookie{Name: "modura_platform_csrf", Value: strings.Repeat("c", 32)})
+	request.AddCookie(&http.Cookie{Name: "wheretolive_platform_refresh", Value: "platform-refresh"})
+	request.AddCookie(&http.Cookie{Name: "wheretolive_platform_csrf", Value: strings.Repeat("c", 32)})
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
 	if response.Code != http.StatusCreated {
@@ -306,8 +306,8 @@ func TestProvisionTenantMapsIdempotencyConflict(t *testing.T) {
 	request.Header.Set("Authorization", "Bearer platform-access")
 	request.Header.Set("X-CSRF-Token", strings.Repeat("c", 32))
 	request.Header.Set("Idempotency-Key", "018bcfe5-6800-7000-8000-000000000903")
-	request.AddCookie(&http.Cookie{Name: "modura_platform_refresh", Value: "platform-refresh"})
-	request.AddCookie(&http.Cookie{Name: "modura_platform_csrf", Value: strings.Repeat("c", 32)})
+	request.AddCookie(&http.Cookie{Name: "wheretolive_platform_refresh", Value: "platform-refresh"})
+	request.AddCookie(&http.Cookie{Name: "wheretolive_platform_csrf", Value: strings.Repeat("c", 32)})
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
 	if response.Code != http.StatusConflict {

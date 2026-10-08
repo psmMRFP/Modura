@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
-	"github.com/modura-dev/modura/backend/internal/modules/organization"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/organization"
 )
 
 // Store persists tenant-scoped organization data.
@@ -29,18 +29,18 @@ func (s *Store) ListDepartments(ctx context.Context, tenantID identity.TenantID,
 	const query = `
 WITH RECURSIVE actor_department AS (
     SELECT primary_department_id AS id
-    FROM modura.user_organization
+    FROM wheretolive.user_organization
     WHERE tenant_id = $1 AND user_id = $3
 ), descendants AS (
     SELECT id FROM actor_department WHERE $5
     UNION ALL
     SELECT d.id
-    FROM modura.departments d
+    FROM wheretolive.departments d
     JOIN descendants parent ON d.parent_id = parent.id
     WHERE d.tenant_id = $1
 )
 SELECT d.id, d.parent_id, d.name, d.sort_order
-FROM modura.departments d
+FROM wheretolive.departments d
 WHERE d.tenant_id = $1 AND (
     $2
     OR (($4 OR $6) AND d.id IN (SELECT id FROM actor_department))
@@ -69,7 +69,7 @@ ORDER BY d.sort_order, d.normalized_name, d.id`
 
 // ListPositions returns only positions explicitly scoped to the supplied tenant.
 func (s *Store) ListPositions(ctx context.Context, tenantID identity.TenantID) ([]organization.PositionView, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id, name, status FROM modura.positions WHERE tenant_id = $1 ORDER BY normalized_name, id`, tenantID)
+	rows, err := s.pool.Query(ctx, `SELECT id, name, status FROM wheretolive.positions WHERE tenant_id = $1 ORDER BY normalized_name, id`, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("query positions: %w", err)
 	}
@@ -95,7 +95,7 @@ func (s *Store) CreateDepartment(ctx context.Context, tx pgx.Tx, department orga
 		return organization.ErrNotFound
 	}
 	_, err := tx.Exec(ctx, `
-INSERT INTO modura.departments
+INSERT INTO wheretolive.departments
     (id, tenant_id, parent_id, name, normalized_name, sort_order, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $7)`, department.ID, department.TenantID, department.ParentID, department.Name, department.NormalizedName, department.SortOrder, department.CreatedAt)
 	if err != nil {
@@ -109,7 +109,7 @@ func (s *Store) UpdateDepartment(ctx context.Context, tx pgx.Tx, tenantID identi
 	if !visibleDepartment(ctx, tx, tenantID, departmentID, scope) {
 		return organization.ErrNotFound
 	}
-	command, err := tx.Exec(ctx, `UPDATE modura.departments SET name = $3, normalized_name = $4, sort_order = $5, updated_at = $6 WHERE tenant_id = $1 AND id = $2`, tenantID, departmentID, name, normalizedName, sortOrder, now)
+	command, err := tx.Exec(ctx, `UPDATE wheretolive.departments SET name = $3, normalized_name = $4, sort_order = $5, updated_at = $6 WHERE tenant_id = $1 AND id = $2`, tenantID, departmentID, name, normalizedName, sortOrder, now)
 	if err != nil {
 		return fmt.Errorf("update department: %w", err)
 	}
@@ -125,7 +125,7 @@ func (s *Store) MoveDepartment(ctx context.Context, tx pgx.Tx, tenantID identity
 		return organization.ErrNotFound
 	}
 	var isRoot bool
-	if err := tx.QueryRow(ctx, `SELECT parent_id IS NULL FROM modura.departments WHERE tenant_id = $1 AND id = $2 FOR UPDATE`, tenantID, departmentID).Scan(&isRoot); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT parent_id IS NULL FROM wheretolive.departments WHERE tenant_id = $1 AND id = $2 FOR UPDATE`, tenantID, departmentID).Scan(&isRoot); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return organization.ErrNotFound
 		}
@@ -135,7 +135,7 @@ func (s *Store) MoveDepartment(ctx context.Context, tx pgx.Tx, tenantID identity
 		return organization.ErrRootDepartment
 	}
 	var parentExists bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM modura.departments WHERE tenant_id = $1 AND id = $2)`, tenantID, newParentID).Scan(&parentExists); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM wheretolive.departments WHERE tenant_id = $1 AND id = $2)`, tenantID, newParentID).Scan(&parentExists); err != nil {
 		return fmt.Errorf("check department parent: %w", err)
 	}
 	if !parentExists {
@@ -143,9 +143,9 @@ func (s *Store) MoveDepartment(ctx context.Context, tx pgx.Tx, tenantID identity
 	}
 	const cycleQuery = `
 WITH RECURSIVE descendants AS (
-    SELECT id FROM modura.departments WHERE tenant_id = $1 AND id = $2
+    SELECT id FROM wheretolive.departments WHERE tenant_id = $1 AND id = $2
     UNION ALL
-    SELECT d.id FROM modura.departments d
+    SELECT d.id FROM wheretolive.departments d
     JOIN descendants parent ON d.parent_id = parent.id
     WHERE d.tenant_id = $1
 )
@@ -157,7 +157,7 @@ SELECT EXISTS (SELECT 1 FROM descendants WHERE id = $3)`
 	if cycle {
 		return organization.ErrCycle
 	}
-	if _, err := tx.Exec(ctx, `UPDATE modura.departments SET parent_id = $3, updated_at = $4 WHERE tenant_id = $1 AND id = $2`, tenantID, departmentID, newParentID, now); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE wheretolive.departments SET parent_id = $3, updated_at = $4 WHERE tenant_id = $1 AND id = $2`, tenantID, departmentID, newParentID, now); err != nil {
 		return fmt.Errorf("move department: %w", err)
 	}
 	return nil
@@ -168,7 +168,7 @@ func (s *Store) DeleteDepartment(ctx context.Context, tx pgx.Tx, tenantID identi
 	if !visibleDepartment(ctx, tx, tenantID, departmentID, scope) {
 		return organization.ErrNotFound
 	}
-	command, err := tx.Exec(ctx, `DELETE FROM modura.departments WHERE tenant_id = $1 AND id = $2 AND parent_id IS NOT NULL`, tenantID, departmentID)
+	command, err := tx.Exec(ctx, `DELETE FROM wheretolive.departments WHERE tenant_id = $1 AND id = $2 AND parent_id IS NOT NULL`, tenantID, departmentID)
 	if err != nil {
 		var postgresError *pgconn.PgError
 		if errors.As(err, &postgresError) && postgresError.Code == "23503" {
@@ -178,7 +178,7 @@ func (s *Store) DeleteDepartment(ctx context.Context, tx pgx.Tx, tenantID identi
 	}
 	if command.RowsAffected() != 1 {
 		var isRoot bool
-		err := tx.QueryRow(ctx, `SELECT parent_id IS NULL FROM modura.departments WHERE tenant_id = $1 AND id = $2`, tenantID, departmentID).Scan(&isRoot)
+		err := tx.QueryRow(ctx, `SELECT parent_id IS NULL FROM wheretolive.departments WHERE tenant_id = $1 AND id = $2`, tenantID, departmentID).Scan(&isRoot)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return organization.ErrNotFound
 		}
@@ -195,7 +195,7 @@ func (s *Store) DeleteDepartment(ctx context.Context, tx pgx.Tx, tenantID identi
 // CreatePosition inserts an active tenant position.
 func (s *Store) CreatePosition(ctx context.Context, tx pgx.Tx, position organization.Position) error {
 	_, err := tx.Exec(ctx, `
-INSERT INTO modura.positions (id, tenant_id, name, normalized_name, status, created_at, updated_at)
+INSERT INTO wheretolive.positions (id, tenant_id, name, normalized_name, status, created_at, updated_at)
 VALUES ($1, $2, $3, $4, 'active', $5, $5)`, position.ID, position.TenantID, position.Name, position.NormalizedName, position.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("insert position: %w", err)
@@ -205,7 +205,7 @@ VALUES ($1, $2, $3, $4, 'active', $5, $5)`, position.ID, position.TenantID, posi
 
 // UpdatePosition updates a tenant position's display fields and status.
 func (s *Store) UpdatePosition(ctx context.Context, tx pgx.Tx, tenantID identity.TenantID, positionID organization.PositionID, name, normalizedName string, status organization.PositionStatus, now time.Time) error {
-	command, err := tx.Exec(ctx, `UPDATE modura.positions SET name = $3, normalized_name = $4, status = $5, updated_at = $6 WHERE tenant_id = $1 AND id = $2`, tenantID, positionID, name, normalizedName, status, now)
+	command, err := tx.Exec(ctx, `UPDATE wheretolive.positions SET name = $3, normalized_name = $4, status = $5, updated_at = $6 WHERE tenant_id = $1 AND id = $2`, tenantID, positionID, name, normalizedName, status, now)
 	if err != nil {
 		return fmt.Errorf("update position: %w", err)
 	}
@@ -221,7 +221,7 @@ func (s *Store) AssignUser(ctx context.Context, tx pgx.Tx, tenantID identity.Ten
 		return organization.ErrNotFound
 	}
 	_, err := tx.Exec(ctx, `
-INSERT INTO modura.user_organization
+INSERT INTO wheretolive.user_organization
     (tenant_id, user_id, primary_department_id, position_id, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $5)
 ON CONFLICT (tenant_id, user_id) DO UPDATE
@@ -235,7 +235,7 @@ SET primary_department_id = EXCLUDED.primary_department_id,
 }
 
 func visibleDepartment(ctx context.Context, tx pgx.Tx, tenantID identity.TenantID, departmentID organization.DepartmentID, scope organization.DataScope) bool {
-	const query = `WITH RECURSIVE actor_department AS (SELECT primary_department_id AS id FROM modura.user_organization WHERE tenant_id = $1 AND user_id = $3), descendants AS (SELECT id FROM actor_department WHERE $6 UNION ALL SELECT d.id FROM modura.departments d JOIN descendants parent ON d.parent_id = parent.id WHERE d.tenant_id = $1) SELECT EXISTS (SELECT 1 FROM modura.departments d WHERE d.tenant_id = $1 AND d.id = $2 AND ($4 OR (($5 OR $7) AND d.id IN (SELECT id FROM actor_department)) OR ($6 AND d.id IN (SELECT id FROM descendants)) OR d.id = ANY($8::uuid[])))`
+	const query = `WITH RECURSIVE actor_department AS (SELECT primary_department_id AS id FROM wheretolive.user_organization WHERE tenant_id = $1 AND user_id = $3), descendants AS (SELECT id FROM actor_department WHERE $6 UNION ALL SELECT d.id FROM wheretolive.departments d JOIN descendants parent ON d.parent_id = parent.id WHERE d.tenant_id = $1) SELECT EXISTS (SELECT 1 FROM wheretolive.departments d WHERE d.tenant_id = $1 AND d.id = $2 AND ($4 OR (($5 OR $7) AND d.id IN (SELECT id FROM actor_department)) OR ($6 AND d.id IN (SELECT id FROM descendants)) OR d.id = ANY($8::uuid[])))`
 	custom := make([]string, 0, len(scope.CustomDepartmentIDs))
 	for _, id := range scope.CustomDepartmentIDs {
 		custom = append(custom, string(id))
@@ -251,7 +251,7 @@ func visibleUser(ctx context.Context, tx pgx.Tx, tenantID identity.TenantID, use
 	if scope.All || (scope.Self && userID == scope.ActorID) {
 		return true
 	}
-	const query = `WITH RECURSIVE actor_department AS (SELECT primary_department_id AS id FROM modura.user_organization WHERE tenant_id = $1 AND user_id = $3), descendants AS (SELECT id FROM actor_department WHERE $6 UNION ALL SELECT d.id FROM modura.departments d JOIN descendants parent ON d.parent_id = parent.id WHERE d.tenant_id = $1) SELECT EXISTS (SELECT 1 FROM modura.user_organization target WHERE target.tenant_id = $1 AND target.user_id = $2 AND ((($4) AND target.primary_department_id IN (SELECT id FROM actor_department)) OR ($6 AND target.primary_department_id IN (SELECT id FROM descendants)) OR target.primary_department_id = ANY($7::uuid[])))`
+	const query = `WITH RECURSIVE actor_department AS (SELECT primary_department_id AS id FROM wheretolive.user_organization WHERE tenant_id = $1 AND user_id = $3), descendants AS (SELECT id FROM actor_department WHERE $6 UNION ALL SELECT d.id FROM wheretolive.departments d JOIN descendants parent ON d.parent_id = parent.id WHERE d.tenant_id = $1) SELECT EXISTS (SELECT 1 FROM wheretolive.user_organization target WHERE target.tenant_id = $1 AND target.user_id = $2 AND ((($4) AND target.primary_department_id IN (SELECT id FROM actor_department)) OR ($6 AND target.primary_department_id IN (SELECT id FROM descendants)) OR target.primary_department_id = ANY($7::uuid[])))`
 	custom := make([]string, 0, len(scope.CustomDepartmentIDs))
 	for _, id := range scope.CustomDepartmentIDs {
 		custom = append(custom, string(id))
@@ -266,13 +266,13 @@ func visibleUser(ctx context.Context, tx pgx.Tx, tenantID identity.TenantID, use
 // ProvisionInitialOrganization creates the root and first assignment in a workflow transaction.
 func (s *Store) ProvisionInitialOrganization(ctx context.Context, tx pgx.Tx, root organization.Department, administratorID identity.UserID) error {
 	if _, err := tx.Exec(ctx, `
-INSERT INTO modura.departments
+INSERT INTO wheretolive.departments
     (id, tenant_id, parent_id, name, normalized_name, sort_order, created_at, updated_at)
 VALUES ($1, $2, NULL, $3, $4, $5, $6, $6)`, root.ID, root.TenantID, root.Name, root.NormalizedName, root.SortOrder, root.CreatedAt); err != nil {
 		return fmt.Errorf("insert root department: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `
-INSERT INTO modura.user_organization
+INSERT INTO wheretolive.user_organization
     (tenant_id, user_id, primary_department_id, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $4)`, root.TenantID, administratorID, root.ID, root.CreatedAt); err != nil {
 		return fmt.Errorf("assign initial administrator organization: %w", err)

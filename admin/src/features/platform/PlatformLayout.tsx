@@ -26,6 +26,7 @@ export function PlatformLayout() {
             { key: "/platform", label: "租户管理" },
             { key: "/platform/audit", label: "平台审计" },
             { key: "/platform/places", label: "地点目录" },
+            { key: "/platform/feedback", label: "反馈处理" },
             { key: "/platform/settings/dictionaries", label: "全局字典" },
             { key: "/platform/settings/configurations", label: "全局配置" },
           ]}

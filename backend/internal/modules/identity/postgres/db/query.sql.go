@@ -13,7 +13,7 @@ import (
 )
 
 const activateProvisioningTenant = `-- name: ActivateProvisioningTenant :execrows
-UPDATE modura.tenants
+UPDATE wheretolive.tenants
 SET status = 'active', updated_at = $2
 WHERE id = $1 AND status = 'provisioning'
 `
@@ -32,7 +32,7 @@ func (q *Queries) ActivateProvisioningTenant(ctx context.Context, arg ActivatePr
 }
 
 const applyInvitationActivation = `-- name: ApplyInvitationActivation :exec
-UPDATE modura.users
+UPDATE wheretolive.users
 SET password_hash = $3, security_version = security_version + 1, status = 'active',
     email_verified_at = CASE WHEN email IS NULL THEN NULL ELSE COALESCE(email_verified_at, $4) END,
     updated_at = $4
@@ -57,7 +57,7 @@ func (q *Queries) ApplyInvitationActivation(ctx context.Context, arg ApplyInvita
 }
 
 const applyPasswordChange = `-- name: ApplyPasswordChange :execrows
-UPDATE modura.users
+UPDATE wheretolive.users
 SET password_hash = $3, security_version = $4, updated_at = $5
 WHERE tenant_id = $1 AND id = $2
 `
@@ -85,7 +85,7 @@ func (q *Queries) ApplyPasswordChange(ctx context.Context, arg ApplyPasswordChan
 }
 
 const applyPasswordReset = `-- name: ApplyPasswordReset :exec
-UPDATE modura.users
+UPDATE wheretolive.users
 SET password_hash = $3, security_version = security_version + 1, updated_at = $4
 WHERE tenant_id = $1 AND id = $2
 `
@@ -108,7 +108,7 @@ func (q *Queries) ApplyPasswordReset(ctx context.Context, arg ApplyPasswordReset
 }
 
 const cancelIdentityMail = `-- name: CancelIdentityMail :exec
-DELETE FROM modura.identity_mail_queue WHERE tenant_id=$1 AND user_id=$2
+DELETE FROM wheretolive.identity_mail_queue WHERE tenant_id=$1 AND user_id=$2
 `
 
 type CancelIdentityMailParams struct {
@@ -122,7 +122,7 @@ func (q *Queries) CancelIdentityMail(ctx context.Context, arg CancelIdentityMail
 }
 
 const clearLoginGuard = `-- name: ClearLoginGuard :execrows
-DELETE FROM modura.auth_login_guard
+DELETE FROM wheretolive.auth_login_guard
 WHERE tenant_slug = $1 AND normalized_login = $2
 `
 
@@ -141,7 +141,7 @@ func (q *Queries) ClearLoginGuard(ctx context.Context, arg ClearLoginGuardParams
 
 const communityBinding = `-- name: CommunityBinding :one
 SELECT t.id, t.slug, t.status
-FROM modura.community_identity c JOIN modura.tenants t ON t.id = c.tenant_id
+FROM wheretolive.community_identity c JOIN wheretolive.tenants t ON t.id = c.tenant_id
 WHERE c.singleton
 `
 
@@ -159,7 +159,7 @@ func (q *Queries) CommunityBinding(ctx context.Context) (CommunityBindingRow, er
 }
 
 const consumeOneTimeTokenRow = `-- name: ConsumeOneTimeTokenRow :execrows
-UPDATE modura.auth_one_time_tokens
+UPDATE wheretolive.auth_one_time_tokens
 SET consumed_at = $2
 WHERE token_hash = $1
 `
@@ -178,11 +178,11 @@ func (q *Queries) ConsumeOneTimeTokenRow(ctx context.Context, arg ConsumeOneTime
 }
 
 const consumePublicIdentityLimit = `-- name: ConsumePublicIdentityLimit :one
-INSERT INTO modura.public_identity_limits (tenant_id,key_hash,window_started_at,attempts)
+INSERT INTO wheretolive.public_identity_limits (tenant_id,key_hash,window_started_at,attempts)
 VALUES ($1,$2,$3::timestamptz,1)
 ON CONFLICT (tenant_id,key_hash) DO UPDATE SET
-    window_started_at = CASE WHEN modura.public_identity_limits.window_started_at <= $4::timestamptz THEN $3::timestamptz ELSE modura.public_identity_limits.window_started_at END,
-    attempts = CASE WHEN modura.public_identity_limits.window_started_at <= $4::timestamptz THEN 1 ELSE modura.public_identity_limits.attempts+1 END
+    window_started_at = CASE WHEN wheretolive.public_identity_limits.window_started_at <= $4::timestamptz THEN $3::timestamptz ELSE wheretolive.public_identity_limits.window_started_at END,
+    attempts = CASE WHEN wheretolive.public_identity_limits.window_started_at <= $4::timestamptz THEN 1 ELSE wheretolive.public_identity_limits.attempts+1 END
 RETURNING attempts
 `
 
@@ -206,7 +206,7 @@ func (q *Queries) ConsumePublicIdentityLimit(ctx context.Context, arg ConsumePub
 }
 
 const consumeTenantUserOneTimeTokens = `-- name: ConsumeTenantUserOneTimeTokens :exec
-UPDATE modura.auth_one_time_tokens
+UPDATE wheretolive.auth_one_time_tokens
 SET consumed_at = $3
 WHERE tenant_id = $1 AND user_id = $2 AND consumed_at IS NULL
 `
@@ -223,7 +223,7 @@ func (q *Queries) ConsumeTenantUserOneTimeTokens(ctx context.Context, arg Consum
 }
 
 const consumerByEmail = `-- name: ConsumerByEmail :one
-SELECT id, normalized_email, security_version, status FROM modura.users
+SELECT id, normalized_email, security_version, status FROM wheretolive.users
 WHERE tenant_id = $1 AND normalized_email = $2 AND consumer FOR UPDATE
 `
 
@@ -252,7 +252,7 @@ func (q *Queries) ConsumerByEmail(ctx context.Context, arg ConsumerByEmailParams
 }
 
 const disableTenantUser = `-- name: DisableTenantUser :execrows
-UPDATE modura.users
+UPDATE wheretolive.users
 SET status = 'disabled', security_version = security_version + 1, updated_at = $3
 WHERE tenant_id = $1 AND id = $2 AND status <> 'disabled'
 `
@@ -272,7 +272,7 @@ func (q *Queries) DisableTenantUser(ctx context.Context, arg DisableTenantUserPa
 }
 
 const finishIdentityMail = `-- name: FinishIdentityMail :exec
-DELETE FROM modura.identity_mail_queue WHERE id=$1 AND tenant_id=$2 AND attempts=$3
+DELETE FROM wheretolive.identity_mail_queue WHERE id=$1 AND tenant_id=$2 AND attempts=$3
 `
 
 type FinishIdentityMailParams struct {
@@ -287,7 +287,7 @@ func (q *Queries) FinishIdentityMail(ctx context.Context, arg FinishIdentityMail
 }
 
 const insertAdministratorInvitation = `-- name: InsertAdministratorInvitation :exec
-INSERT INTO modura.auth_one_time_tokens
+INSERT INTO wheretolive.auth_one_time_tokens
     (id, tenant_id, user_id, purpose, token_hash, created_at, expires_at)
 VALUES ($1, $2, $3, 'invitation', $4, $5, $6)
 `
@@ -314,7 +314,7 @@ func (q *Queries) InsertAdministratorInvitation(ctx context.Context, arg InsertA
 }
 
 const insertAuthSecurityEvent = `-- name: InsertAuthSecurityEvent :exec
-INSERT INTO modura.auth_security_events (id, tenant_id, user_id, event_type, correlation_id, occurred_at)
+INSERT INTO wheretolive.auth_security_events (id, tenant_id, user_id, event_type, correlation_id, occurred_at)
 VALUES ($1, $2, $3, $4, $5, $6)
 `
 
@@ -340,7 +340,7 @@ func (q *Queries) InsertAuthSecurityEvent(ctx context.Context, arg InsertAuthSec
 }
 
 const insertAuthSession = `-- name: InsertAuthSession :exec
-INSERT INTO modura.auth_sessions
+INSERT INTO wheretolive.auth_sessions
     (id, tenant_id, user_id, family_id, refresh_token_hash, security_version, created_at, last_used_at, expires_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8)
 `
@@ -371,7 +371,7 @@ func (q *Queries) InsertAuthSession(ctx context.Context, arg InsertAuthSessionPa
 }
 
 const insertCommunityBinding = `-- name: InsertCommunityBinding :exec
-INSERT INTO modura.community_identity (tenant_id, created_at) VALUES ($1, $2)
+INSERT INTO wheretolive.community_identity (tenant_id, created_at) VALUES ($1, $2)
 `
 
 type InsertCommunityBindingParams struct {
@@ -385,7 +385,7 @@ func (q *Queries) InsertCommunityBinding(ctx context.Context, arg InsertCommunit
 }
 
 const insertCommunityTenant = `-- name: InsertCommunityTenant :exec
-INSERT INTO modura.tenants (id, slug, display_name, status, created_at, updated_at)
+INSERT INTO wheretolive.tenants (id, slug, display_name, status, created_at, updated_at)
 VALUES ($1, 'community', 'WhereToLive Community', 'active', $2, $2)
 `
 
@@ -400,7 +400,7 @@ func (q *Queries) InsertCommunityTenant(ctx context.Context, arg InsertCommunity
 }
 
 const insertConsumer = `-- name: InsertConsumer :execrows
-INSERT INTO modura.users (id, tenant_id, username, normalized_username, email, normalized_email,
+INSERT INTO wheretolive.users (id, tenant_id, username, normalized_username, email, normalized_email,
     password_hash, status, consumer, created_at, updated_at)
 VALUES ($1, $2, $3, $3, $4, $4, $5, 'pending_email', true, $6, $6)
 ON CONFLICT DO NOTHING
@@ -431,7 +431,7 @@ func (q *Queries) InsertConsumer(ctx context.Context, arg InsertConsumerParams) 
 }
 
 const insertIdentityMail = `-- name: InsertIdentityMail :exec
-INSERT INTO modura.identity_mail_queue (id, tenant_id, user_id, token_id, encrypted_payload, created_at, expires_at, available_at)
+INSERT INTO wheretolive.identity_mail_queue (id, tenant_id, user_id, token_id, encrypted_payload, created_at, expires_at, available_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $6)
 `
 
@@ -459,7 +459,7 @@ func (q *Queries) InsertIdentityMail(ctx context.Context, arg InsertIdentityMail
 }
 
 const insertInvitedAdministrator = `-- name: InsertInvitedAdministrator :exec
-INSERT INTO modura.users
+INSERT INTO wheretolive.users
     (id, tenant_id, username, normalized_username, email, normalized_email, status, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, 'invited', $7, $7)
 `
@@ -488,11 +488,11 @@ func (q *Queries) InsertInvitedAdministrator(ctx context.Context, arg InsertInvi
 }
 
 const insertOneTimeToken = `-- name: InsertOneTimeToken :execrows
-INSERT INTO modura.auth_one_time_tokens
+INSERT INTO wheretolive.auth_one_time_tokens
     (id, tenant_id, user_id, purpose, token_hash, created_at, expires_at)
 SELECT $1, u.tenant_id, u.id, $4, $5, $6, $7
-FROM modura.users u
-JOIN modura.tenants t ON t.id = u.tenant_id
+FROM wheretolive.users u
+JOIN wheretolive.tenants t ON t.id = u.tenant_id
 WHERE u.tenant_id = $2 AND u.id = $3 AND t.status = 'active'
   AND (($4 = 'invitation' AND u.status = 'invited') OR ($4 = 'password_reset' AND u.status = 'active'))
 `
@@ -524,7 +524,7 @@ func (q *Queries) InsertOneTimeToken(ctx context.Context, arg InsertOneTimeToken
 }
 
 const insertProvisioningTenant = `-- name: InsertProvisioningTenant :exec
-INSERT INTO modura.tenants (id, slug, display_name, status, created_at, updated_at)
+INSERT INTO wheretolive.tenants (id, slug, display_name, status, created_at, updated_at)
 VALUES ($1, $2, $3, 'provisioning', $4, $4)
 `
 
@@ -546,7 +546,7 @@ func (q *Queries) InsertProvisioningTenant(ctx context.Context, arg InsertProvis
 }
 
 const insertPublicIdentityEvent = `-- name: InsertPublicIdentityEvent :exec
-INSERT INTO modura.public_identity_events (id, tenant_id, user_id, action, result, correlation_id, occurred_at, actor_kind, resource, resource_id, reason)
+INSERT INTO wheretolive.public_identity_events (id, tenant_id, user_id, action, result, correlation_id, occurred_at, actor_kind, resource, resource_id, reason)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 `
 
@@ -582,7 +582,7 @@ func (q *Queries) InsertPublicIdentityEvent(ctx context.Context, arg InsertPubli
 }
 
 const insertPublicIdentityToken = `-- name: InsertPublicIdentityToken :exec
-INSERT INTO modura.auth_one_time_tokens (id, tenant_id, user_id, purpose, token_hash, created_at, expires_at, bound_email, bound_security_version)
+INSERT INTO wheretolive.auth_one_time_tokens (id, tenant_id, user_id, purpose, token_hash, created_at, expires_at, bound_email, bound_security_version)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 `
 
@@ -614,7 +614,7 @@ func (q *Queries) InsertPublicIdentityToken(ctx context.Context, arg InsertPubli
 }
 
 const invalidateOneTimeTokens = `-- name: InvalidateOneTimeTokens :exec
-UPDATE modura.auth_one_time_tokens
+UPDATE wheretolive.auth_one_time_tokens
 SET consumed_at = $4
 WHERE tenant_id = $1 AND user_id = $2 AND purpose = $3 AND consumed_at IS NULL
 `
@@ -638,17 +638,17 @@ func (q *Queries) InvalidateOneTimeTokens(ctx context.Context, arg InvalidateOne
 
 const leaseIdentityMail = `-- name: LeaseIdentityMail :one
 WITH next AS (
- SELECT q.id FROM modura.identity_mail_queue q
- JOIN modura.auth_one_time_tokens tok ON tok.id=q.token_id
- JOIN modura.users u ON u.tenant_id=q.tenant_id AND u.id=q.user_id
- JOIN modura.tenants t ON t.id=q.tenant_id
+ SELECT q.id FROM wheretolive.identity_mail_queue q
+ JOIN wheretolive.auth_one_time_tokens tok ON tok.id=q.token_id
+ JOIN wheretolive.users u ON u.tenant_id=q.tenant_id AND u.id=q.user_id
+ JOIN wheretolive.tenants t ON t.id=q.tenant_id
  WHERE q.available_at <= $2::timestamptz AND q.expires_at > $2::timestamptz
  AND (q.lease_until IS NULL OR q.lease_until <= $2::timestamptz)
  AND tok.consumed_at IS NULL AND t.status='active' AND u.consumer
  AND ((tok.purpose='email_verification' AND u.status='pending_email') OR (tok.purpose='password_reset' AND u.status='active'))
  ORDER BY q.created_at FOR UPDATE OF q SKIP LOCKED LIMIT 1
 )
-UPDATE modura.identity_mail_queue q SET lease_until= $1::timestamptz, attempts=attempts+1
+UPDATE wheretolive.identity_mail_queue q SET lease_until= $1::timestamptz, attempts=attempts+1
 FROM next WHERE q.id=next.id RETURNING q.id, q.tenant_id, q.encrypted_payload, q.attempts
 `
 
@@ -678,19 +678,19 @@ func (q *Queries) LeaseIdentityMail(ctx context.Context, arg LeaseIdentityMailPa
 
 const listTenantSummaries = `-- name: ListTenantSummaries :many
 SELECT id, slug, display_name, status, created_at, updated_at
-FROM modura.tenants
+FROM wheretolive.tenants
 ORDER BY created_at, id
 `
 
-func (q *Queries) ListTenantSummaries(ctx context.Context) ([]ModuraTenant, error) {
+func (q *Queries) ListTenantSummaries(ctx context.Context) ([]WheretoliveTenant, error) {
 	rows, err := q.db.Query(ctx, listTenantSummaries)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ModuraTenant
+	var items []WheretoliveTenant
 	for rows.Next() {
-		var i ModuraTenant
+		var i WheretoliveTenant
 		if err := rows.Scan(
 			&i.ID,
 			&i.Slug,
@@ -720,9 +720,9 @@ func (q *Queries) LockCommunityBootstrap(ctx context.Context) error {
 
 const lockCurrentSession = `-- name: LockCurrentSession :one
 SELECT s.id, s.tenant_id, s.user_id, s.security_version, s.family_id, s.expires_at
-FROM modura.auth_sessions s
-JOIN modura.users u ON u.tenant_id = s.tenant_id AND u.id = s.user_id
-JOIN modura.tenants t ON t.id = s.tenant_id
+FROM wheretolive.auth_sessions s
+JOIN wheretolive.users u ON u.tenant_id = s.tenant_id AND u.id = s.user_id
+JOIN wheretolive.tenants t ON t.id = s.tenant_id
 WHERE s.refresh_token_hash = $1 AND s.revoked_at IS NULL
   AND u.status = 'active' AND u.security_version = s.security_version AND t.status = 'active'
   AND u.consumer=$2::boolean
@@ -759,9 +759,9 @@ func (q *Queries) LockCurrentSession(ctx context.Context, arg LockCurrentSession
 
 const lockOneTimeToken = `-- name: LockOneTimeToken :one
 SELECT tok.tenant_id, tok.user_id, tok.expires_at
-FROM modura.auth_one_time_tokens tok
-JOIN modura.users u ON u.tenant_id = tok.tenant_id AND u.id = tok.user_id
-JOIN modura.tenants t ON t.id = tok.tenant_id
+FROM wheretolive.auth_one_time_tokens tok
+JOIN wheretolive.users u ON u.tenant_id = tok.tenant_id AND u.id = tok.user_id
+JOIN wheretolive.tenants t ON t.id = tok.tenant_id
 WHERE tok.token_hash = $1 AND tok.purpose = $2 AND tok.consumed_at IS NULL AND NOT u.consumer
   AND t.status = 'active'
   AND (($2 = 'invitation' AND u.status = 'invited') OR ($2 = 'password_reset' AND u.status = 'active'))
@@ -788,9 +788,9 @@ func (q *Queries) LockOneTimeToken(ctx context.Context, arg LockOneTimeTokenPara
 
 const lockPasswordChange = `-- name: LockPasswordChange :one
 SELECT s.family_id, u.security_version
-FROM modura.auth_sessions s
-JOIN modura.users u ON u.tenant_id = s.tenant_id AND u.id = s.user_id
-JOIN modura.tenants t ON t.id = s.tenant_id
+FROM wheretolive.auth_sessions s
+JOIN wheretolive.users u ON u.tenant_id = s.tenant_id AND u.id = s.user_id
+JOIN wheretolive.tenants t ON t.id = s.tenant_id
 WHERE s.id = $1 AND s.tenant_id = $2 AND s.user_id = $3
   AND s.refresh_token_hash = $4 AND s.revoked_at IS NULL AND s.expires_at > $5
   AND u.password_hash = $6 AND u.status = 'active' AND t.status = 'active'
@@ -826,7 +826,7 @@ func (q *Queries) LockPasswordChange(ctx context.Context, arg LockPasswordChange
 }
 
 const lockPublicIdentityTenant = `-- name: LockPublicIdentityTenant :one
-SELECT t.id FROM modura.community_identity c JOIN modura.tenants t ON t.id = c.tenant_id
+SELECT t.id FROM wheretolive.community_identity c JOIN wheretolive.tenants t ON t.id = c.tenant_id
 WHERE c.tenant_id = $1 AND t.slug = 'community' AND t.status = 'active' FOR SHARE OF t
 `
 
@@ -839,7 +839,7 @@ func (q *Queries) LockPublicIdentityTenant(ctx context.Context, tenantID string)
 
 const lockPublicIdentityToken = `-- name: LockPublicIdentityToken :one
 SELECT tok.id, tok.user_id, tok.expires_at, u.status
-FROM modura.auth_one_time_tokens tok JOIN modura.users u ON u.tenant_id=tok.tenant_id AND u.id=tok.user_id
+FROM wheretolive.auth_one_time_tokens tok JOIN wheretolive.users u ON u.tenant_id=tok.tenant_id AND u.id=tok.user_id
 WHERE tok.tenant_id=$1 AND tok.token_hash=$2 AND tok.purpose=$3 AND tok.consumed_at IS NULL AND u.consumer
  AND tok.bound_email=u.normalized_email AND tok.bound_security_version=u.security_version
 FOR UPDATE OF u, tok
@@ -872,8 +872,8 @@ func (q *Queries) LockPublicIdentityToken(ctx context.Context, arg LockPublicIde
 
 const lockSelfProfile = `-- name: LockSelfProfile :one
 SELECT u.id, u.username, u.email, u.status, u.updated_at
-FROM modura.users u
-JOIN modura.auth_sessions s ON s.tenant_id = u.tenant_id AND s.user_id = u.id
+FROM wheretolive.users u
+JOIN wheretolive.auth_sessions s ON s.tenant_id = u.tenant_id AND s.user_id = u.id
 WHERE u.tenant_id = $1 AND u.id = $2 AND s.id = $3 AND u.status = 'active' AND s.revoked_at IS NULL
 FOR UPDATE OF u
 `
@@ -907,7 +907,7 @@ func (q *Queries) LockSelfProfile(ctx context.Context, arg LockSelfProfileParams
 
 const lockTenantProfile = `-- name: LockTenantProfile :one
 SELECT slug, display_name, status, updated_at
-FROM modura.tenants
+FROM wheretolive.tenants
 WHERE id = $1
 FOR UPDATE
 `
@@ -933,7 +933,7 @@ func (q *Queries) LockTenantProfile(ctx context.Context, id string) (LockTenantP
 
 const loginGuardLockedUntil = `-- name: LoginGuardLockedUntil :one
 SELECT locked_until
-FROM modura.auth_login_guard
+FROM wheretolive.auth_login_guard
 WHERE tenant_slug = $1 AND normalized_login = $2
 `
 
@@ -951,9 +951,9 @@ func (q *Queries) LoginGuardLockedUntil(ctx context.Context, arg LoginGuardLocke
 
 const passwordHashBySession = `-- name: PasswordHashBySession :one
 SELECT u.password_hash
-FROM modura.users u
-JOIN modura.auth_sessions s ON s.tenant_id = u.tenant_id AND s.user_id = u.id
-JOIN modura.tenants t ON t.id = u.tenant_id
+FROM wheretolive.users u
+JOIN wheretolive.auth_sessions s ON s.tenant_id = u.tenant_id AND s.user_id = u.id
+JOIN wheretolive.tenants t ON t.id = u.tenant_id
 WHERE u.tenant_id = $1 AND u.id = $2 AND s.id = $3
   AND u.status = 'active' AND t.status = 'active' AND s.revoked_at IS NULL
 `
@@ -973,8 +973,8 @@ func (q *Queries) PasswordHashBySession(ctx context.Context, arg PasswordHashByS
 
 const profileBySession = `-- name: ProfileBySession :one
 SELECT u.id, u.username, u.email, u.status, u.updated_at
-FROM modura.users u
-JOIN modura.auth_sessions s ON s.tenant_id = u.tenant_id AND s.user_id = u.id
+FROM wheretolive.users u
+JOIN wheretolive.auth_sessions s ON s.tenant_id = u.tenant_id AND s.user_id = u.id
 WHERE u.tenant_id = $1 AND u.id = $2 AND s.id = $3 AND u.status = 'active' AND s.revoked_at IS NULL
 `
 
@@ -1006,7 +1006,7 @@ func (q *Queries) ProfileBySession(ctx context.Context, arg ProfileBySessionPara
 }
 
 const publicIdentitySchemaExists = `-- name: PublicIdentitySchemaExists :one
-SELECT (to_regclass('modura.identity_mail_queue') IS NOT NULL)::boolean AS available
+SELECT (to_regclass('wheretolive.identity_mail_queue') IS NOT NULL)::boolean AS available
 `
 
 func (q *Queries) PublicIdentitySchemaExists(ctx context.Context) (bool, error) {
@@ -1017,8 +1017,8 @@ func (q *Queries) PublicIdentitySchemaExists(ctx context.Context) (bool, error) 
 }
 
 const purgeExpiredConsumerTokens = `-- name: PurgeExpiredConsumerTokens :exec
-DELETE FROM modura.auth_one_time_tokens tok WHERE tok.bound_email IS NOT NULL AND tok.expires_at < $1
-AND NOT EXISTS (SELECT 1 FROM modura.identity_mail_queue q WHERE q.token_id=tok.id)
+DELETE FROM wheretolive.auth_one_time_tokens tok WHERE tok.bound_email IS NOT NULL AND tok.expires_at < $1
+AND NOT EXISTS (SELECT 1 FROM wheretolive.identity_mail_queue q WHERE q.token_id=tok.id)
 `
 
 func (q *Queries) PurgeExpiredConsumerTokens(ctx context.Context, expiresAt time.Time) error {
@@ -1027,7 +1027,7 @@ func (q *Queries) PurgeExpiredConsumerTokens(ctx context.Context, expiresAt time
 }
 
 const purgeIdentityMail = `-- name: PurgeIdentityMail :exec
-DELETE FROM modura.identity_mail_queue WHERE expires_at <= $1 OR attempts >= 5
+DELETE FROM wheretolive.identity_mail_queue WHERE expires_at <= $1 OR attempts >= 5
 `
 
 func (q *Queries) PurgeIdentityMail(ctx context.Context, expiresAt time.Time) error {
@@ -1036,7 +1036,7 @@ func (q *Queries) PurgeIdentityMail(ctx context.Context, expiresAt time.Time) er
 }
 
 const purgePublicIdentityLimits = `-- name: PurgePublicIdentityLimits :exec
-DELETE FROM modura.public_identity_limits WHERE window_started_at < $1
+DELETE FROM wheretolive.public_identity_limits WHERE window_started_at < $1
 `
 
 func (q *Queries) PurgePublicIdentityLimits(ctx context.Context, windowStartedAt time.Time) error {
@@ -1045,19 +1045,19 @@ func (q *Queries) PurgePublicIdentityLimits(ctx context.Context, windowStartedAt
 }
 
 const recordLoginFailure = `-- name: RecordLoginFailure :one
-INSERT INTO modura.auth_login_guard
+INSERT INTO wheretolive.auth_login_guard
     (tenant_slug, normalized_login, failure_count, window_started_at, locked_until, updated_at)
 VALUES ($1, $2, 1, $3::timestamptz, NULL, $3::timestamptz)
 ON CONFLICT (tenant_slug, normalized_login) DO UPDATE
 SET failure_count = CASE
-        WHEN modura.auth_login_guard.window_started_at >= $4::timestamptz THEN modura.auth_login_guard.failure_count + 1
+        WHEN wheretolive.auth_login_guard.window_started_at >= $4::timestamptz THEN wheretolive.auth_login_guard.failure_count + 1
         ELSE 1 END,
     window_started_at = CASE
-        WHEN modura.auth_login_guard.window_started_at >= $4::timestamptz THEN modura.auth_login_guard.window_started_at
+        WHEN wheretolive.auth_login_guard.window_started_at >= $4::timestamptz THEN wheretolive.auth_login_guard.window_started_at
         ELSE $3::timestamptz END,
     locked_until = CASE
         WHEN (
-            CASE WHEN modura.auth_login_guard.window_started_at >= $4::timestamptz THEN modura.auth_login_guard.failure_count + 1
+            CASE WHEN wheretolive.auth_login_guard.window_started_at >= $4::timestamptz THEN wheretolive.auth_login_guard.failure_count + 1
             ELSE 1 END
         ) >= $5::int THEN $6::timestamptz
         ELSE NULL END,
@@ -1094,7 +1094,7 @@ func (q *Queries) RecordLoginFailure(ctx context.Context, arg RecordLoginFailure
 }
 
 const recordRefreshTokenUse = `-- name: RecordRefreshTokenUse :exec
-INSERT INTO modura.auth_refresh_token_uses (token_hash, session_id, family_id, consumed_at)
+INSERT INTO wheretolive.auth_refresh_token_uses (token_hash, session_id, family_id, consumed_at)
 VALUES ($1, $2, $3, $4)
 `
 
@@ -1116,9 +1116,9 @@ func (q *Queries) RecordRefreshTokenUse(ctx context.Context, arg RecordRefreshTo
 }
 
 const replayedTokenFamily = `-- name: ReplayedTokenFamily :one
-SELECT r.family_id FROM modura.auth_refresh_token_uses r
-JOIN modura.auth_sessions s ON s.id=r.session_id
-JOIN modura.users u ON u.id=s.user_id AND u.tenant_id=s.tenant_id
+SELECT r.family_id FROM wheretolive.auth_refresh_token_uses r
+JOIN wheretolive.auth_sessions s ON s.id=r.session_id
+JOIN wheretolive.users u ON u.id=s.user_id AND u.tenant_id=s.tenant_id
 WHERE r.token_hash=$1 AND u.consumer=$2::boolean
 `
 
@@ -1135,7 +1135,7 @@ func (q *Queries) ReplayedTokenFamily(ctx context.Context, arg ReplayedTokenFami
 }
 
 const retryIdentityMail = `-- name: RetryIdentityMail :exec
-UPDATE modura.identity_mail_queue SET available_at=$4, lease_until=NULL WHERE id=$1 AND tenant_id=$2 AND attempts=$3
+UPDATE wheretolive.identity_mail_queue SET available_at=$4, lease_until=NULL WHERE id=$1 AND tenant_id=$2 AND attempts=$3
 `
 
 type RetryIdentityMailParams struct {
@@ -1156,7 +1156,7 @@ func (q *Queries) RetryIdentityMail(ctx context.Context, arg RetryIdentityMailPa
 }
 
 const revokeAllUserSessions = `-- name: RevokeAllUserSessions :exec
-UPDATE modura.auth_sessions
+UPDATE wheretolive.auth_sessions
 SET revoked_at = $3, revocation_reason = $4
 WHERE tenant_id = $1 AND user_id = $2 AND revoked_at IS NULL
 `
@@ -1179,7 +1179,7 @@ func (q *Queries) RevokeAllUserSessions(ctx context.Context, arg RevokeAllUserSe
 }
 
 const revokeFamilySessions = `-- name: RevokeFamilySessions :execrows
-UPDATE modura.auth_sessions
+UPDATE wheretolive.auth_sessions
 SET revoked_at = $2, revocation_reason = 'refresh_reuse'
 WHERE family_id = $1 AND revoked_at IS NULL
 `
@@ -1198,7 +1198,7 @@ func (q *Queries) RevokeFamilySessions(ctx context.Context, arg RevokeFamilySess
 }
 
 const revokeSessionsExcept = `-- name: RevokeSessionsExcept :exec
-UPDATE modura.auth_sessions
+UPDATE wheretolive.auth_sessions
 SET revoked_at = $4, revocation_reason = $5
 WHERE tenant_id = $1 AND user_id = $2 AND id <> $3 AND revoked_at IS NULL
 `
@@ -1223,7 +1223,7 @@ func (q *Queries) RevokeSessionsExcept(ctx context.Context, arg RevokeSessionsEx
 }
 
 const revokeTenantUserSessions = `-- name: RevokeTenantUserSessions :exec
-UPDATE modura.auth_sessions
+UPDATE wheretolive.auth_sessions
 SET revoked_at = $3, revocation_reason = $4
 WHERE tenant_id = $1 AND user_id = $2 AND revoked_at IS NULL
 `
@@ -1246,7 +1246,7 @@ func (q *Queries) RevokeTenantUserSessions(ctx context.Context, arg RevokeTenant
 }
 
 const revokeUserSession = `-- name: RevokeUserSession :execrows
-UPDATE modura.auth_sessions
+UPDATE wheretolive.auth_sessions
 SET revoked_at = $4, revocation_reason = $5
 WHERE tenant_id = $1 AND user_id = $2 AND id = $3 AND revoked_at IS NULL
 `
@@ -1274,7 +1274,7 @@ func (q *Queries) RevokeUserSession(ctx context.Context, arg RevokeUserSessionPa
 }
 
 const rotateSessionAfterPasswordChange = `-- name: RotateSessionAfterPasswordChange :exec
-UPDATE modura.auth_sessions
+UPDATE wheretolive.auth_sessions
 SET refresh_token_hash = $2, security_version = $3, last_used_at = $4, expires_at = $5
 WHERE id = $1
 `
@@ -1299,7 +1299,7 @@ func (q *Queries) RotateSessionAfterPasswordChange(ctx context.Context, arg Rota
 }
 
 const rotateSessionSecret = `-- name: RotateSessionSecret :exec
-UPDATE modura.auth_sessions
+UPDATE wheretolive.auth_sessions
 SET refresh_token_hash = $2, last_used_at = $3, expires_at = $4
 WHERE id = $1
 `
@@ -1323,7 +1323,7 @@ func (q *Queries) RotateSessionSecret(ctx context.Context, arg RotateSessionSecr
 
 const sessionFamilyOwner = `-- name: SessionFamilyOwner :one
 SELECT tenant_id, user_id
-FROM modura.auth_sessions
+FROM wheretolive.auth_sessions
 WHERE family_id = $1
 LIMIT 1
 `
@@ -1342,9 +1342,9 @@ func (q *Queries) SessionFamilyOwner(ctx context.Context, familyID string) (Sess
 
 const sessionSecurityActive = `-- name: SessionSecurityActive :one
 SELECT 1
-FROM modura.auth_sessions s
-JOIN modura.users u ON u.tenant_id = s.tenant_id AND u.id = s.user_id
-JOIN modura.tenants t ON t.id = s.tenant_id
+FROM wheretolive.auth_sessions s
+JOIN wheretolive.users u ON u.tenant_id = s.tenant_id AND u.id = s.user_id
+JOIN wheretolive.tenants t ON t.id = s.tenant_id
 WHERE s.id = $1 AND s.tenant_id = $2 AND s.user_id = $3
   AND s.security_version = $4 AND u.security_version = $4
   AND s.revoked_at IS NULL AND s.expires_at > $5
@@ -1376,7 +1376,7 @@ func (q *Queries) SessionSecurityActive(ctx context.Context, arg SessionSecurity
 
 const tenantStatusByID = `-- name: TenantStatusByID :one
 SELECT status
-FROM modura.tenants
+FROM wheretolive.tenants
 WHERE id = $1
 `
 
@@ -1389,7 +1389,7 @@ func (q *Queries) TenantStatusByID(ctx context.Context, id string) (string, erro
 
 const tenantUserByID = `-- name: TenantUserByID :one
 SELECT id, username, email, status, created_at, updated_at
-FROM modura.users
+FROM wheretolive.users
 WHERE tenant_id = $1 AND id = $2
 `
 
@@ -1423,7 +1423,7 @@ func (q *Queries) TenantUserByID(ctx context.Context, arg TenantUserByIDParams) 
 
 const tenantUserStatusByID = `-- name: TenantUserStatusByID :one
 SELECT status
-FROM modura.users
+FROM wheretolive.users
 WHERE tenant_id = $1 AND id = $2
 `
 
@@ -1440,7 +1440,7 @@ func (q *Queries) TenantUserStatusByID(ctx context.Context, arg TenantUserStatus
 }
 
 const transitionTenantStatus = `-- name: TransitionTenantStatus :execrows
-UPDATE modura.tenants
+UPDATE wheretolive.tenants
 SET status = $3, updated_at = $4
 WHERE id = $1 AND status = $2
 `
@@ -1466,7 +1466,7 @@ func (q *Queries) TransitionTenantStatus(ctx context.Context, arg TransitionTena
 }
 
 const unlockTenantUser = `-- name: UnlockTenantUser :execrows
-UPDATE modura.users
+UPDATE wheretolive.users
 SET status = 'active', security_version = security_version + 1, updated_at = $3
 WHERE tenant_id = $1 AND id = $2 AND status = 'locked'
 `
@@ -1486,7 +1486,7 @@ func (q *Queries) UnlockTenantUser(ctx context.Context, arg UnlockTenantUserPara
 }
 
 const updatePasswordHash = `-- name: UpdatePasswordHash :execrows
-UPDATE modura.users
+UPDATE wheretolive.users
 SET password_hash = $3, updated_at = now()
 WHERE tenant_id = $1 AND id = $2 AND status = 'active'
 `
@@ -1506,7 +1506,7 @@ func (q *Queries) UpdatePasswordHash(ctx context.Context, arg UpdatePasswordHash
 }
 
 const updateSelfProfile = `-- name: UpdateSelfProfile :exec
-UPDATE modura.users
+UPDATE wheretolive.users
 SET username = $3, normalized_username = $4, email = $5, normalized_email = $6,
     email_verified_at = CASE WHEN normalized_email IS NOT DISTINCT FROM $6 THEN email_verified_at ELSE NULL END,
     updated_at = $7
@@ -1537,7 +1537,7 @@ func (q *Queries) UpdateSelfProfile(ctx context.Context, arg UpdateSelfProfilePa
 }
 
 const updateTenantProfile = `-- name: UpdateTenantProfile :exec
-UPDATE modura.tenants
+UPDATE wheretolive.tenants
 SET display_name = $2, updated_at = $3
 WHERE id = $1
 `
@@ -1554,7 +1554,7 @@ func (q *Queries) UpdateTenantProfile(ctx context.Context, arg UpdateTenantProfi
 }
 
 const userExistsInTenant = `-- name: UserExistsInTenant :one
-SELECT EXISTS (SELECT 1 FROM modura.users WHERE tenant_id = $1 AND id = $2) AS present
+SELECT EXISTS (SELECT 1 FROM wheretolive.users WHERE tenant_id = $1 AND id = $2) AS present
 `
 
 type UserExistsInTenantParams struct {
@@ -1570,7 +1570,7 @@ func (q *Queries) UserExistsInTenant(ctx context.Context, arg UserExistsInTenant
 }
 
 const verifyConsumerEmail = `-- name: VerifyConsumerEmail :exec
-UPDATE modura.users SET email_verified_at=$3, status='active', security_version=security_version+1, updated_at=$3
+UPDATE wheretolive.users SET email_verified_at=$3, status='active', security_version=security_version+1, updated_at=$3
 WHERE tenant_id=$1 AND id=$2 AND status='pending_email' AND consumer
 `
 

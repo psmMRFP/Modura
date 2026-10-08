@@ -21,13 +21,21 @@ import {
   getListPlatformPlacesQueryKey,
   type CreatePlatformPlaceRequest,
   type ManagedPlace,
+  type ListPlatformPlacesParams,
   useCreatePlatformPlace,
   useListPlatformPlaces,
   useSetPlacePublication,
   useUpdatePlatformPlace,
-} from "../../api/generated/modura";
+} from "../../api/generated/wheretolive";
 import { usePlatformAuth } from "../platform/platform-auth-context";
 import { emptyPlaceDetails, normalizePlaceDetails } from "./form";
+
+const coverageLabels = [
+  "Candidate · 候选",
+  "Basic · 基础",
+  "Relocation · 迁居",
+  "Full · 完整",
+];
 
 const kinds = [
   { value: "country", label: "国家" },
@@ -47,13 +55,31 @@ export function PlatformPlacesPage() {
     /^\d+$/.test(rawOffset) && Number(rawOffset) <= 10000
       ? Number(rawOffset)
       : 0;
+  const countryCode = params.get("countryCode") ?? "";
+  const coverageValue = params.get("coverageLevel");
+  const coverageLevel =
+    coverageValue !== null && /^[0-3]$/.test(coverageValue)
+      ? Number(coverageValue)
+      : undefined;
+  const publicationValue = params.get("publication");
+  const publication =
+    publicationValue === "draft" || publicationValue === "published"
+      ? publicationValue
+      : undefined;
   const [editing, setEditing] = useState<ManagedPlace | null>();
-  const [publication, setPublication] = useState<ManagedPlace>();
+  const [publicationEntry, setPublication] = useState<ManagedPlace>();
   const [form] = Form.useForm<CreatePlatformPlaceRequest>();
   const [publishForm] = Form.useForm<{ reason: string }>();
   const kind = Form.useWatch("type", form) ?? "country";
   const query = useListPlatformPlaces(
-    { q, offset, limit: 20 },
+    {
+      q,
+      offset,
+      limit: 20,
+      countryCode: countryCode || undefined,
+      coverageLevel,
+      publication,
+    },
     { fetch: auth.fetchOptions, query: { retry: false } },
   );
   const page = query.data?.status === 200 ? query.data.data : undefined;
@@ -97,9 +123,14 @@ export function PlatformPlacesPage() {
     });
     setEditing(entry ?? null);
   };
-  const search = (value: string) => {
+  const search = (values: ListPlatformPlacesParams) => {
     const next = new URLSearchParams();
-    if (value) next.set("q", value);
+    if (values.q?.trim()) next.set("q", values.q.trim());
+    if (values.countryCode?.trim())
+      next.set("countryCode", values.countryCode.trim().toUpperCase());
+    if (values.coverageLevel !== undefined)
+      next.set("coverageLevel", String(values.coverageLevel));
+    if (values.publication) next.set("publication", values.publication);
     setParams(next);
   };
   const go = (value: number) => {
@@ -121,16 +152,59 @@ export function PlatformPlacesPage() {
         <Alert
           type="info"
           showIcon
-          title="新地点先保存为草稿；发布需上级已发布。撤回上级后，其下级在公开站点也会隐藏。地点标识和地理归属创建后固定。"
+          title="新地点先进入 Candidate 候选池；发布基础信息后为 Basic。覆盖等级与发布状态独立，不代表签证、税务或成本已核验。发布需上级已发布。撤回上级后，其下级在公开站点也会隐藏。地点标识和地理归属创建后固定。"
         />
-        <Input.Search
-          key={q}
-          defaultValue={q}
-          maxLength={120}
-          placeholder="按名称或 slug 搜索"
-          onSearch={search}
-          enterButton="搜索"
-        />
+        <Form
+          key={params.toString()}
+          layout="inline"
+          initialValues={{ q, countryCode, coverageLevel, publication }}
+          onFinish={search}
+        >
+          <Form.Item name="q">
+            <Input
+              maxLength={120}
+              placeholder="名称、别名或 slug"
+              aria-label="地点搜索"
+            />
+          </Form.Item>
+          <Form.Item name="countryCode">
+            <Input
+              maxLength={2}
+              placeholder="国家代码，如 DE"
+              aria-label="国家代码"
+              style={{ width: 160 }}
+            />
+          </Form.Item>
+          <Form.Item name="coverageLevel">
+            <Select
+              allowClear
+              placeholder="全部覆盖等级"
+              aria-label="覆盖等级"
+              style={{ width: 190 }}
+              options={coverageLabels.map((label, value) => ({ label, value }))}
+            />
+          </Form.Item>
+          <Form.Item name="publication">
+            <Select
+              allowClear
+              placeholder="全部发布状态"
+              aria-label="发布状态"
+              style={{ width: 170 }}
+              options={[
+                { value: "draft", label: "草稿" },
+                { value: "published", label: "已标记发布" },
+              ]}
+            />
+          </Form.Item>
+          <Space>
+            <Button htmlType="submit" type="primary">
+              筛选
+            </Button>
+            <Button onClick={() => setParams(new URLSearchParams())}>
+              清除筛选
+            </Button>
+          </Space>
+        </Form>
         {query.isError || (query.data && query.data.status !== 200) ? (
           <Alert
             type="error"
@@ -175,6 +249,9 @@ export function PlatformPlacesPage() {
                       <Tag>{entry.countryCode}</Tag>
                       <Tag color={entry.publishedAt ? "green" : "default"}>
                         {entry.publishedAt ? "已标记发布" : "草稿"}
+                      </Tag>
+                      <Tag>
+                        {coverageLabels[entry.coverageLevel] ?? "未知覆盖等级"}
                       </Tag>
                       <Tag>v{entry.version}</Tag>
                     </Space>
@@ -362,8 +439,8 @@ export function PlatformPlacesPage() {
         </Form>
       </Modal>
       <Modal
-        title={publication?.publishedAt ? "撤回地点" : "发布地点"}
-        open={publication !== undefined}
+        title={publicationEntry?.publishedAt ? "撤回地点" : "发布地点"}
+        open={publicationEntry !== undefined}
         onCancel={() => {
           if (!busy) setPublication(undefined);
         }}
@@ -371,7 +448,7 @@ export function PlatformPlacesPage() {
         confirmLoading={publish.isPending}
       >
         <Typography.Paragraph>
-          {publication?.publishedAt
+          {publicationEntry?.publishedAt
             ? "撤回后该地点及其下级不再对公众显示；下级的发布标记保留，上级重新发布后可恢复可见。"
             : "发布基础地点信息，不生成任何签证、税务、成本数据或评分。上级地点必须已经发布。"}
         </Typography.Paragraph>
@@ -379,12 +456,12 @@ export function PlatformPlacesPage() {
           form={publishForm}
           layout="vertical"
           onFinish={({ reason }) => {
-            if (publication)
+            if (publicationEntry)
               publish.mutate({
-                placeId: publication.id,
+                placeId: publicationEntry.id,
                 data: {
-                  expectedVersion: publication.version,
-                  published: publication.publishedAt === null,
+                  expectedVersion: publicationEntry.version,
+                  published: publicationEntry.publishedAt === null,
                   reason,
                 },
               });

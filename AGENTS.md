@@ -1,13 +1,13 @@
-# Modura Agent Contract
+# WhereToLive Agent Contract
 
 Version: 1.1.0
 Effective date: 2026-10-08
 
 This file is the executable entry point for every human or coding agent working in this repository. Read it before changing files.
 
-The product is **WhereToLive**; **Modura Atlas** is the transformation codename.
-The implementation baseline is [docs/atlas](docs/atlas/README.md). Existing Modura
-module paths, database schema, and deployment identifiers remain compatible.
+The product is **WhereToLive**; **WhereToLive Atlas** is the transformation codename.
+The implementation baseline is [docs/atlas](../docs/atlas/README.md). Code, database schema, configuration, and deployment identifiers use the
+WhereToLive name; no legacy deployment compatibility is required.
 
 ## 1. Authority and language
 
@@ -69,7 +69,7 @@ docs/                architecture, security, ADRs, and research
 skills/              project-specific agent skills when introduced
 ```
 
-Module rules are defined in [module boundaries](docs/architecture/module-boundaries.md). In summary:
+Module rules are defined in [module boundaries](../docs/architecture/module-boundaries.md). In summary:
 
 - Every database table MUST have exactly one owning module.
 - A module MUST NOT import another module's private packages, access its repository, or modify its tables.
@@ -80,7 +80,7 @@ Module rules are defined in [module boundaries](docs/architecture/module-boundar
 
 ## 4. API contract
 
-Modura uses contract-first HTTP APIs with hybrid implementation:
+WhereToLive uses contract-first HTTP APIs with hybrid implementation:
 
 - `api/openapi.yaml` MUST be the root and sole authoritative HTTP API contract. It MAY use relative `$ref` files under `api/`; those files are part of the same contract, not a second schema.
 - Go handlers MUST implement the contract. Go types, annotations, and routes MUST NOT become a separate source of API truth.
@@ -110,7 +110,7 @@ The defaults are PostgreSQL, sqlc, and explicit SQL.
 
 ## 6. Tenant and authorization safety
 
-The mandatory tenant rules are defined in [tenant invariants](docs/security/tenant-invariants.md).
+The mandatory tenant rules are defined in [tenant invariants](../docs/security/tenant-invariants.md).
 
 - Tenant identity MUST be resolved and verified server-side. A client header, path, query, or body value is never trusted by itself.
 - Tenant-owned records, unique constraints, queries, relationships, jobs, and audit events MUST carry an explicit verified `TenantID`.
@@ -123,13 +123,13 @@ Authorization uses stable subject/resource/action/tenant/scope concepts. Menus, 
 
 ## 7. Authentication
 
-Phase 1 authentication is defined in [authentication](docs/security/authentication.md). It includes username or email plus password, Argon2id, short-lived access tokens, rotating refresh tokens backed by server-side sessions, reuse detection, and revocation after account/security changes.
+Phase 1 authentication is defined in [authentication](../docs/security/authentication.md). It includes username or email plus password, Argon2id, short-lived access tokens, rotating refresh tokens backed by server-side sessions, reuse detection, and revocation after account/security changes.
 
 MFA, SAML, enterprise SSO, passkeys, service accounts, social login, and operating a full OAuth authorization server are deferred unless explicitly requested.
 
 Credentials, tokens, secrets, session identifiers, and sensitive personal data MUST NOT appear in logs, error details, URLs, source control, or generated artifacts.
 
-WhereToLive public registration and email verification follow [ADR 0006](docs/adr/0006-public-registration.md). Consumer accounts use the server-resolved community tenant under [ADR 0005](docs/adr/0005-community-tenant-and-public-data.md); they receive no tenant administration authority. Public flows remain disabled until delivery and abuse controls are configured and tested.
+WhereToLive public registration and email verification follow [ADR 0006](../docs/adr/0006-public-registration.md). Consumer accounts use the server-resolved community tenant under [ADR 0005](../docs/adr/0005-community-tenant-and-public-data.md); they receive no tenant administration authority. Public flows remain disabled until delivery and abuse controls are configured and tested.
 
 ## 8. Go and error-handling rules
 
@@ -174,7 +174,7 @@ Multi-region disaster recovery, Kubernetes operators, automatic scaling, WAF ope
 
 ## 11. Testing and CI
 
-The verification baseline is defined in [Definition of Done](docs/development/definition-of-done.md).
+The verification baseline is defined in [Definition of Done](../docs/development/definition-of-done.md).
 
 Backend changes MUST include the applicable unit, PostgreSQL integration, HTTP/OpenAPI contract, authorization, and tenant-isolation tests. Frontend changes MUST pass formatting, lint, typecheck, build, critical component tests, and the minimal critical-path E2E suite.
 
@@ -192,17 +192,19 @@ Audit records, application logs, traces, and metrics are different products with
 
 Production code MUST NOT import, build, link, execute, package, or depend on reference source. Reference trees SHOULD NOT be committed to the main repository; keeping one requires an ADR explaining need, ownership, update/removal policy, and license treatment.
 
-Research findings belong under `docs/research/`. Before copying or modifying third-party code, record its repository, revision, original file, license, copyright, modifications, and NOTICE obligations. Design inspiration alone does not authorize copying. See [SpringBlade business analysis](docs/research/springblade-business-analysis.md) for retained requirement research.
+Research findings belong under `docs/research/`. Before copying or modifying third-party code, record its repository, revision, original file, license, copyright, modifications, and NOTICE obligations. Design inspiration alone does not authorize copying. Research records are evidence, not implementation specifications; current business requirements are defined by [Atlas domain boundaries](../docs/atlas/domain.md).
 
 ## 14. ADRs, exceptions, and amendments
 
-Use [docs/adr](docs/adr/README.md) for durable decisions that change a default, introduce a foundational dependency, alter a security boundary, or create a deployable service. Routine implementation details do not require an ADR.
+Use [docs/adr](../docs/adr/README.md) for durable decisions that change a default, introduce a foundational dependency, alter a security boundary, or create a deployable service. Routine implementation details do not require an ADR.
 
 An exception MUST identify the exact rule, scope, reason, risks, compensating controls, owner, and expiry/review condition. Permanent exceptions amend this contract through an accepted ADR and a version/changelog update.
 
-WhereToLive source, AI, privacy, and commercial-independence rules are defined in [Atlas governance](docs/atlas/policies.md). Advertising MUST NOT influence coverage priority, Data Score, Resident Score, or Your Fit.
+WhereToLive source, AI, privacy, and commercial-independence rules are defined in [Atlas governance](../docs/atlas/policies.md). Advertising MUST NOT influence coverage priority, Data Score, Resident Score, or Your Fit.
 
 ### Changelog
+
+- 2026-10-08: Unify code, configuration, commands, contracts, and database identifiers under WhereToLive; user confirmed no existing deployments require legacy compatibility.
 
 - 1.1.0 (2026-10-08): Adopt WhereToLive product direction, public web rules, community boundary and scoped public registration decisions.
 

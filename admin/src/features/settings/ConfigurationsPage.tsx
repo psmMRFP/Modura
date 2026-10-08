@@ -6,7 +6,7 @@ import {
   getListConfigurationsQueryKey,
   useListConfigurations,
   usePutConfiguration,
-} from "../../api/generated/modura";
+} from "../../api/generated/wheretolive";
 import { useAuth } from "../auth/auth-context";
 import { usePermissions } from "../workspace/use-permissions";
 

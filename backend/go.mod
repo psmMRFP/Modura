@@ -1,4 +1,4 @@
-module github.com/modura-dev/modura/backend
+module github.com/psmMRFP/WhereToLive/backend
 
 go 1.27
 

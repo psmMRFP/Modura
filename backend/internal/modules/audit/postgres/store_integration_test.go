@@ -10,16 +10,16 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/modura-dev/modura/backend/internal/modules/audit"
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
-	"github.com/modura-dev/modura/backend/internal/platform/database/migrationtest"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/audit"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/database/migrationtest"
 )
 
 func TestAuditQueriesAreTenantScopedAndFiltered(t *testing.T) {
 	pool := integrationPool(t)
 	ctx := context.Background()
 	now := time.Unix(1_700_000_000, 0).UTC()
-	if _, err := pool.Exec(ctx, `INSERT INTO modura.tenants (id, slug, display_name, status, created_at, updated_at) VALUES ('018bcfe5-6800-7000-8000-000000000401', 'delta', 'Delta', 'active', $1, $1)`, now); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO wheretolive.tenants (id, slug, display_name, status, created_at, updated_at) VALUES ('018bcfe5-6800-7000-8000-000000000401', 'delta', 'Delta', 'active', $1, $1)`, now); err != nil {
 		t.Fatal(err)
 	}
 	store := New(pool)
@@ -85,9 +85,9 @@ func TestAuditQueriesAreTenantScopedAndFiltered(t *testing.T) {
 
 func integrationPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	url := os.Getenv("MODURA_TEST_DATABASE_URL")
+	url := os.Getenv("WHERETOLIVE_TEST_DATABASE_URL")
 	if url == "" {
-		t.Skip("MODURA_TEST_DATABASE_URL is not set")
+		t.Skip("WHERETOLIVE_TEST_DATABASE_URL is not set")
 	}
 	config, err := pgxpool.ParseConfig(url)
 	if err != nil {

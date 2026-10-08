@@ -68,10 +68,10 @@ func (m *metricsRecorder) render() string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var builder strings.Builder
-	builder.WriteString("# HELP modura_http_requests_total Total HTTP requests processed.\n")
-	builder.WriteString("# TYPE modura_http_requests_total counter\n")
-	builder.WriteString("# HELP modura_http_request_duration_seconds HTTP request latency.\n")
-	builder.WriteString("# TYPE modura_http_request_duration_seconds histogram\n")
+	builder.WriteString("# HELP wheretolive_http_requests_total Total HTTP requests processed.\n")
+	builder.WriteString("# TYPE wheretolive_http_requests_total counter\n")
+	builder.WriteString("# HELP wheretolive_http_request_duration_seconds HTTP request latency.\n")
+	builder.WriteString("# TYPE wheretolive_http_request_duration_seconds histogram\n")
 	keys := make([]metricKey, 0, len(m.counts))
 	for key := range m.counts {
 		keys = append(keys, key)
@@ -87,19 +87,19 @@ func (m *metricsRecorder) render() string {
 	})
 	for _, key := range keys {
 		label := fmt.Sprintf("method=%q route=%q status=%q", key.method, key.route, key.status)
-		fmt.Fprintf(&builder, "modura_http_requests_total{%s} %d\n", label, m.counts[key])
+		fmt.Fprintf(&builder, "wheretolive_http_requests_total{%s} %d\n", label, m.counts[key])
 		buckets := m.histogram[key]
 		for _, bound := range m.buckets {
-			fmt.Fprintf(&builder, "modura_http_request_duration_seconds_bucket{%s le=%q} %d\n", label, strconv.FormatFloat(bound, 'f', -1, 64), buckets[bound])
+			fmt.Fprintf(&builder, "wheretolive_http_request_duration_seconds_bucket{%s le=%q} %d\n", label, strconv.FormatFloat(bound, 'f', -1, 64), buckets[bound])
 		}
-		fmt.Fprintf(&builder, "modura_http_request_duration_seconds_bucket{%s le=\"+Inf\"} %d\n", label, m.counts[key])
-		fmt.Fprintf(&builder, "modura_http_request_duration_seconds_sum{%s} %f\n", label, m.sums[key])
-		fmt.Fprintf(&builder, "modura_http_request_duration_seconds_count{%s} %d\n", label, m.counts[key])
+		fmt.Fprintf(&builder, "wheretolive_http_request_duration_seconds_bucket{%s le=\"+Inf\"} %d\n", label, m.counts[key])
+		fmt.Fprintf(&builder, "wheretolive_http_request_duration_seconds_sum{%s} %f\n", label, m.sums[key])
+		fmt.Fprintf(&builder, "wheretolive_http_request_duration_seconds_count{%s} %d\n", label, m.counts[key])
 	}
 	seconds := time.Since(m.start).Seconds()
-	builder.WriteString("# HELP modura_http_uptime_seconds Seconds since the HTTP server started collecting metrics.\n")
-	builder.WriteString("# TYPE modura_http_uptime_seconds gauge\n")
-	fmt.Fprintf(&builder, "modura_http_uptime_seconds %f\n", seconds)
+	builder.WriteString("# HELP wheretolive_http_uptime_seconds Seconds since the HTTP server started collecting metrics.\n")
+	builder.WriteString("# TYPE wheretolive_http_uptime_seconds gauge\n")
+	fmt.Fprintf(&builder, "wheretolive_http_uptime_seconds %f\n", seconds)
 	return builder.String()
 }
 

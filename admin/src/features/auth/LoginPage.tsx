@@ -2,7 +2,7 @@ import { Alert, Button, Card, Form, Input, Typography } from "antd";
 import { useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
-import type { LoginRequest } from "../../api/generated/modura";
+import type { LoginRequest } from "../../api/generated/wheretolive";
 import { useAuth } from "./auth-context";
 
 export function LoginPage() {
@@ -29,7 +29,7 @@ export function LoginPage() {
   return (
     <main className="login-page">
       <Card className="login-card">
-        <Typography.Title level={2}>登录 Modura</Typography.Title>
+        <Typography.Title level={2}>登录 WhereToLive</Typography.Title>
         <Typography.Paragraph type="secondary">
           使用租户标识和本地账号进入管理工作台。
         </Typography.Paragraph>

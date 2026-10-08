@@ -5,7 +5,7 @@ import {
   useGetMyProfile,
   useUpdateMyProfile,
   type ChangePasswordRequest,
-} from "../../api/generated/modura";
+} from "../../api/generated/wheretolive";
 import { useAuth } from "./auth-context";
 
 export function ProfilePage() {

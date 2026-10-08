@@ -1,4 +1,4 @@
-// Command modura-bootstrap creates the first global platform administrator.
+// Command wheretolive-bootstrap creates the first global platform administrator.
 package main
 
 import (
@@ -12,12 +12,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
-	"github.com/modura-dev/modura/backend/internal/modules/platformadmin"
-	platformadminpostgres "github.com/modura-dev/modura/backend/internal/modules/platformadmin/postgres"
-	"github.com/modura-dev/modura/backend/internal/platform/config"
-	"github.com/modura-dev/modura/backend/internal/platform/database"
-	"github.com/modura-dev/modura/backend/internal/platform/identifier"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/platformadmin"
+	platformadminpostgres "github.com/psmMRFP/WhereToLive/backend/internal/modules/platformadmin/postgres"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/config"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/database"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/identifier"
 )
 
 func main() {

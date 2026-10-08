@@ -10,7 +10,7 @@ import (
 	casbin "github.com/casbin/casbin/v3"
 	"github.com/casbin/casbin/v3/model"
 	"github.com/jackc/pgx/v5"
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
 )
 
 // RolePolicies is the persisted policy snapshot for one assigned role.

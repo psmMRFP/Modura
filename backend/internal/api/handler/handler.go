@@ -4,21 +4,23 @@ package handler
 import (
 	"context"
 
-	"github.com/modura-dev/modura/backend/internal/api/generated"
-	apihttp "github.com/modura-dev/modura/backend/internal/api/transport"
-	audithttp "github.com/modura-dev/modura/backend/internal/modules/audit/transport/http"
-	authorizationhttp "github.com/modura-dev/modura/backend/internal/modules/authorization/transport/http"
-	identityhttp "github.com/modura-dev/modura/backend/internal/modules/identity/transport/http"
-	organizationhttp "github.com/modura-dev/modura/backend/internal/modules/organization/transport/http"
-	placeshttp "github.com/modura-dev/modura/backend/internal/modules/places/transport/http"
-	platformadminhttp "github.com/modura-dev/modura/backend/internal/modules/platformadmin/transport/http"
-	platformtenanthttp "github.com/modura-dev/modura/backend/internal/modules/platformtenant/transport/http"
-	provisioninghttp "github.com/modura-dev/modura/backend/internal/modules/provisioning/transport/http"
-	settingshttp "github.com/modura-dev/modura/backend/internal/modules/settings/transport/http"
+	"github.com/psmMRFP/WhereToLive/backend/internal/api/generated"
+	apihttp "github.com/psmMRFP/WhereToLive/backend/internal/api/transport"
+	audithttp "github.com/psmMRFP/WhereToLive/backend/internal/modules/audit/transport/http"
+	authorizationhttp "github.com/psmMRFP/WhereToLive/backend/internal/modules/authorization/transport/http"
+	feedbackhttp "github.com/psmMRFP/WhereToLive/backend/internal/modules/feedback/transport/http"
+	identityhttp "github.com/psmMRFP/WhereToLive/backend/internal/modules/identity/transport/http"
+	organizationhttp "github.com/psmMRFP/WhereToLive/backend/internal/modules/organization/transport/http"
+	placeshttp "github.com/psmMRFP/WhereToLive/backend/internal/modules/places/transport/http"
+	platformadminhttp "github.com/psmMRFP/WhereToLive/backend/internal/modules/platformadmin/transport/http"
+	platformtenanthttp "github.com/psmMRFP/WhereToLive/backend/internal/modules/platformtenant/transport/http"
+	provisioninghttp "github.com/psmMRFP/WhereToLive/backend/internal/modules/provisioning/transport/http"
+	settingshttp "github.com/psmMRFP/WhereToLive/backend/internal/modules/settings/transport/http"
 )
 
 // Dependencies are the application capabilities required by HTTP delivery.
 type Dependencies struct {
+	PlatformFeedback       feedbackhttp.Service
 	PublicIdentity         identityhttp.PublicService
 	PublicChallengeSiteKey string
 	PublicIdentityFailure  func()
@@ -37,6 +39,9 @@ type Dependencies struct {
 	PlatformAudit          audithttp.PlatformReader
 	Ready                  func(context.Context) error
 }
+
+// PlatformFeedback is restricted staff intake.
+type PlatformFeedback = feedbackhttp.Service
 
 // PublicIdentity is the consumer identity capability.
 type PublicIdentity = identityhttp.PublicService
@@ -82,6 +87,7 @@ type PlatformAudit = audithttp.PlatformReader
 
 // Handler contains no business behavior; embedding composes the operation sets.
 type Handler struct {
+	*feedbackhttp.Handler
 	*identityhttp.PublicIdentityHandler
 	*placeshttp.PlatformPlacesHandler
 	*placeshttp.PlacesHandler
@@ -104,6 +110,7 @@ func New(deps Dependencies, cookieSecure bool, newCSRF func() (string, error)) *
 	identityHandler := identityhttp.NewHandler(deps.Identity, deps.Authorizer, security)
 	platformAdminHandler := platformadminhttp.NewHandler(deps.PlatformAdmin, security)
 	handler := &Handler{
+		Handler:                 feedbackhttp.NewHandler(deps.PlatformFeedback, platformAdminHandler, security),
 		PublicIdentityHandler:   identityhttp.NewPublicHandler(deps.PublicIdentity, security, deps.PublicChallengeSiteKey, deps.PublicIdentityFailure),
 		PlatformPlacesHandler:   placeshttp.NewPlatformHandler(deps.PlatformPlaces, platformAdminHandler, security),
 		PlacesHandler:           placeshttp.NewHandler(deps.Places, security),

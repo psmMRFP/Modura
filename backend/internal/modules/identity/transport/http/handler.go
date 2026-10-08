@@ -8,11 +8,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/modura-dev/modura/backend/internal/api/generated"
-	apihttp "github.com/modura-dev/modura/backend/internal/api/transport"
-	"github.com/modura-dev/modura/backend/internal/modules/authorization"
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
 	openapi_types "github.com/oapi-codegen/runtime/types"
+	"github.com/psmMRFP/WhereToLive/backend/internal/api/generated"
+	apihttp "github.com/psmMRFP/WhereToLive/backend/internal/api/transport"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/authorization"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
 )
 
 // Service is the identity application API consumed by this adapter.

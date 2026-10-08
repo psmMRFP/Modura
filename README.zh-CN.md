@@ -32,11 +32,11 @@ WhereToLive 希望把 **可信事实、居民体验和个人偏好** 放在一�
 | **Resident Score** | 经过居住验证的用户怎么看？         | 1–10，使用贝叶斯收缩 |
 | **Your Fit**       | 是否符合你的预算、语言和生活偏好？ | 按个人权重计算       |
 
-三套评价保持独立，目前尚未实现。**Modura Atlas** 是改造代号，正式产品名称为 **WhereToLive**。
+三套评价保持独立，目前尚未实现。**WhereToLive Atlas** 是改造代号，正式产品名称为 **WhereToLive**。
 
 ## 当前进度
 
-项目处于早期开发阶段，基于现有 Modura 持续改造。当前可运行的是公开地点目录和运营基础，尚无生产地点数据集。
+项目处于早期开发阶段。当前可运行的是公开地点目录和运营基础，尚无生产地点数据集。
 
 | 已实现       | 功能                                                                 |
 | ------------ | -------------------------------------------------------------------- |
@@ -45,10 +45,13 @@ WhereToLive 希望把 **可信事实、居民体验和个人偏好** 放在一�
 | 地理模型     | 国家、地区、城市、城区、岛屿，以及稳定 slug 和多语言别名             |
 | 地点运营     | 后台创建草稿、编辑、发布与撤回，版本冲突保护和事务审计               |
 | API 契约     | Go 服务端与两个前端共享 OpenAPI，生成类型和查询客户端                |
+| 候选池维护 | 按国家、覆盖等级和发布状态组合筛选，支持多语言别名搜索 |
+| 地点测试数据 | 40 个手工地理草稿，仅供开发/E2E；支持预览、续跑和审计 |
+| 反馈核心 | 私密人工录入、分类/状态筛选、处理结果、并发版本检查和事务审计 |
 | 数据库初始化 | 缺失的专用数据库可自动创建，禁止使用默认 `postgres` 角色或数据库     |
 | 消费者账户   | 注册、邮箱验证、登录、会话恢复及密码恢复代码；部署配置齐全前保持关闭 |
 
-**接下来：** 来源、证据和事实版本 → Research Agent → 签证、税务与生活成本 → 统一反馈 → 居住验证与评论 → 个人适配度。
+**接下来：** 覆盖与优先级规则、公共反馈及滥用控制 → 来源、证据和事实版本 → Research Agent → 签证、税务与生活成本 → 统一反馈 → 居住验证与评论 → 个人适配度。
 
 评论翻译也在计划内：阅读语言与评论原文语言不同时提供 AI 翻译，用户可开启自动翻译，并始终保留查看原文的入口。
 
@@ -101,10 +104,10 @@ npm ci --prefix web
 
 | 环境变量                      | 用途                                                         |
 | ----------------------------- | ------------------------------------------------------------ |
-| `MODURA_DATABASE_URL`         | 专用 PostgreSQL 角色和命名数据库的连接 URL；必需             |
-| `MODURA_AUTH_SIGNING_KEY`     | 至少 32 字节的签名密钥；必需                                 |
-| `MODURA_AUTH_COOKIE_SECURE`   | 本地 HTTP 开发可设为 `false`；生产环境保持 `true` 并使用 TLS |
-| `MODURA_DATABASE_AUTO_CREATE` | 默认 `true`；预先建库后可设为 `false`                        |
+| `WHERETOLIVE_DATABASE_URL`         | 专用 PostgreSQL 角色和命名数据库的连接 URL；必需             |
+| `WHERETOLIVE_AUTH_SIGNING_KEY`     | 至少 32 字节的签名密钥；必需                                 |
+| `WHERETOLIVE_AUTH_COOKIE_SECURE`   | 本地 HTTP 开发可设为 `false`；生产环境保持 `true` 并使用 TLS |
+| `WHERETOLIVE_DATABASE_AUTO_CREATE` | 默认 `true`；预先建库后可设为 `false`                        |
 
 只有 PostgreSQL 明确返回“目标数据库不存在”时，系统才尝试建库。创建时通过 `template1` 连接，使用 `template0` 模板；专用角色需具有 `CREATEDB` 权限。**建库不等于迁移表结构。**
 
@@ -112,13 +115,13 @@ npm ci --prefix web
 
 ```fish
 cd backend
-go run ./cmd/modura-db-init
+go run ./cmd/wheretolive-db-init
 ```
 
 建库后，使用兼容 `golang-migrate` 的工具按顺序应用 [数据库迁移](backend/internal/platform/database/migrations)。完成后，从 `backend/` 启动 API：
 
 ```fish
-go run ./cmd/modura
+go run ./cmd/wheretolive
 ```
 
 ### 3. 启动前端
@@ -151,7 +154,7 @@ make verify
 
 包含代码生成一致性、OpenAPI 校验、Go 格式与静态检查、单元测试、两个前端的格式 / lint / 类型 / 组件测试 / 构建，以及数据库表归属和源码边界检查。
 
-真实 PostgreSQL 集成测试需要设置 `MODURA_TEST_DATABASE_URL`，目标必须是名称以 `_test` 结尾的专用测试库。测试会重置其 `modura` schema，禁止指向业务数据库。
+真实 PostgreSQL 集成测试需要设置 `WHERETOLIVE_TEST_DATABASE_URL`，目标必须是名称以 `_test` 结尾的专用测试库。测试会重置其 `wheretolive` schema，禁止指向业务数据库。
 
 ```fish
 make backend-test-integration
@@ -163,7 +166,7 @@ make backend-test-integration
 make web-e2e
 ```
 
-它验证页面交互，不替代真实数据库测试。后台 E2E 使用 `make admin-e2e`，要求数据库名为 `modura_test`；完整发布检查为 `make verify-release`，另包含依赖漏洞和许可证检查。
+它验证页面交互，不替代真实数据库测试。后台 E2E 使用 `make admin-e2e`，要求数据库名为 `wheretolive_test`；完整发布检查为 `make verify-release`，另包含依赖漏洞和许可证检查。
 
 ## 参与贡献
 

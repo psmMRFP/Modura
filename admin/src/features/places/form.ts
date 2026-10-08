@@ -1,4 +1,4 @@
-import type { PlaceDetails } from "../../api/generated/modura";
+import type { PlaceDetails } from "../../api/generated/wheretolive";
 
 export function normalizePlaceDetails(details: PlaceDetails): PlaceDetails {
   return {

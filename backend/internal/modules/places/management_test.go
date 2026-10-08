@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/modura-dev/modura/backend/internal/modules/audit"
-	"github.com/modura-dev/modura/backend/internal/modules/platformadmin"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/audit"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/platformadmin"
 )
 
 type managementStoreStub struct {
@@ -17,7 +17,7 @@ type managementStoreStub struct {
 	err   error
 }
 
-func (s *managementStoreStub) ListManaged(context.Context, Query) ([]Entry, error) {
+func (s *managementStoreStub) ListManaged(context.Context, CatalogueQuery) ([]Entry, error) {
 	s.calls++
 	return []Entry{s.entry}, s.err
 }
@@ -122,7 +122,7 @@ func TestManagementCreatesDraftAndAuditsChanges(t *testing.T) {
 }
 func TestManagementFailsClosedWithoutActorOrAudit(t *testing.T) {
 	s, store, tx, a, w := managementFixture(t)
-	if _, err := s.List(context.Background(), platformadmin.Actor{}, Query{Limit: 20}); !errors.Is(err, ErrDenied) || store.calls != 0 {
+	if _, err := s.List(context.Background(), platformadmin.Actor{}, CatalogueQuery{Query: Query{Limit: 20}}); !errors.Is(err, ErrDenied) || store.calls != 0 {
 		t.Fatal("missing actor reached store")
 	}
 	w.Reason = ""
@@ -150,5 +150,28 @@ func TestInvalidPlaceMetadata(t *testing.T) {
 		if _, err := s.Create(context.Background(), w, input); !errors.Is(err, ErrInvalidPlace) || store.calls != 0 {
 			t.Fatalf("accepted invalid geography: %+v", input)
 		}
+	}
+}
+
+func TestCatalogueFiltersRejectInvalidInputBeforePersistence(t *testing.T) {
+	s, store, _, _, write := managementFixture(t)
+	low, high := -1, 4
+	for _, query := range []CatalogueQuery{
+		{Query: Query{Limit: 20}, CountryCode: "de"},
+		{Query: Query{Limit: 20}, CountryCode: "ZZ"},
+		{Query: Query{Limit: 20}, CoverageLevel: &low},
+		{Query: Query{Limit: 20}, CoverageLevel: &high},
+		{Query: Query{Limit: 20}, Publication: "visible"},
+	} {
+		if _, err := s.List(context.Background(), write.Actor, query); !errors.Is(err, ErrInvalidQuery) {
+			t.Fatalf("accepted invalid filter: %+v: %v", query, err)
+		}
+	}
+	if store.calls != 0 {
+		t.Fatal("invalid filters reached persistence")
+	}
+	zero := 0
+	if _, err := s.List(context.Background(), write.Actor, CatalogueQuery{Query: Query{Limit: 20}, CountryCode: "DE", CoverageLevel: &zero, Publication: "draft"}); err != nil {
+		t.Fatal(err)
 	}
 }

@@ -14,6 +14,7 @@ import {
   PositionsRoute,
   PlatformAuditRoute,
   PlatformPlacesRoute,
+  PlatformFeedbackRoute,
   PlatformConfigurationsRoute,
   PlatformDictionariesRoute,
   PlatformTenantsRoute,
@@ -34,6 +35,7 @@ export const router = createBrowserRouter([
       { index: true, element: <PlatformTenantsRoute /> },
       { path: "audit", element: <PlatformAuditRoute /> },
       { path: "places", element: <PlatformPlacesRoute /> },
+      { path: "feedback", element: <PlatformFeedbackRoute /> },
       { path: "settings/dictionaries", element: <PlatformDictionariesRoute /> },
       {
         path: "settings/configurations",

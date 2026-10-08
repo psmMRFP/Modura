@@ -3,7 +3,7 @@ import { createContext, useContext } from "react";
 import type {
   ChangePasswordRequest,
   LoginRequest,
-} from "../../api/generated/modura";
+} from "../../api/generated/wheretolive";
 
 export type SessionStatus = "loading" | "authenticated" | "anonymous";
 

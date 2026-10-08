@@ -374,7 +374,7 @@ func NewService(store Store, signer AccessTokenSigner, verifier AccessTokenVerif
 	if store == nil || refreshLifetime <= 0 || now == nil || newID == nil || newSecret == nil {
 		return nil, fmt.Errorf("invalid identity service configuration")
 	}
-	dummyHash, err := HashPassword("modura timing defense password", password)
+	dummyHash, err := HashPassword("wheretolive timing defense password", password)
 	if err != nil {
 		return nil, fmt.Errorf("create credential timing defense: %w", err)
 	}

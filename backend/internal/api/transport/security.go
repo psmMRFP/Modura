@@ -8,17 +8,17 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/modura-dev/modura/backend/internal/api/generated"
+	"github.com/psmMRFP/WhereToLive/backend/internal/api/generated"
 )
 
 // Cookie names separate tenant-local and global platform sessions.
 const (
 	ConsumerRefreshCookie = "wheretolive_refresh"
 	ConsumerCSRFCookie    = "wheretolive_csrf"
-	TenantRefreshCookie   = "modura_refresh"
-	TenantCSRFCookie      = "modura_csrf"
-	PlatformRefreshCookie = "modura_platform_refresh"
-	PlatformCSRFCookie    = "modura_platform_csrf"
+	TenantRefreshCookie   = "wheretolive_tenant_refresh"
+	TenantCSRFCookie      = "wheretolive_tenant_csrf"
+	PlatformRefreshCookie = "wheretolive_platform_refresh"
+	PlatformCSRFCookie    = "wheretolive_platform_csrf"
 )
 
 // Security centralizes the cookie, CSRF, bearer, and problem-response policy.

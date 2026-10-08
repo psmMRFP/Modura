@@ -1,2 +1,2 @@
 -- owner: platform
-CREATE SCHEMA IF NOT EXISTS modura;
+CREATE SCHEMA IF NOT EXISTS wheretolive;

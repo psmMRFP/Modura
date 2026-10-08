@@ -253,12 +253,12 @@ func TestLoginRefreshAndReplay(t *testing.T) {
 	}
 	store := &memoryStore{account: Account{TenantID: "tenant-1", UserID: "user-1", PasswordHash: hash, SecurityVersion: 1}}
 	now := time.Unix(1_700_000_000, 0)
-	signer, err := NewAccessTokenSigner("modura", "admin", "key-1", []byte(strings.Repeat("k", 32)), 5*time.Minute)
+	signer, err := NewAccessTokenSigner("wheretolive", "admin", "key-1", []byte(strings.Repeat("k", 32)), 5*time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
 	sequence := 0
-	verifier := NewAccessTokenVerifier("modura", "admin", map[string][]byte{"key-1": []byte(strings.Repeat("k", 32))}, 5*time.Second)
+	verifier := NewAccessTokenVerifier("wheretolive", "admin", map[string][]byte{"key-1": []byte(strings.Repeat("k", 32))}, 5*time.Second)
 	service, err := NewService(store, signer, verifier, passwords, 24*time.Hour, func() time.Time { return now }, func(time.Time) (string, error) {
 		sequence++
 		return fmt.Sprintf("id-%d", sequence), nil
@@ -296,8 +296,8 @@ func TestLoginUsesGenericCredentialFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	store := &memoryStore{account: Account{TenantID: "tenant-1", UserID: "user-1", PasswordHash: hash, SecurityVersion: 1}}
-	signer, _ := NewAccessTokenSigner("modura", "admin", "key-1", []byte(strings.Repeat("k", 32)), time.Minute)
-	verifier := NewAccessTokenVerifier("modura", "admin", map[string][]byte{"key-1": []byte(strings.Repeat("k", 32))}, 0)
+	signer, _ := NewAccessTokenSigner("wheretolive", "admin", "key-1", []byte(strings.Repeat("k", 32)), time.Minute)
+	verifier := NewAccessTokenVerifier("wheretolive", "admin", map[string][]byte{"key-1": []byte(strings.Repeat("k", 32))}, 0)
 	service, _ := NewService(store, signer, verifier, passwords, time.Hour, time.Now, func(time.Time) (string, error) { return "id", nil }, func() (string, error) { return strings.Repeat("s", 32), nil })
 	for _, test := range []struct{ tenant, login, password string }{{"missing", "alice", "correct horse battery staple"}, {"acme", "alice", "wrong password"}} {
 		if _, err := service.Login(context.Background(), test.tenant, test.login, test.password, "request-login"); !errors.Is(err, ErrInvalidCredentials) {
@@ -315,8 +315,8 @@ func TestChangePasswordRotatesSecurityState(t *testing.T) {
 	store := &memoryStore{account: Account{TenantID: "tenant-1", UserID: "user-1", PasswordHash: hash, SecurityVersion: 1}}
 	now := time.Unix(1_700_000_000, 0)
 	key := []byte(strings.Repeat("k", 32))
-	signer, _ := NewAccessTokenSigner("modura", "admin", "key-1", key, 5*time.Minute)
-	verifier := NewAccessTokenVerifier("modura", "admin", map[string][]byte{"key-1": key}, 0)
+	signer, _ := NewAccessTokenSigner("wheretolive", "admin", "key-1", key, 5*time.Minute)
+	verifier := NewAccessTokenVerifier("wheretolive", "admin", map[string][]byte{"key-1": key}, 0)
 	sequence := 0
 	service, err := NewService(store, signer, verifier, passwords, time.Hour, func() time.Time { return now }, func(time.Time) (string, error) {
 		sequence++
@@ -356,8 +356,8 @@ func TestOneTimeTokenIsSingleUseAndRevokesSessions(t *testing.T) {
 	store := &memoryStore{account: Account{TenantID: "tenant-1", UserID: "user-1", PasswordHash: oldHash, SecurityVersion: 1}}
 	now := time.Unix(1_700_000_000, 0)
 	key := []byte(strings.Repeat("k", 32))
-	signer, _ := NewAccessTokenSigner("modura", "admin", "key-1", key, time.Minute)
-	verifier := NewAccessTokenVerifier("modura", "admin", map[string][]byte{"key-1": key}, 0)
+	signer, _ := NewAccessTokenSigner("wheretolive", "admin", "key-1", key, time.Minute)
+	verifier := NewAccessTokenVerifier("wheretolive", "admin", map[string][]byte{"key-1": key}, 0)
 	service, err := NewService(store, signer, verifier, passwords, time.Hour, func() time.Time { return now }, func(time.Time) (string, error) { return "token-id", nil }, func() (string, error) { return strings.Repeat("r", 32), nil })
 	if err != nil {
 		t.Fatal(err)
@@ -521,8 +521,8 @@ func newAdministrativeTestService(t *testing.T) (*Service, *memoryStore, *testAu
 		},
 	}
 	key := []byte(strings.Repeat("k", 32))
-	signer, _ := NewAccessTokenSigner("modura", "admin", "key-1", key, time.Minute)
-	verifier := NewAccessTokenVerifier("modura", "admin", map[string][]byte{"key-1": key}, 0)
+	signer, _ := NewAccessTokenSigner("wheretolive", "admin", "key-1", key, time.Minute)
+	verifier := NewAccessTokenVerifier("wheretolive", "admin", map[string][]byte{"key-1": key}, 0)
 	service, err := NewService(store, signer, verifier, DefaultPasswordParameters(), time.Hour, time.Now, func(time.Time) (string, error) { return "id", nil }, func() (string, error) { return strings.Repeat("s", 32), nil })
 	if err != nil {
 		t.Fatal(err)
@@ -542,8 +542,8 @@ func TestLoginThrottlingLocksAndRecordsSecurityEvents(t *testing.T) {
 	}
 	store := &memoryStore{account: Account{TenantID: "tenant-1", UserID: "user-1", PasswordHash: hash, SecurityVersion: 1}}
 	key := []byte(strings.Repeat("k", 32))
-	signer, _ := NewAccessTokenSigner("modura", "admin", "key-1", key, time.Minute)
-	verifier := NewAccessTokenVerifier("modura", "admin", map[string][]byte{"key-1": key}, 0)
+	signer, _ := NewAccessTokenSigner("wheretolive", "admin", "key-1", key, time.Minute)
+	verifier := NewAccessTokenVerifier("wheretolive", "admin", map[string][]byte{"key-1": key}, 0)
 	service, err := NewService(store, signer, verifier, passwords, time.Hour, time.Now, func(time.Time) (string, error) { return "id", nil }, func() (string, error) { return strings.Repeat("s", 32), nil })
 	if err != nil {
 		t.Fatal(err)

@@ -12,14 +12,14 @@ verify: generated-clean openapi-validate backend-format backend-lint backend-tes
 
 # Release evidence additionally requires the mandatory PostgreSQL integration
 # run plus the dependency vulnerability and license gates. Every integration
-# package resets the modura schema and applies the full migration set from an
+# package resets the wheretolive schema and applies the full migration set from an
 # empty database, so the integration run also validates migrations.
 verify-release: verify backend-test-integration deps-gate
 
 # Browser E2E drives the system Chromium over CDP (no downloads). It needs a
-# modura_test database in MODURA_TEST_DATABASE_URL and admin/dist built.
+# wheretolive_test database in WHERETOLIVE_TEST_DATABASE_URL and admin/dist built.
 admin-e2e:
-	@test -n "$$MODURA_TEST_DATABASE_URL" || { echo "admin-e2e: MODURA_TEST_DATABASE_URL must point at a database named modura_test"; exit 1; }
+	@test -n "$$WHERETOLIVE_TEST_DATABASE_URL" || { echo "admin-e2e: WHERETOLIVE_TEST_DATABASE_URL must point at a database named wheretolive_test"; exit 1; }
 	cd admin && npm run build
 	node admin/e2e/critical-path.mjs
 
@@ -33,7 +33,7 @@ deps-gate:
 	cd backend && go-licenses check --disallowed_types=forbidden,unknown,restricted ./cmd/... ./internal/...
 
 backend-test-integration:
-	@test -n "$$MODURA_TEST_DATABASE_URL" || { echo "backend-test-integration: MODURA_TEST_DATABASE_URL must point at a database named *_test"; exit 1; }
+	@test -n "$$WHERETOLIVE_TEST_DATABASE_URL" || { echo "backend-test-integration: WHERETOLIVE_TEST_DATABASE_URL must point at a database named *_test"; exit 1; }
 	cd backend && go test -count=1 ./...
 
 openapi-validate:
@@ -46,9 +46,9 @@ reference-check:
 	python3 scripts/check-reference-exclusion.py
 
 generated-clean:
-	@before="$$(find backend/internal/api/generated backend/internal/platform/database/dbgen admin/src/api/generated web/src/api/generated backend/internal/modules/identity/postgres/db backend/internal/modules/authorization/postgres/db backend/internal/modules/audit/postgres/db backend/internal/modules/places/postgres/db -type f -print0 | sort -z | xargs -0 sha256sum)"; \
+	@before="$$(find backend/internal/api/generated backend/internal/platform/database/dbgen admin/src/api/generated web/src/api/generated backend/internal/modules/identity/postgres/db backend/internal/modules/authorization/postgres/db backend/internal/modules/audit/postgres/db backend/internal/modules/places/postgres/db backend/internal/modules/feedback/postgres/db -type f -print0 | sort -z | xargs -0 sha256sum)"; \
 	$(MAKE) generate; \
-	after="$$(find backend/internal/api/generated backend/internal/platform/database/dbgen admin/src/api/generated web/src/api/generated backend/internal/modules/identity/postgres/db backend/internal/modules/authorization/postgres/db backend/internal/modules/audit/postgres/db backend/internal/modules/places/postgres/db -type f -print0 | sort -z | xargs -0 sha256sum)"; \
+	after="$$(find backend/internal/api/generated backend/internal/platform/database/dbgen admin/src/api/generated web/src/api/generated backend/internal/modules/identity/postgres/db backend/internal/modules/authorization/postgres/db backend/internal/modules/audit/postgres/db backend/internal/modules/places/postgres/db backend/internal/modules/feedback/postgres/db -type f -print0 | sort -z | xargs -0 sha256sum)"; \
 	test "$$before" = "$$after"
 
 generate: generate-go generate-admin generate-web

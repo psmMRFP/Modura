@@ -12,9 +12,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
-	identitydb "github.com/modura-dev/modura/backend/internal/modules/identity/postgres/db"
-	"github.com/modura-dev/modura/backend/internal/platform/identifier"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
+	identitydb "github.com/psmMRFP/WhereToLive/backend/internal/modules/identity/postgres/db"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/identifier"
 )
 
 // Store persists identity data and authentication sessions.
@@ -120,7 +120,7 @@ func scanUser(row pgx.Row) (identity.TenantUser, error) {
 
 // ListUsers returns tenant-owned users in stable order without credential data.
 func (s *Store) ListUsers(ctx context.Context, tenantID identity.TenantID) ([]identity.TenantUser, error) {
-	rows, err := s.pool.Query(ctx, `SELECT `+userColumns+` FROM modura.users WHERE tenant_id = $1 ORDER BY normalized_username, id`, tenantID)
+	rows, err := s.pool.Query(ctx, `SELECT `+userColumns+` FROM wheretolive.users WHERE tenant_id = $1 ORDER BY normalized_username, id`, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("list tenant users: %w", err)
 	}
@@ -152,7 +152,7 @@ func (s *Store) GetUserTx(ctx context.Context, tx pgx.Tx, tenantID identity.Tena
 }
 
 func getTenantUser(ctx context.Context, q querier, tenantID identity.TenantID, userID identity.UserID) (identity.TenantUser, error) {
-	user, err := scanUser(q.QueryRow(ctx, `SELECT `+userColumns+` FROM modura.users WHERE tenant_id = $1 AND id = $2`, tenantID, userID))
+	user, err := scanUser(q.QueryRow(ctx, `SELECT `+userColumns+` FROM wheretolive.users WHERE tenant_id = $1 AND id = $2`, tenantID, userID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return identity.TenantUser{}, identity.ErrUserNotFound
 	}
@@ -277,8 +277,8 @@ func (s *Store) insertSecurityEvent(ctx context.Context, queries *identitydb.Que
 func (s *Store) FindActiveAccount(ctx context.Context, tenantSlug, login string) (identity.Account, error) {
 	const query = `
 SELECT u.tenant_id, u.id, u.password_hash, u.security_version
-FROM modura.users u
-JOIN modura.tenants t ON t.id = u.tenant_id
+FROM wheretolive.users u
+JOIN wheretolive.tenants t ON t.id = u.tenant_id
 WHERE t.slug = $1 AND t.status = 'active' AND u.status = 'active'
   AND (u.normalized_username = $2 OR (u.normalized_email = $2 AND u.email_verified_at IS NOT NULL)) AND u.consumer=$3`
 	var account identity.Account

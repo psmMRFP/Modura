@@ -1,10 +1,10 @@
 import { defineConfig } from "orval";
 
 export default defineConfig({
-  modura: {
+  wheretolive: {
     input: "../api/openapi.yaml",
     output: {
-      target: "src/api/generated/modura.ts",
+      target: "src/api/generated/wheretolive.ts",
       client: "react-query",
       httpClient: "fetch",
       clean: true,

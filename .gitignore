@@ -31,7 +31,7 @@ go.work.sum
 *.local
 
 # Project build output and local caches
-backend/modura
+backend/wheretolive
 backend/bin/
 admin/node_modules/
 admin/dist/

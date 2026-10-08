@@ -10,9 +10,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/modura-dev/modura/backend/internal/modules/audit"
-	auditdb "github.com/modura-dev/modura/backend/internal/modules/audit/postgres/db"
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/audit"
+	auditdb "github.com/psmMRFP/WhereToLive/backend/internal/modules/audit/postgres/db"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
 )
 
 // Store persists immutable audit evidence.
@@ -66,7 +66,7 @@ func (s Store) List(ctx context.Context, query audit.Query) ([]audit.Record, err
 	if s.pool == nil {
 		return nil, fmt.Errorf("audit query store is unavailable")
 	}
-	rows, err := s.pool.Query(ctx, `SELECT `+recordColumns+` FROM modura.audit_events WHERE tenant_id = $1 AND ($2 = '' OR action = $2) AND ($3 = '' OR resource = $3) ORDER BY occurred_at DESC, id DESC LIMIT $4 OFFSET $5`, query.TenantID, query.Action, query.Resource, query.Limit, query.Offset)
+	rows, err := s.pool.Query(ctx, `SELECT `+recordColumns+` FROM wheretolive.audit_events WHERE tenant_id = $1 AND ($2 = '' OR action = $2) AND ($3 = '' OR resource = $3) ORDER BY occurred_at DESC, id DESC LIMIT $4 OFFSET $5`, query.TenantID, query.Action, query.Resource, query.Limit, query.Offset)
 	if err != nil {
 		return nil, fmt.Errorf("query audit events: %w", err)
 	}
@@ -79,7 +79,7 @@ func (s Store) Get(ctx context.Context, tenantID identity.TenantID, eventID stri
 		return audit.Record{}, fmt.Errorf("audit query store is unavailable")
 	}
 	var record audit.Record
-	err := s.pool.QueryRow(ctx, `SELECT `+recordColumns+` FROM modura.audit_events WHERE id = $1 AND tenant_id = $2`, eventID, tenantID).Scan(&record.ID, &record.ActorType, &record.ActorID, &record.TenantID, &record.Action, &record.Resource, &record.ResourceID, &record.Reason, &record.Result, &record.CorrelationID, &record.OccurredAt, &record.BeforeState, &record.AfterState)
+	err := s.pool.QueryRow(ctx, `SELECT `+recordColumns+` FROM wheretolive.audit_events WHERE id = $1 AND tenant_id = $2`, eventID, tenantID).Scan(&record.ID, &record.ActorType, &record.ActorID, &record.TenantID, &record.Action, &record.Resource, &record.ResourceID, &record.Reason, &record.Result, &record.CorrelationID, &record.OccurredAt, &record.BeforeState, &record.AfterState)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return audit.Record{}, audit.ErrNotFound
 	}
@@ -99,7 +99,7 @@ func (s Store) ListPlatform(ctx context.Context, query audit.PlatformQuery) ([]a
 	if query.TenantID != "" {
 		tenantFilter = query.TenantID
 	}
-	rows, err := s.pool.Query(ctx, `SELECT `+recordColumns+` FROM modura.audit_events WHERE ($1::uuid IS NULL OR tenant_id = $1::uuid) AND ($2 = '' OR action = $2) AND ($3 = '' OR resource = $3) ORDER BY occurred_at DESC, id DESC LIMIT $4 OFFSET $5`, tenantFilter, query.Action, query.Resource, query.Limit, query.Offset)
+	rows, err := s.pool.Query(ctx, `SELECT `+recordColumns+` FROM wheretolive.audit_events WHERE ($1::uuid IS NULL OR tenant_id = $1::uuid) AND ($2 = '' OR action = $2) AND ($3 = '' OR resource = $3) ORDER BY occurred_at DESC, id DESC LIMIT $4 OFFSET $5`, tenantFilter, query.Action, query.Resource, query.Limit, query.Offset)
 	if err != nil {
 		return nil, fmt.Errorf("query platform audit events: %w", err)
 	}

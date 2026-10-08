@@ -1,4 +1,4 @@
-// Command modura-e2e-seed prepares a *_test database for the browser E2E
+// Command wheretolive-e2e-seed prepares a *_test database for the browser E2E
 // suite: it resets the schema, applies every migration, provisions a tenant
 // through the real runtime workflow, and prints the credentials it created.
 // The passwords are supplied by the caller through environment variables, so
@@ -16,20 +16,20 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/modura-dev/modura/backend/internal/modules/audit"
-	auditpostgres "github.com/modura-dev/modura/backend/internal/modules/audit/postgres"
-	"github.com/modura-dev/modura/backend/internal/modules/authorization"
-	authorizationpostgres "github.com/modura-dev/modura/backend/internal/modules/authorization/postgres"
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
-	identitypostgres "github.com/modura-dev/modura/backend/internal/modules/identity/postgres"
-	"github.com/modura-dev/modura/backend/internal/modules/organization"
-	organizationpostgres "github.com/modura-dev/modura/backend/internal/modules/organization/postgres"
-	"github.com/modura-dev/modura/backend/internal/modules/platformadmin"
-	platformadminpostgres "github.com/modura-dev/modura/backend/internal/modules/platformadmin/postgres"
-	"github.com/modura-dev/modura/backend/internal/modules/provisioning"
-	"github.com/modura-dev/modura/backend/internal/platform/database"
-	"github.com/modura-dev/modura/backend/internal/platform/database/migrationtest"
-	"github.com/modura-dev/modura/backend/internal/platform/identifier"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/audit"
+	auditpostgres "github.com/psmMRFP/WhereToLive/backend/internal/modules/audit/postgres"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/authorization"
+	authorizationpostgres "github.com/psmMRFP/WhereToLive/backend/internal/modules/authorization/postgres"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
+	identitypostgres "github.com/psmMRFP/WhereToLive/backend/internal/modules/identity/postgres"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/organization"
+	organizationpostgres "github.com/psmMRFP/WhereToLive/backend/internal/modules/organization/postgres"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/platformadmin"
+	platformadminpostgres "github.com/psmMRFP/WhereToLive/backend/internal/modules/platformadmin/postgres"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/provisioning"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/database"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/database/migrationtest"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/identifier"
 )
 
 const (
@@ -48,23 +48,23 @@ type credentials struct {
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Fprintf(os.Stderr, "modura-e2e-seed: %v\n", err)
+		fmt.Fprintf(os.Stderr, "wheretolive-e2e-seed: %v\n", err)
 		os.Exit(1)
 	}
 }
 
 func run() error {
-	url := os.Getenv("MODURA_TEST_DATABASE_URL")
+	url := os.Getenv("WHERETOLIVE_TEST_DATABASE_URL")
 	if url == "" {
-		return fmt.Errorf("MODURA_TEST_DATABASE_URL is required")
+		return fmt.Errorf("WHERETOLIVE_TEST_DATABASE_URL is required")
 	}
-	if !strings.Contains(url, "modura_test") {
-		return fmt.Errorf("refusing destructive seed: database name must contain modura_test")
+	if !strings.Contains(url, "wheretolive_test") {
+		return fmt.Errorf("refusing destructive seed: database name must contain wheretolive_test")
 	}
-	platformPassword := os.Getenv("MODURA_E2E_PLATFORM_PASSWORD")
-	tenantPassword := os.Getenv("MODURA_E2E_TENANT_PASSWORD")
+	platformPassword := os.Getenv("WHERETOLIVE_E2E_PLATFORM_PASSWORD")
+	tenantPassword := os.Getenv("WHERETOLIVE_E2E_TENANT_PASSWORD")
 	if platformPassword == "" || tenantPassword == "" {
-		return fmt.Errorf("MODURA_E2E_PLATFORM_PASSWORD and MODURA_E2E_TENANT_PASSWORD are required")
+		return fmt.Errorf("WHERETOLIVE_E2E_PLATFORM_PASSWORD and WHERETOLIVE_E2E_TENANT_PASSWORD are required")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
@@ -90,16 +90,16 @@ func run() error {
 		return string(id), idErr
 	}
 	newSecret := func() (string, error) { return identity.NewOpaqueToken(32) }
-	signer, err := identity.NewAccessTokenSigner("modura", "modura-admin", "primary", signingKey, 5*time.Minute)
+	signer, err := identity.NewAccessTokenSigner("wheretolive", "wheretolive-admin", "primary", signingKey, 5*time.Minute)
 	if err != nil {
 		return fmt.Errorf("configure signer: %w", err)
 	}
-	verifier := identity.NewAccessTokenVerifier("modura", "modura-admin", map[string][]byte{"primary": signingKey}, 5*time.Second)
-	platformSigner, err := identity.NewAccessTokenSigner("modura", "modura-platform", "primary", signingKey, 5*time.Minute)
+	verifier := identity.NewAccessTokenVerifier("wheretolive", "wheretolive-admin", map[string][]byte{"primary": signingKey}, 5*time.Second)
+	platformSigner, err := identity.NewAccessTokenSigner("wheretolive", "wheretolive-platform", "primary", signingKey, 5*time.Minute)
 	if err != nil {
 		return fmt.Errorf("configure platform signer: %w", err)
 	}
-	platformVerifier := identity.NewAccessTokenVerifier("modura", "modura-platform", map[string][]byte{"primary": signingKey}, 5*time.Second)
+	platformVerifier := identity.NewAccessTokenVerifier("wheretolive", "wheretolive-platform", map[string][]byte{"primary": signingKey}, 5*time.Second)
 	auditService, err := audit.NewService(auditpostgres.New(pool), newID)
 	if err != nil {
 		return fmt.Errorf("configure audit: %w", err)

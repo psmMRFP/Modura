@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/modura-dev/modura/backend/internal/api/generated"
-	"github.com/modura-dev/modura/backend/internal/modules/places"
-	"github.com/modura-dev/modura/backend/internal/modules/platformadmin"
+	"github.com/psmMRFP/WhereToLive/backend/internal/api/generated"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/places"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/platformadmin"
 )
 
 type platformPlaceStub struct {
@@ -20,13 +20,15 @@ type platformPlaceStub struct {
 	err   error
 	write places.WriteContext
 	input places.Create
+	query places.CatalogueQuery
 }
 
 func (s *platformPlaceStub) entry() places.Entry {
 	return places.Entry{ID: "018bcfe5-6800-7000-8000-000000001601", Slug: "germany", Type: "country", CountryCode: "DE", Version: 1, CreatedAt: time.Unix(1700000000, 0).UTC(), UpdatedAt: time.Unix(1700000000, 0).UTC(), Details: places.Details{Name: "Germany", Languages: []string{}, Aliases: []places.Alias{}}}
 }
-func (s *platformPlaceStub) List(context.Context, platformadmin.Actor, places.Query) (places.ManagedPage, error) {
+func (s *platformPlaceStub) List(_ context.Context, _ platformadmin.Actor, q places.CatalogueQuery) (places.ManagedPage, error) {
 	s.calls++
+	s.query = q
 	return places.ManagedPage{Items: []places.Entry{s.entry()}}, s.err
 }
 func (s *platformPlaceStub) Get(context.Context, platformadmin.Actor, string) (places.Entry, error) {
@@ -64,8 +66,8 @@ func platformRequest(method, path, body, token string, csrf bool) *http.Request 
 	}
 	if csrf {
 		r.Header.Set("X-CSRF-Token", "csrf")
-		r.AddCookie(&http.Cookie{Name: "modura_platform_refresh", Value: "refresh"})
-		r.AddCookie(&http.Cookie{Name: "modura_platform_csrf", Value: "csrf"})
+		r.AddCookie(&http.Cookie{Name: "wheretolive_platform_refresh", Value: "refresh"})
+		r.AddCookie(&http.Cookie{Name: "wheretolive_platform_csrf", Value: "csrf"})
 	}
 	return r
 }
@@ -116,5 +118,14 @@ func TestPlatformPlaceErrorsDoNotDisclosePersistence(t *testing.T) {
 		if w.Code != tc.status || strings.Contains(w.Body.String(), "private database") {
 			t.Fatalf("unsafe error %d %s", w.Code, w.Body.String())
 		}
+	}
+}
+
+func TestPlatformCatalogueBindsCandidateFilters(t *testing.T) {
+	s := &platformPlaceStub{}
+	response := httptest.NewRecorder()
+	managedRouter(s).ServeHTTP(response, platformRequest("GET", "/api/platform/places?q=Germany&countryCode=DE&coverageLevel=0&publication=draft&offset=20", "", "platform-access", false))
+	if response.Code != 200 || s.query.CountryCode != "DE" || s.query.CoverageLevel == nil || *s.query.CoverageLevel != 0 || s.query.Publication != "draft" || s.query.Offset != 20 || s.query.Search != "Germany" {
+		t.Fatalf("filters lost: status=%d query=%+v", response.Code, s.query)
 	}
 }

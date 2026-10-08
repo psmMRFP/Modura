@@ -13,7 +13,7 @@ import (
 )
 
 const clearPlaceAliases = `-- name: ClearPlaceAliases :exec
-DELETE FROM modura.place_aliases WHERE place_id=$1
+DELETE FROM wheretolive.place_aliases WHERE place_id=$1
 `
 
 func (q *Queries) ClearPlaceAliases(ctx context.Context, placeID string) error {
@@ -22,12 +22,12 @@ func (q *Queries) ClearPlaceAliases(ctx context.Context, placeID string) error {
 }
 
 const getManagedPlace = `-- name: GetManagedPlace :one
-SELECT id, slug, name, normalized_name, type, parent_id, country_code, timezone, latitude, longitude, currency, languages, coverage_level, published_at, created_at, updated_at, version FROM modura.places WHERE id = $1
+SELECT id, slug, name, normalized_name, type, parent_id, country_code, timezone, latitude, longitude, currency, languages, coverage_level, published_at, created_at, updated_at, version FROM wheretolive.places WHERE id = $1
 `
 
-func (q *Queries) GetManagedPlace(ctx context.Context, id string) (ModuraPlace, error) {
+func (q *Queries) GetManagedPlace(ctx context.Context, id string) (WheretolivePlace, error) {
 	row := q.db.QueryRow(ctx, getManagedPlace, id)
-	var i ModuraPlace
+	var i WheretolivePlace
 	err := row.Scan(
 		&i.ID,
 		&i.Slug,
@@ -52,8 +52,8 @@ func (q *Queries) GetManagedPlace(ctx context.Context, id string) (ModuraPlace, 
 
 const getPublicPlace = `-- name: GetPublicPlace :one
 SELECT p.id, p.slug, p.name, p.normalized_name, p.type, p.parent_id, p.country_code, p.timezone, p.latitude, p.longitude, p.currency, p.languages, p.coverage_level, p.published_at, p.created_at, p.updated_at, coalesce(a.name, p.name)::text AS display_name
-FROM modura.public_places p
-LEFT JOIN modura.place_aliases a ON a.place_id = p.id AND a.locale = $1 AND a.preferred
+FROM wheretolive.public_places p
+LEFT JOIN wheretolive.place_aliases a ON a.place_id = p.id AND a.locale = $1 AND a.preferred
 WHERE p.slug = $2
 `
 
@@ -109,11 +109,11 @@ func (q *Queries) GetPublicPlace(ctx context.Context, arg GetPublicPlaceParams) 
 
 const hasUnpublishedAncestor = `-- name: HasUnpublishedAncestor :one
 WITH RECURSIVE ancestors AS (
-  SELECT root.parent_id FROM modura.places root WHERE root.id=$2
+  SELECT root.parent_id FROM wheretolive.places root WHERE root.id=$2
   UNION ALL
-  SELECT p.parent_id FROM modura.places p JOIN ancestors a ON p.id=a.parent_id
+  SELECT p.parent_id FROM wheretolive.places p JOIN ancestors a ON p.id=a.parent_id
 )
-SELECT EXISTS (SELECT 1 FROM ancestors a JOIN modura.places p ON p.id=a.parent_id WHERE p.published_at IS NULL OR p.published_at > $1::timestamptz)
+SELECT EXISTS (SELECT 1 FROM ancestors a JOIN wheretolive.places p ON p.id=a.parent_id WHERE p.published_at IS NULL OR p.published_at > $1::timestamptz)
 `
 
 type HasUnpublishedAncestorParams struct {
@@ -129,7 +129,7 @@ func (q *Queries) HasUnpublishedAncestor(ctx context.Context, arg HasUnpublished
 }
 
 const insertManagedPlace = `-- name: InsertManagedPlace :one
-INSERT INTO modura.places (id,slug,name,normalized_name,type,parent_id,country_code,timezone,latitude,longitude,currency,languages,created_at,updated_at)
+INSERT INTO wheretolive.places (id,slug,name,normalized_name,type,parent_id,country_code,timezone,latitude,longitude,currency,languages,created_at,updated_at)
 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$13) RETURNING id, slug, name, normalized_name, type, parent_id, country_code, timezone, latitude, longitude, currency, languages, coverage_level, published_at, created_at, updated_at, version
 `
 
@@ -149,7 +149,7 @@ type InsertManagedPlaceParams struct {
 	CreatedAt      time.Time     `json:"created_at"`
 }
 
-func (q *Queries) InsertManagedPlace(ctx context.Context, arg InsertManagedPlaceParams) (ModuraPlace, error) {
+func (q *Queries) InsertManagedPlace(ctx context.Context, arg InsertManagedPlaceParams) (WheretolivePlace, error) {
 	row := q.db.QueryRow(ctx, insertManagedPlace,
 		arg.ID,
 		arg.Slug,
@@ -165,7 +165,7 @@ func (q *Queries) InsertManagedPlace(ctx context.Context, arg InsertManagedPlace
 		arg.Languages,
 		arg.CreatedAt,
 	)
-	var i ModuraPlace
+	var i WheretolivePlace
 	err := row.Scan(
 		&i.ID,
 		&i.Slug,
@@ -189,7 +189,7 @@ func (q *Queries) InsertManagedPlace(ctx context.Context, arg InsertManagedPlace
 }
 
 const insertPlaceAlias = `-- name: InsertPlaceAlias :exec
-INSERT INTO modura.place_aliases (place_id,locale,name,normalized_name,preferred) VALUES ($1,$2,$3,$4,$5)
+INSERT INTO wheretolive.place_aliases (place_id,locale,name,normalized_name,preferred) VALUES ($1,$2,$3,$4,$5)
 `
 
 type InsertPlaceAliasParams struct {
@@ -212,23 +212,36 @@ func (q *Queries) InsertPlaceAlias(ctx context.Context, arg InsertPlaceAliasPara
 }
 
 const listManagedPlaces = `-- name: ListManagedPlaces :many
-SELECT id, slug, name, normalized_name, type, parent_id, country_code, timezone, latitude, longitude, currency, languages, coverage_level, published_at, created_at, updated_at, version FROM modura.places
-WHERE $1::text = '' OR normalized_name LIKE $2::text ESCAPE '\'
-   OR slug LIKE $2::text ESCAPE '\'
-ORDER BY slug LIMIT $4 OFFSET $3
+SELECT p.id, p.slug, p.name, p.normalized_name, p.type, p.parent_id, p.country_code, p.timezone, p.latitude, p.longitude, p.currency, p.languages, p.coverage_level, p.published_at, p.created_at, p.updated_at, p.version FROM wheretolive.places p
+WHERE ($1::text = '' OR p.normalized_name LIKE $2::text ESCAPE '\'
+   OR p.slug LIKE $2::text ESCAPE '\'
+   OR EXISTS (SELECT 1 FROM wheretolive.place_aliases a WHERE a.place_id=p.id
+       AND a.normalized_name LIKE $2::text ESCAPE '\'))
+ AND ($3::text = '' OR p.country_code = $3)
+ AND ($4::smallint IS NULL OR p.coverage_level = $4)
+ AND ($5::text = ''
+      OR ($5 = 'draft' AND p.published_at IS NULL)
+      OR ($5 = 'published' AND p.published_at IS NOT NULL))
+ORDER BY p.slug LIMIT $7 OFFSET $6
 `
 
 type ListManagedPlacesParams struct {
-	Search     string `json:"search"`
-	Prefix     string `json:"prefix"`
-	PageOffset int32  `json:"page_offset"`
-	PageLimit  int32  `json:"page_limit"`
+	Search        string      `json:"search"`
+	Prefix        string      `json:"prefix"`
+	CountryCode   string      `json:"country_code"`
+	CoverageLevel pgtype.Int2 `json:"coverage_level"`
+	Publication   string      `json:"publication"`
+	PageOffset    int32       `json:"page_offset"`
+	PageLimit     int32       `json:"page_limit"`
 }
 
-func (q *Queries) ListManagedPlaces(ctx context.Context, arg ListManagedPlacesParams) ([]ModuraPlace, error) {
+func (q *Queries) ListManagedPlaces(ctx context.Context, arg ListManagedPlacesParams) ([]WheretolivePlace, error) {
 	rows, err := q.db.Query(ctx, listManagedPlaces,
 		arg.Search,
 		arg.Prefix,
+		arg.CountryCode,
+		arg.CoverageLevel,
+		arg.Publication,
 		arg.PageOffset,
 		arg.PageLimit,
 	)
@@ -236,9 +249,9 @@ func (q *Queries) ListManagedPlaces(ctx context.Context, arg ListManagedPlacesPa
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ModuraPlace
+	var items []WheretolivePlace
 	for rows.Next() {
-		var i ModuraPlace
+		var i WheretolivePlace
 		if err := rows.Scan(
 			&i.ID,
 			&i.Slug,
@@ -269,7 +282,7 @@ func (q *Queries) ListManagedPlaces(ctx context.Context, arg ListManagedPlacesPa
 }
 
 const listPlaceAliases = `-- name: ListPlaceAliases :many
-SELECT locale, name, preferred FROM modura.place_aliases WHERE place_id=$1 ORDER BY locale, normalized_name
+SELECT locale, name, preferred FROM wheretolive.place_aliases WHERE place_id=$1 ORDER BY locale, normalized_name
 `
 
 type ListPlaceAliasesRow struct {
@@ -299,12 +312,12 @@ func (q *Queries) ListPlaceAliases(ctx context.Context, placeID string) ([]ListP
 }
 
 const lockManagedPlace = `-- name: LockManagedPlace :one
-SELECT id, slug, name, normalized_name, type, parent_id, country_code, timezone, latitude, longitude, currency, languages, coverage_level, published_at, created_at, updated_at, version FROM modura.places WHERE id = $1 FOR UPDATE
+SELECT id, slug, name, normalized_name, type, parent_id, country_code, timezone, latitude, longitude, currency, languages, coverage_level, published_at, created_at, updated_at, version FROM wheretolive.places WHERE id = $1 FOR UPDATE
 `
 
-func (q *Queries) LockManagedPlace(ctx context.Context, id string) (ModuraPlace, error) {
+func (q *Queries) LockManagedPlace(ctx context.Context, id string) (WheretolivePlace, error) {
 	row := q.db.QueryRow(ctx, lockManagedPlace, id)
-	var i ModuraPlace
+	var i WheretolivePlace
 	err := row.Scan(
 		&i.ID,
 		&i.Slug,
@@ -338,18 +351,18 @@ func (q *Queries) LockPlacePublicationTree(ctx context.Context) error {
 
 const searchPublicPlaces = `-- name: SearchPublicPlaces :many
 SELECT p.id, p.slug, p.name, p.normalized_name, p.type, p.parent_id, p.country_code, p.timezone, p.latitude, p.longitude, p.currency, p.languages, p.coverage_level, p.published_at, p.created_at, p.updated_at, coalesce(a.name, p.name)::text AS display_name
-FROM modura.public_places p
-LEFT JOIN modura.place_aliases a ON a.place_id = p.id AND a.locale = $1 AND a.preferred
+FROM wheretolive.public_places p
+LEFT JOIN wheretolive.place_aliases a ON a.place_id = p.id AND a.locale = $1 AND a.preferred
 WHERE $2::text = ''
    OR p.normalized_name LIKE $3::text ESCAPE '\'
    OR p.slug LIKE $3::text ESCAPE '\'
    OR p.normalized_name % $2::text
    OR EXISTS (
-       SELECT 1 FROM modura.place_aliases alias WHERE alias.place_id = p.id
+       SELECT 1 FROM wheretolive.place_aliases alias WHERE alias.place_id = p.id
        AND (alias.normalized_name LIKE $3::text ESCAPE '\' OR alias.normalized_name % $2::text)
    )
 ORDER BY CASE WHEN p.slug = $2 OR p.normalized_name = $2
-    OR EXISTS (SELECT 1 FROM modura.place_aliases exact WHERE exact.place_id = p.id AND exact.normalized_name = $2)
+    OR EXISTS (SELECT 1 FROM wheretolive.place_aliases exact WHERE exact.place_id = p.id AND exact.normalized_name = $2)
     THEN 0 ELSE 1 END, p.slug
 LIMIT $5 OFFSET $4
 `
@@ -427,7 +440,7 @@ func (q *Queries) SearchPublicPlaces(ctx context.Context, arg SearchPublicPlaces
 }
 
 const setPlacePublication = `-- name: SetPlacePublication :one
-UPDATE modura.places SET published_at=$2,coverage_level=CASE WHEN $2::timestamptz IS NOT NULL THEN greatest(coverage_level,1) ELSE coverage_level END,updated_at=$3,version=version+1
+UPDATE wheretolive.places SET published_at=$2,coverage_level=CASE WHEN $2::timestamptz IS NOT NULL THEN greatest(coverage_level,1) ELSE coverage_level END,updated_at=$3,version=version+1
 WHERE id=$1 AND version=$4 RETURNING id, slug, name, normalized_name, type, parent_id, country_code, timezone, latitude, longitude, currency, languages, coverage_level, published_at, created_at, updated_at, version
 `
 
@@ -438,14 +451,14 @@ type SetPlacePublicationParams struct {
 	Version     int64              `json:"version"`
 }
 
-func (q *Queries) SetPlacePublication(ctx context.Context, arg SetPlacePublicationParams) (ModuraPlace, error) {
+func (q *Queries) SetPlacePublication(ctx context.Context, arg SetPlacePublicationParams) (WheretolivePlace, error) {
 	row := q.db.QueryRow(ctx, setPlacePublication,
 		arg.ID,
 		arg.PublishedAt,
 		arg.UpdatedAt,
 		arg.Version,
 	)
-	var i ModuraPlace
+	var i WheretolivePlace
 	err := row.Scan(
 		&i.ID,
 		&i.Slug,
@@ -469,7 +482,7 @@ func (q *Queries) SetPlacePublication(ctx context.Context, arg SetPlacePublicati
 }
 
 const updateManagedPlace = `-- name: UpdateManagedPlace :one
-UPDATE modura.places SET name=$2,normalized_name=$3,timezone=$4,latitude=$5,longitude=$6,currency=$7,languages=$8,updated_at=$9,version=version+1
+UPDATE wheretolive.places SET name=$2,normalized_name=$3,timezone=$4,latitude=$5,longitude=$6,currency=$7,languages=$8,updated_at=$9,version=version+1
 WHERE id=$1 AND version=$10 RETURNING id, slug, name, normalized_name, type, parent_id, country_code, timezone, latitude, longitude, currency, languages, coverage_level, published_at, created_at, updated_at, version
 `
 
@@ -486,7 +499,7 @@ type UpdateManagedPlaceParams struct {
 	Version        int64         `json:"version"`
 }
 
-func (q *Queries) UpdateManagedPlace(ctx context.Context, arg UpdateManagedPlaceParams) (ModuraPlace, error) {
+func (q *Queries) UpdateManagedPlace(ctx context.Context, arg UpdateManagedPlaceParams) (WheretolivePlace, error) {
 	row := q.db.QueryRow(ctx, updateManagedPlace,
 		arg.ID,
 		arg.Name,
@@ -499,7 +512,7 @@ func (q *Queries) UpdateManagedPlace(ctx context.Context, arg UpdateManagedPlace
 		arg.UpdatedAt,
 		arg.Version,
 	)
-	var i ModuraPlace
+	var i WheretolivePlace
 	err := row.Scan(
 		&i.ID,
 		&i.Slug,

@@ -11,14 +11,14 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/modura-dev/modura/backend/internal/modules/audit"
-	auditpostgres "github.com/modura-dev/modura/backend/internal/modules/audit/postgres"
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
-	identitypostgres "github.com/modura-dev/modura/backend/internal/modules/identity/postgres"
-	"github.com/modura-dev/modura/backend/internal/modules/platformadmin"
-	"github.com/modura-dev/modura/backend/internal/modules/platformtenant"
-	"github.com/modura-dev/modura/backend/internal/platform/database"
-	"github.com/modura-dev/modura/backend/internal/platform/database/migrationtest"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/audit"
+	auditpostgres "github.com/psmMRFP/WhereToLive/backend/internal/modules/audit/postgres"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
+	identitypostgres "github.com/psmMRFP/WhereToLive/backend/internal/modules/identity/postgres"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/platformadmin"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/platformtenant"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/database"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/database/migrationtest"
 )
 
 func TestTenantLifecycleAndAuditAreAtomic(t *testing.T) {
@@ -26,7 +26,7 @@ func TestTenantLifecycleAndAuditAreAtomic(t *testing.T) {
 	ctx := context.Background()
 	now := time.Unix(1_700_000_000, 0).UTC()
 	sequence := 0
-	if _, err := pool.Exec(ctx, `INSERT INTO modura.platform_administrators (id, username, normalized_username, password_hash, status, created_at, updated_at) VALUES ($1, 'operator', 'operator', 'hash', 'active', $2, $2)`, "018bcfe5-6800-7000-8000-000000000901", now); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO wheretolive.platform_administrators (id, username, normalized_username, password_hash, status, created_at, updated_at) VALUES ($1, 'operator', 'operator', 'hash', 'active', $2, $2)`, "018bcfe5-6800-7000-8000-000000000901", now); err != nil {
 		t.Fatal(err)
 	}
 	newID := func(time.Time) (string, error) {
@@ -41,11 +41,11 @@ func TestTenantLifecycleAndAuditAreAtomic(t *testing.T) {
 		t.Fatal(err)
 	}
 	key := []byte(strings.Repeat("k", 32))
-	signer, err := identity.NewAccessTokenSigner("modura", "admin", "key-1", key, time.Minute)
+	signer, err := identity.NewAccessTokenSigner("wheretolive", "admin", "key-1", key, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
-	identityService, err := identity.NewService(identitypostgres.New(pool), signer, identity.NewAccessTokenVerifier("modura", "admin", map[string][]byte{"key-1": key}, 0), identity.DefaultPasswordParameters(), time.Hour, func() time.Time { return now }, newID, func() (string, error) { return strings.Repeat("s", 32), nil })
+	identityService, err := identity.NewService(identitypostgres.New(pool), signer, identity.NewAccessTokenVerifier("wheretolive", "admin", map[string][]byte{"key-1": key}, 0), identity.DefaultPasswordParameters(), time.Hour, func() time.Time { return now }, newID, func() (string, error) { return strings.Repeat("s", 32), nil })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestTenantLifecycleAndAuditAreAtomic(t *testing.T) {
 		t.Fatal(err)
 	}
 	tenantID := identity.TenantID("018bcfe5-6800-7000-8000-000000000902")
-	if _, err := pool.Exec(ctx, `INSERT INTO modura.tenants (id, slug, display_name, status, created_at, updated_at) VALUES ($1, 'acme', 'Acme', 'active', $2, $2)`, tenantID, now); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO wheretolive.tenants (id, slug, display_name, status, created_at, updated_at) VALUES ($1, 'acme', 'Acme', 'active', $2, $2)`, tenantID, now); err != nil {
 		t.Fatal(err)
 	}
 	actor := platformadmin.Actor{AdministratorID: "018bcfe5-6800-7000-8000-000000000901", SessionID: "018bcfe5-6800-7000-8000-000000000903"}
@@ -71,10 +71,10 @@ func TestTenantLifecycleAndAuditAreAtomic(t *testing.T) {
 	}
 	var displayName, action string
 	var snapshotsPresent bool
-	if err := pool.QueryRow(ctx, `SELECT display_name FROM modura.tenants WHERE id = $1`, tenantID).Scan(&displayName); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT display_name FROM wheretolive.tenants WHERE id = $1`, tenantID).Scan(&displayName); err != nil {
 		t.Fatal(err)
 	}
-	if err := pool.QueryRow(ctx, `SELECT action, before_state IS NOT NULL AND after_state IS NOT NULL FROM modura.audit_events WHERE tenant_id = $1 ORDER BY occurred_at DESC LIMIT 1`, tenantID).Scan(&action, &snapshotsPresent); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT action, before_state IS NOT NULL AND after_state IS NOT NULL FROM wheretolive.audit_events WHERE tenant_id = $1 ORDER BY occurred_at DESC LIMIT 1`, tenantID).Scan(&action, &snapshotsPresent); err != nil {
 		t.Fatal(err)
 	}
 	if displayName != "Acme Updated" || action != "tenant.profile-updated" || !snapshotsPresent {
@@ -101,10 +101,10 @@ func assertStatusAndAuditCount(t *testing.T, pool *pgxpool.Pool, tenantID identi
 	t.Helper()
 	var status string
 	var count int
-	if err := pool.QueryRow(context.Background(), `SELECT status FROM modura.tenants WHERE id = $1`, tenantID).Scan(&status); err != nil {
+	if err := pool.QueryRow(context.Background(), `SELECT status FROM wheretolive.tenants WHERE id = $1`, tenantID).Scan(&status); err != nil {
 		t.Fatal(err)
 	}
-	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM modura.audit_events WHERE tenant_id = $1`, tenantID).Scan(&count); err != nil {
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM wheretolive.audit_events WHERE tenant_id = $1`, tenantID).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if status != wantStatus || count != wantCount {
@@ -123,9 +123,9 @@ func (a workflowAuditor) RecordAccountEvent(ctx context.Context, tx pgx.Tx, even
 
 func integrationPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	url := os.Getenv("MODURA_TEST_DATABASE_URL")
+	url := os.Getenv("WHERETOLIVE_TEST_DATABASE_URL")
 	if url == "" {
-		t.Skip("MODURA_TEST_DATABASE_URL is not set")
+		t.Skip("WHERETOLIVE_TEST_DATABASE_URL is not set")
 	}
 	config, err := pgxpool.ParseConfig(url)
 	if err != nil {

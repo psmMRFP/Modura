@@ -19,7 +19,7 @@ import {
   type ReplacePlatformDictionaryRequest,
   useListPlatformDictionaries,
   useReplacePlatformDictionary,
-} from "../../api/generated/modura";
+} from "../../api/generated/wheretolive";
 import { usePlatformAuth } from "./platform-auth-context";
 
 type DictionaryForm = ReplacePlatformDictionaryRequest & { code: string };

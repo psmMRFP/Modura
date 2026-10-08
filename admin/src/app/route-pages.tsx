@@ -76,3 +76,8 @@ export const PlatformPlacesRoute = deferred(
   () => import("../features/places/PlatformPlacesPage"),
   (module) => module.PlatformPlacesPage,
 );
+
+export const PlatformFeedbackRoute = deferred(
+  () => import("../features/feedback/PlatformFeedbackPage"),
+  (module) => module.PlatformFeedbackPage,
+);

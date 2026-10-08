@@ -12,14 +12,15 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/modura-dev/modura/backend/internal/api/generated"
-	"github.com/modura-dev/modura/backend/internal/api/handler"
-	"github.com/modura-dev/modura/backend/internal/modules/identity"
-	"github.com/modura-dev/modura/backend/internal/platform/config"
+	"github.com/psmMRFP/WhereToLive/backend/internal/api/generated"
+	"github.com/psmMRFP/WhereToLive/backend/internal/api/handler"
+	"github.com/psmMRFP/WhereToLive/backend/internal/modules/identity"
+	"github.com/psmMRFP/WhereToLive/backend/internal/platform/config"
 )
 
 // Dependencies contains runtime application and health dependencies.
 type Dependencies struct {
+	PlatformFeedback       handler.PlatformFeedback
 	PublicIdentity         handler.PublicIdentity
 	PublicChallengeSiteKey string
 	PublicIdentityFailure  func()
@@ -49,7 +50,7 @@ func New(cfg config.HTTP, logger *slog.Logger, dependencies ...Dependencies) *ht
 	if len(dependencies) > 0 {
 		deps = dependencies[0]
 	}
-	contractHandler := handler.New(handler.Dependencies{PublicIdentity: deps.PublicIdentity, PublicChallengeSiteKey: deps.PublicChallengeSiteKey, PublicIdentityFailure: deps.PublicIdentityFailure, PlatformPlaces: deps.PlatformPlaces, Places: deps.Places, Identity: deps.Identity, Authorizer: deps.Authorizer, Authorization: deps.Authorization, Organization: deps.Organization, PlatformAdmin: deps.PlatformAdmin, PlatformTenant: deps.PlatformTenant, Provisioning: deps.Provisioning, Settings: deps.Settings, PlatformSettings: deps.PlatformSettings, Audit: deps.Audit, PlatformAudit: deps.PlatformAudit, Ready: deps.Ready}, cfg.CookieSecure, func() (string, error) { return identity.NewOpaqueToken(32) })
+	contractHandler := handler.New(handler.Dependencies{PlatformFeedback: deps.PlatformFeedback, PublicIdentity: deps.PublicIdentity, PublicChallengeSiteKey: deps.PublicChallengeSiteKey, PublicIdentityFailure: deps.PublicIdentityFailure, PlatformPlaces: deps.PlatformPlaces, Places: deps.Places, Identity: deps.Identity, Authorizer: deps.Authorizer, Authorization: deps.Authorization, Organization: deps.Organization, PlatformAdmin: deps.PlatformAdmin, PlatformTenant: deps.PlatformTenant, Provisioning: deps.Provisioning, Settings: deps.Settings, PlatformSettings: deps.PlatformSettings, Audit: deps.Audit, PlatformAudit: deps.PlatformAudit, Ready: deps.Ready}, cfg.CookieSecure, func() (string, error) { return identity.NewOpaqueToken(32) })
 	generated.RegisterHandlersWithOptions(router, contractHandler, generated.GinServerOptions{
 		BaseURL: "/api",
 		ErrorHandler: func(c *gin.Context, _ error, status int) {

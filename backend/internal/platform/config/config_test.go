@@ -7,7 +7,7 @@ import (
 
 func TestFromEnvUsesDefaults(t *testing.T) {
 	setRequired(t)
-	for _, name := range []string{"MODURA_HTTP_ADDRESS", "MODURA_HTTP_READ_TIMEOUT", "MODURA_HTTP_READ_HEADER_TIMEOUT", "MODURA_HTTP_WRITE_TIMEOUT", "MODURA_HTTP_IDLE_TIMEOUT", "MODURA_HTTP_SHUTDOWN_TIMEOUT", "MODURA_HTTP_MAX_HEADER_BYTES", "MODURA_HTTP_MAX_BODY_BYTES", "MODURA_HTTP_ALLOWED_ORIGINS", "MODURA_AUTH_COOKIE_SECURE", "MODURA_AUTH_ACCESS_LIFETIME", "MODURA_AUTH_REFRESH_LIFETIME", "MODURA_AUTH_INVITATION_LIFETIME"} {
+	for _, name := range []string{"WHERETOLIVE_HTTP_ADDRESS", "WHERETOLIVE_HTTP_READ_TIMEOUT", "WHERETOLIVE_HTTP_READ_HEADER_TIMEOUT", "WHERETOLIVE_HTTP_WRITE_TIMEOUT", "WHERETOLIVE_HTTP_IDLE_TIMEOUT", "WHERETOLIVE_HTTP_SHUTDOWN_TIMEOUT", "WHERETOLIVE_HTTP_MAX_HEADER_BYTES", "WHERETOLIVE_HTTP_MAX_BODY_BYTES", "WHERETOLIVE_HTTP_ALLOWED_ORIGINS", "WHERETOLIVE_AUTH_COOKIE_SECURE", "WHERETOLIVE_AUTH_ACCESS_LIFETIME", "WHERETOLIVE_AUTH_REFRESH_LIFETIME", "WHERETOLIVE_AUTH_INVITATION_LIFETIME"} {
 		t.Setenv(name, "")
 	}
 	cfg, err := FromEnv()
@@ -29,7 +29,7 @@ func TestFromEnvUsesDefaults(t *testing.T) {
 	if len(cfg.HTTP.AllowedOrigins) != 0 {
 		t.Fatalf("AllowedOrigins = %v, want an empty least-privilege allowlist", cfg.HTTP.AllowedOrigins)
 	}
-	if cfg.Auth.PlatformAudience != "modura-platform" {
+	if cfg.Auth.PlatformAudience != "wheretolive-platform" {
 		t.Fatalf("PlatformAudience = %q", cfg.Auth.PlatformAudience)
 	}
 	if cfg.Auth.InvitationLifetime != 24*time.Hour {
@@ -39,7 +39,7 @@ func TestFromEnvUsesDefaults(t *testing.T) {
 
 func TestFromEnvParsesOriginAllowlist(t *testing.T) {
 	setRequired(t)
-	t.Setenv("MODURA_HTTP_ALLOWED_ORIGINS", " https://admin.example.com , https://staging.example.com ,,")
+	t.Setenv("WHERETOLIVE_HTTP_ALLOWED_ORIGINS", " https://admin.example.com , https://staging.example.com ,,")
 	cfg, err := FromEnv()
 	if err != nil {
 		t.Fatalf("FromEnv() error = %v", err)
@@ -51,7 +51,7 @@ func TestFromEnvParsesOriginAllowlist(t *testing.T) {
 
 func TestFromEnvRejectsInvalidDuration(t *testing.T) {
 	setRequired(t)
-	t.Setenv("MODURA_HTTP_READ_TIMEOUT", "never")
+	t.Setenv("WHERETOLIVE_HTTP_READ_TIMEOUT", "never")
 	if _, err := FromEnv(); err == nil {
 		t.Fatal("FromEnv() error = nil, want an error")
 	}
@@ -59,8 +59,8 @@ func TestFromEnvRejectsInvalidDuration(t *testing.T) {
 
 func TestFromEnvReadsValues(t *testing.T) {
 	setRequired(t)
-	t.Setenv("MODURA_HTTP_ADDRESS", "127.0.0.1:9000")
-	t.Setenv("MODURA_HTTP_READ_TIMEOUT", "3s")
+	t.Setenv("WHERETOLIVE_HTTP_ADDRESS", "127.0.0.1:9000")
+	t.Setenv("WHERETOLIVE_HTTP_READ_TIMEOUT", "3s")
 	cfg, err := FromEnv()
 	if err != nil {
 		t.Fatalf("FromEnv() error = %v", err)
@@ -71,8 +71,8 @@ func TestFromEnvReadsValues(t *testing.T) {
 }
 
 func TestFromEnvRequiresSecrets(t *testing.T) {
-	t.Setenv("MODURA_DATABASE_URL", "")
-	t.Setenv("MODURA_AUTH_SIGNING_KEY", "")
+	t.Setenv("WHERETOLIVE_DATABASE_URL", "")
+	t.Setenv("WHERETOLIVE_AUTH_SIGNING_KEY", "")
 	if _, err := FromEnv(); err == nil {
 		t.Fatal("FromEnv() error = nil, want an error")
 	}
@@ -80,24 +80,24 @@ func TestFromEnvRequiresSecrets(t *testing.T) {
 
 func setRequired(t *testing.T) {
 	t.Helper()
-	t.Setenv("MODURA_DATABASE_URL", "postgres://modura@localhost/modura")
-	t.Setenv("MODURA_DATABASE_AUTO_CREATE", "")
-	t.Setenv("MODURA_AUTH_SIGNING_KEY", "test-only-signing-key-with-32-bytes")
+	t.Setenv("WHERETOLIVE_DATABASE_URL", "postgres://wheretolive@localhost/wheretolive")
+	t.Setenv("WHERETOLIVE_DATABASE_AUTO_CREATE", "")
+	t.Setenv("WHERETOLIVE_AUTH_SIGNING_KEY", "test-only-signing-key-with-32-bytes")
 }
 
 func TestDatabaseCreationConfig(t *testing.T) {
 	setRequired(t)
-	t.Setenv("MODURA_DATABASE_AUTO_CREATE", "")
+	t.Setenv("WHERETOLIVE_DATABASE_AUTO_CREATE", "")
 	cfg, err := FromEnv()
 	if err != nil || !cfg.Database.AutoCreate {
 		t.Fatalf("default creation setting: %v", err)
 	}
-	t.Setenv("MODURA_DATABASE_AUTO_CREATE", "false")
+	t.Setenv("WHERETOLIVE_DATABASE_AUTO_CREATE", "false")
 	cfg, err = FromEnv()
 	if err != nil || cfg.Database.AutoCreate {
 		t.Fatalf("disabled creation setting: %v", err)
 	}
-	t.Setenv("MODURA_DATABASE_AUTO_CREATE", "invalid")
+	t.Setenv("WHERETOLIVE_DATABASE_AUTO_CREATE", "invalid")
 	if _, err = FromEnv(); err == nil {
 		t.Fatal("invalid boolean accepted")
 	}
@@ -105,7 +105,7 @@ func TestDatabaseCreationConfig(t *testing.T) {
 func TestDatabaseConfigRejectsPostgres(t *testing.T) {
 	setRequired(t)
 	for _, dsn := range []string{"postgres://app@localhost/postgres", "postgres://postgres@localhost/wheretolive_test"} {
-		t.Setenv("MODURA_DATABASE_URL", dsn)
+		t.Setenv("WHERETOLIVE_DATABASE_URL", dsn)
 		if _, err := FromEnv(); err == nil {
 			t.Fatal("default postgres database/role accepted")
 		}
@@ -114,7 +114,7 @@ func TestDatabaseConfigRejectsPostgres(t *testing.T) {
 
 func TestDatabaseOnlyConfigurationNeedsNoSigningKey(t *testing.T) {
 	setRequired(t)
-	t.Setenv("MODURA_AUTH_SIGNING_KEY", "")
+	t.Setenv("WHERETOLIVE_AUTH_SIGNING_KEY", "")
 	if _, err := DatabaseFromEnv(); err != nil {
 		t.Fatal(err)
 	}
