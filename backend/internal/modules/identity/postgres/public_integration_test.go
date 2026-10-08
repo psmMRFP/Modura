@@ -183,7 +183,7 @@ func TestPublicIdentityRejectsForeignTenantCodesAndFailedAudit(t *testing.T) {
 		t.Fatal("foreign tenant consumed code")
 	}
 	// Deliberately make transactional audit fail; enrollment must roll back with its mail.
-	if _, err := pool.Exec(ctx, "ALTER TABLE modura.public_identity_events ADD CONSTRAINT reject_registration CHECK(action <> 'consumer_registered')"); err != nil {
+	if _, err := pool.Exec(ctx, "ALTER TABLE modura.public_identity_events ADD CONSTRAINT reject_registration CHECK(action <> 'consumer_registered') NOT VALID"); err != nil {
 		t.Fatal(err)
 	}
 	request.Email = "rollback@example.org"
